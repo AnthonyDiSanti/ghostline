@@ -21,7 +21,7 @@ If root `AGENTS.local.md` exists, read it for machine-specific command/environme
 
 ## Code and commands
 
-The repository currently has no source code, npm package, or executable test commands. Planned commands and paths are explicitly marked in `docs/development.md`. Update that document and this section when scaffolding exists; never report a planned command as tested.
+The executable CDK package is under `infra/`. Use Node 24 and `npm ci`; `npm test` runs typechecking, fresh offline synth, and Vitest assertions. `npm run synth`, `npm run diff`, and `npm run deploy` require the launch inputs documented in `docs/development.md`. Read `docs/launch.md` before touching the deployed endpoint.
 
 Use npm under `infra/`, strict TypeScript, a thin CDK CLI and shared testable app builder. Prefer one straightforward endpoint stack. Keep nonsecret configuration separate from runtime secret values; LastPass is the personal/admin store and Parameter Store is the application-secret store.
 

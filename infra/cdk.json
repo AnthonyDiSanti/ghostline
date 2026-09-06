@@ -1,0 +1,8 @@
+{
+  "app": "node --import=tsx bin/ghostline.ts",
+  "context": {
+    "@aws-cdk/core:checkSecretUsage": true,
+    "@aws-cdk/core:explicitStackTags": true,
+    "@aws-cdk/aws-iam:minimizePolicies": true
+  }
+}

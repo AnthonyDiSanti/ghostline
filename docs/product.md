@@ -15,7 +15,7 @@ The PoC is both a useful connection and a reference experiment. Use Amnezia's ex
 | Owner | Anthony; one administrator and one initial user |
 | Devices | macOS laptop and iOS phone, including concurrent use; exact OS/client versions recorded at launch |
 | Infrastructure | AWS CDK / TypeScript; existing production AWS account; dedicated project resources |
-| Region | Frankfurt (`eu-central-1`) default; no region benchmark prerequisite |
+| Region | Frankfurt currently deployed; replacement region under review for destination identity-verification requirements |
 | Initial transport | Xray / VLESS / REALITY over TCP 443, installed and managed through Amnezia |
 | Runtime flexibility | Tolerate Amnezia's setup and management requirements to obtain a strong reference configuration; assume sensible defaults for the experiment |
 | Routing | Prefer full-device routing; use off-the-shelf clients |
@@ -31,9 +31,11 @@ Anthony can connect both devices, browse the intended sites, and use video norma
 
 Keep a short, redacted record of versions, settings needed to connect, necessary launch steps, and results. Capture failures well enough to decide what to try next. This is not a certification matrix, quantified SLA, timed recovery test, or requirement to retain sensitive browsing history. 4K is a desired workload, not a resolution-specific acceptance gate.
 
-There are no measured results yet. Frankfurt and REALITY are starting hypotheses, not guarantees of reachability, lowest latency, or continued resistance to filtering.
+Infrastructure, runtime and initial macOS connection observations are in [launch evidence](launch.md); practical macOS and iOS browsing passed per Anthony; video remains unconfirmed and destination identity verification is an unresolved privacy issue. Frankfurt and REALITY are starting hypotheses, not guarantees of reachability, lowest latency, or continued resistance to filtering.
 
 ## Privacy and accepted limitations
+
+Intended browsing, including adult content, must not require compulsory signup for age verification or disclosure of identity documents, selfies/biometrics or identity-linked verification credentials to destination sites or verification vendors. Anthony made this an explicit requirement after encountering an age check requiring signup through the initial setup. Region choice must account for it; see [region assessment](region-selection.md). A working tunnel alone does not satisfy this requirement.
 
 Privacy remains a product intent: do not add routine browsing, destination, DNS-query, payload, or traffic-capture collection. Use Amnezia's defaults as the reference baseline; a comprehensive audit or custom hardening pass is not a prerequisite to trying the connection. Record relevant settings encountered during launch and avoid stronger no-logging or protection claims than the evidence supports.
 

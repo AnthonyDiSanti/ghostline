@@ -9,3 +9,5 @@ Source: read-only review of `../personal-assistant` on 2026-09-07, commit `3517f
 - Prefer the pinning, argument-boundary, explicit configuration, and CDK assertion lessons. Do not import OpenClaw/Signal/Asana operations, backup/notification requirements, or account identifiers into Ghostline.
 - The bin-link repair and sandbox environment script address observed local failures in the reference. Do not source/copy them automatically or replicate credential-cache handling without a present need.
 - No shared package or cross-repo build dependency exists. Copy/adapt only a bounded piece with a current Ghostline consumer and its relevant tests.
+
+- Cost-tag reuse: personal-assistant `infra/deployments/profiles/anthony.json` and `infra/lib/app.ts` provide `globalTags` with exact `Project`/`Environment` dimensions and default `System=shared`. Ghostline changes the project value and endpoint role only; see architecture cost allocation.

@@ -1,0 +1,9 @@
+{
+  "account": "757999402784",
+  "region": "eu-central-1",
+  "availabilityZone": "eu-central-1a",
+  "amiId": "ami-03f92a7a8a26c81af",
+  "instanceType": "t3.small",
+  "rootVolumeGiB": 20,
+  "globalTags": { "Project": "ghostline", "Environment": "prod" }
+}

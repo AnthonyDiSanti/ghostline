@@ -1,10 +1,10 @@
 # Architecture and runtime ownership
 
-Read when implementing the first endpoint or deciding which system owns configuration. Scope and acceptance are in [product](product.md). All infrastructure below is intended, not deployed.
+Read when implementing the first endpoint or deciding which system owns configuration. Scope and acceptance are in [product](product.md). The single-host infrastructure is deployed; observed identifiers and runtime progress are in [launch evidence](launch.md).
 
 ## Initial shape
 
-**One EC2 instance and one EIP in Frankfurt (`eu-central-1`).** This is the confirmed PoC deployment scope.
+**One EC2 instance and one EIP in Frankfurt (`eu-central-1`).** This is the deployed PoC topology. The country is now under [privacy-driven reassessment](region-selection.md); retain the one-host steady-state scope.
 
 ```text
 macOS / iOS off-the-shelf client
@@ -15,7 +15,7 @@ macOS / iOS off-the-shelf client
 
 Use one CDK stack for the instance, EIP, and basic networking: a small dedicated VPC, one public subnet in one Availability Zone, internet-gateway routing, and the necessary security group.
 
-Use Frankfurt (`eu-central-1`) in the existing production AWS account. Choose the supported Linux image, instance size/architecture, exact runtime versions, and REALITY settings during implementation using the then-current installer requirements. The upstream proposal favors a small x86-64 host; compatibility takes priority over prematurely standardizing an image.
+Use Frankfurt (`eu-central-1`) in the existing production AWS account. The committed deployment selects Ubuntu 24.04 x86_64, `t3.small`, and an encrypted 20 GiB gp3 root disk. Runtime versions and REALITY settings are owned by Amnezia and recorded during launch. The upstream proposal favors a small x86-64 host; compatibility takes priority over prematurely standardizing an image.
 
 Expose the selected tunnel listener and the operator access Amnezia requires. Supply an operator source range for SSH at launch and adapt it as needed for travel. Do not add production peering or place this on an existing application host. No NAT Gateway, load balancer, private-subnet tiers, interface endpoint suite, HA placement, or account-wide governance stack is needed for this shape.
 
@@ -39,7 +39,13 @@ Keep a small typed deployment configuration for nonsecret constants: region, ins
 
 Use LastPass for personal/admin credentials and recovery exports. Use Parameter Store SecureString for application-level secrets when Ghostline needs to store them independently; `/ghostline` is the proposed namespace. Do not force a Parameter Store integration into the Amnezia installer just to match the eventual architecture. Secret values never belong in committed profiles, CDK outputs, user data, screenshots, or launch notes. [Parameter Store documentation](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html).
 
-Save the essential material created during launch outside the EC2 host. Record only its purpose and storage location/reference in project notes, not the values. A full restore procedure and rebuild trial are deferred. Choose EIP retention behavior deliberately when implementing the stack; a retained address alone does not preserve runtime identity.
+Save the essential material created during launch outside the EC2 host. Record only its purpose and storage location/reference in project notes, not the values. A full restore procedure and rebuild trial are deferred. The EIP has CloudFormation Retain policies; the root disk deletes with the host. A retained address alone does not preserve runtime identity. Removing the stack leaves an allocated, billable EIP until deliberately released.
+
+## Cost allocation
+
+Mirror personal-assistant's exact, case-sensitive billing dimensions. `infra/deployment.json` owns `globalTags`: `Project=ghostline` and `Environment=prod`. Apply these globally, default `System=shared` for networking, and override `System=xray` for the endpoint instance, root volume, EIP, security group and SSH key. Reserve `System` from global overrides. Set EC2 `PropagateTagsToVolumeOnCreation` explicitly so storage joins the same cost grouping.
+
+The account's `Project`, `Environment` and `System` cost-allocation keys were already Active during launch; no account-wide billing changes were made. Consolidated Cost Explorer analysis can group by `Project` and `System`, optionally filtering `Environment=prod`. Billing ingestion lags resource creation; live resource tags are verified separately from cost records. No shared billing stack is deployed.
 
 ## From reference to deterministic deployment
 

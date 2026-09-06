@@ -1,5 +1,32 @@
 # Decisions
 
+## 2026-09-07 — Make destination identity disclosure a release constraint
+
+- Decider: Anthony.
+- Decision: Mandatory identity verification or compulsory age-verification signup during intended browsing, including adult content, breaches Ghostline privacy requirements; choose another exit region if location causes the requirement.
+- Evidence: Anthony reported iOS practical testing passed, then confirmed an age-verification flow requiring signup. German adult-access rules are confirmed; the specific browser and triggering location remain unconfirmed. EFF/ORG guidance supports the privacy concern but supplies no country whitelist; current EU/Swiss sources prevent assuming nearby regions are exempt.
+- Follow-up: `docs/region-selection.md` records sourced findings and Canada Central as a candidate. No cloud/config migration performed; keep one endpoint as the steady-state topology.
+
+## 2026-09-07 — Implement the complete reference setup, then debug
+
+- Decider: Anthony (scope and launch authorization); Codex (implementation choices).
+- Decision: Implement all intended PoC features before troubleshooting; do not require reduced building-block trials. Use the personal account/profile, one Frankfurt Ubuntu x86_64 host, full-device routing, available client IPv6 blocking and macOS KillSwitch. Keep Private Relay enabled and Proton disconnected.
+- Result: Deploy `GhostlinePoc` using one `t3.small`, one retained EIP, encrypted 20 GiB root storage and operator `/32` SSH. Runtime installation and real device evidence remain separate from AWS success.
+- Consequence: AGENTS and command/navigation docs now describe executable code and route live operations through `docs/launch.md`.
+
+## 2026-09-07 — Match cross-project cost dimensions
+
+- Decider: Anthony requested consolidated analysis; Codex adapted the reference convention.
+- Decision: Global `Project=ghostline`, `Environment=prod`; resource-owned `System=xray` for the endpoint and `System=shared` for networking. Explicitly propagate EC2 tags to its root volume.
+- Evidence: The account already has all three billing keys Active; deployed instance, volume and EIP tags verified. No reference-repository or account-wide billing changes.
+
+## 2026-09-07 — Avoid unnecessary bootstrap resources for the asset-free stack
+
+- Decider: Codex, within the single-host scope.
+- Decision: Use built-in `LegacyStackSynthesizer` with existing CLI permissions; no toolkit or new IAM deployment roles are needed for this small inline template with no assets.
+- Rationale: Avoid creating an AdministratorAccess execution role and storage infrastructure for a stack that uploads nothing. Live CDK deployment succeeded. Offline synthesis guards the no-assets/roles contract and inline size limit.
+- Follow-up: Revisit synthesis when CDK owns runtime assets; no custom synthesizer/shim was introduced.
+
 ## 2026-09-07 — Confirm the single-instance deployment scope
 
 - Decider: Anthony
@@ -39,4 +66,4 @@
 
 - Decider: Anthony
 - Decision: Review the template and design inputs, discuss concerns, inspect a reusable reference repository, then fill documentation and plan implementation.
-- Status: Both reviews and documentation rebuild are complete. Infrastructure implementation and deployment remain future work.
+- Status: Both reviews and documentation rebuild are complete. Infrastructure was subsequently implemented and deployed; see the current handoff.

@@ -6,14 +6,16 @@ Start with **one EC2 instance and one Elastic IP in Frankfurt**, running an Amne
 
 ## Current status
 
-Design and reference-repository review only. No infrastructure code, npm package, deployment, or measured connectivity exists yet. This repository does not currently have executable setup or test commands.
+The TypeScript/CDK infrastructure is implemented and deployed: one EC2 instance and retained EIP in Frankfurt. Amnezia-managed XRay is running; native Mac traffic and reconnect checks pass. Practical macOS and iOS tests passed per Anthony. Destination identity verification now requires a [region reassessment](docs/region-selection.md); video remains unconfirmed; see [launch evidence](docs/launch.md).
+
+With Node 24 selected, run `cd infra && npm ci && npm test`. Deployment inputs and commands are in [development](docs/development.md).
 
 ## Start here
 
 - [Documentation map](docs/README.md) — route by task.
 - [Product scope](docs/product.md) — objective, accepted limitations, and success evidence.
 - [Architecture](docs/architecture.md) — initial deployment and runtime ownership.
-- [Development](docs/development.md) — intended TypeScript/npm/CDK conventions and first implementation sequence.
+- [Development](docs/development.md) — TypeScript/npm/CDK commands and verification.
 - [Reference reuse](docs/reference-reuse.md) — what to adapt from personal-assistant and what to leave behind.
 
 ## Repository
@@ -21,6 +23,6 @@ Design and reference-repository review only. No infrastructure code, npm package
 - `docs/`: current project specifications and historical source inputs.
 - `.context/`: live status, decisions, and compact agent knowledge.
 - `AGENTS.md`: coding-agent workflow and routing.
-- `infra/`: planned CDK project; create during implementation.
+- `infra/`: executable CDK project and offline tests.
 
 Anthony is the sole administrator. The initial target is one endpoint and two devices in the existing production AWS account, with Frankfurt as the default region. No HA, orchestration platform, custom client, or recovery automation is required to establish whether the experiment works.

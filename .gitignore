@@ -21,6 +21,7 @@ npm-debug.log*
 *.pem
 *.key
 *.vpn
+*.backup
 secrets/
 .local/
 artifacts/

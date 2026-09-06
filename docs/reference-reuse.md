@@ -50,3 +50,7 @@ A generic networking or VPN-host library is not justified by the two projects to
 ## Implementation boundary
 
 No source code was copied this turn. The adopted project conventions are specified in [development](development.md); the initial resource shape is in [architecture](architecture.md). Revisit this map when implementation creates a concrete reuse opportunity, not as a requirement to extract every candidate.
+
+## Implemented billing reuse
+
+`infra/deployments/profiles/anthony.json` in personal-assistant defines `globalTags` with `Project=personal-assistant` and `Environment=prod`; its `infra/lib/app.ts` applies those tags to the app and defaults `System=shared`. Ghostline mirrors that shape with `Project=ghostline` and endpoint `System=xray`, while reserving `System` from global overrides. Explicit EC2 volume tag propagation covers the root disk. See [architecture](architecture.md#cost-allocation) for the consolidated reporting contract. No reference-repository files were changed.
