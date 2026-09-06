@@ -1,0 +1,27 @@
+# Machine-specific agent notes
+AGENTS.local.md
+CLAUDE.local.md
+.DS_Store
+
+# Node and CDK outputs/caches
+node_modules/
+cdk.out*/
+.cdk.staging/
+cdk.context.json
+.cache/
+coverage/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+
+# Local credentials, client exports, and launch artifacts
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.vpn
+secrets/
+.local/
+artifacts/
+*.local.md
