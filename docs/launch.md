@@ -1,8 +1,8 @@
 # Frankfurt launch evidence
 
-Frankfurt remains preserved during the separately authorized [Cape Town trial](launch-cape-town.md).
+**Retired on 2026-09-07 at Anthony’s request.** Cape Town remains the live exit. The launch observations below are historical; see [retirement](#retirement).
 
-Observed 2026-09-07. Infrastructure and the Amnezia XRay runtime are deployed. Native macOS tunnel/reconnect checks pass, and Anthony reported practical macOS browsing passed on 2026-09-07. Anthony also reported the iOS test passed. Video remains unconfirmed; a reported age-verification prompt creates an unresolved destination-privacy issue. This records launch activities, not a general operations manual.
+Launch observed 2026-09-07. Infrastructure and the Amnezia XRay runtime were deployed. Native macOS tunnel/reconnect checks pass, and Anthony reported practical macOS browsing passed on 2026-09-07. Anthony also reported the iOS test passed. Video remains unconfirmed; a reported age-verification prompt creates an unresolved destination-privacy issue. This records launch activities, not a general operations manual.
 
 ## AWS deployment
 
@@ -64,3 +64,18 @@ The saved Mac connection uses XRay with split tunneling disabled (full-device ro
 | Video, concurrent use, sleep/network transitions | Pending owner confirmation |
 
 The client source calls `StopRoutingIpv6` when starting XRay; there is no separate IPv6 switch in the inspected connection settings. Validate on a working IPv6 network before claiming enforcement. Private Relay can affect Safari's visible exit address; native requests provide independent tunnel-exit evidence. The Mac is left connected for owner testing. Basic tunnel success does not yet establish the complete PoC release criteria.
+
+
+## Retirement
+
+On 2026-09-07 Anthony requested Frankfurt teardown because Cape Town worked and the extra exit was no longer needed. A fresh regional preflight and CDK diff passed with no differences. Live inventory confirmed one dedicated stack, only the endpoint's network interface in its VPC, and no separate `CDKToolkit` stack. Local keys and recovery exports were present and preserved; no LastPass access was attempted.
+
+Deleted `GhostlinePoc` using its exact Frankfurt stack ARN; CloudFormation reached `DELETE_COMPLETE`. Its EC2 host and delete-on-termination root disk were removed with the dedicated VPC, subnet, routes, internet gateway, security group and imported SSH key pair. The deployed EIP policy was `Retain`, so the now-disassociated allocation `eipalloc-050481061628f88c3` (`3.69.128.6`) was explicitly released afterward. That address is no longer ours; old client profiles and output files must not be used as live connection information.
+
+Post-delete checks found the Frankfurt instance terminated, zero regional volumes/addresses/owned snapshots, no active CloudFormation stacks, and no interfaces in the deleted project VPC. Cape Town retained its stack, instance and EIP with instance/system/EBS health all `ok`. The pre-existing default VPC `vpc-5f73a335` remains untouched with zero network interfaces; no non-terminated EC2 instances remain in Frankfurt.
+
+There was no bootstrap bucket, ECR repository or deployment IAM role to remove. CloudFormation itself adds no charge for these AWS resources. The empty basic VPC networking would have no standing charge, but retaining it provides little value because the stack recreates it. [CloudFormation pricing](https://aws.amazon.com/cloudformation/pricing/), [VPC overview](https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html).
+
+AWS Price List API lookup at teardown returned Frankfurt Linux shared-tenancy `t3.small` at $0.024/hour and gp3 storage at $0.0952/GB-month. With 20 GiB and one IPv4 at $0.005/hour, the running baseline was approximately **$23.07/month** at 730 hours, excluding transfer, surplus CPU credits, taxes and discounts. Keeping only the EIP would cost about $3.65/month. [IPv4 pricing](https://aws.amazon.com/vpc/pricing/).
+
+The `frankfurt` catalog entry remains a reproducible infrastructure recipe, not a live deployment. Recreating it requires explicit authorization, a new EIP and Amnezia installation/restoration; existing profiles would need updating. Saved `Server 1`/Frankfurt client entries are obsolete and should be removed from device configuration. Local historical exports were not deleted or rewritten.

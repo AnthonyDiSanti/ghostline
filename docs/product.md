@@ -15,7 +15,7 @@ The PoC is both a useful connection and a reference experiment. Use Amnezia's ex
 | Owner | Anthony; one administrator and one initial user |
 | Devices | macOS laptop and iOS phone, including concurrent use; exact OS/client versions recorded at launch |
 | Infrastructure | AWS CDK / TypeScript; existing production AWS account; dedicated project resources |
-| Region | Frankfurt and Cape Town are deployed as independent selectable exits; preserve Frankfurt during the Cape Town trial |
+| Region | Cape Town is live; Frankfurt was retired after the successful comparison, with its deployment recipe retained |
 | Initial transport | Xray / VLESS / REALITY over TCP 443, installed and managed through Amnezia |
 | Runtime flexibility | Tolerate Amnezia's setup and management requirements to obtain a strong reference configuration; assume sensible defaults for the experiment |
 | Routing | Prefer full-device routing; use off-the-shelf clients |

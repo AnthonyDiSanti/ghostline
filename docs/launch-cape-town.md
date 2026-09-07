@@ -45,5 +45,5 @@ Native Mac checks passed: disconnected exit `5.195.76.221`; connected Cape Town 
 
 - Completed: installation, local exports, native Mac exit/HTTPS and switching between both servers. Both regional CDK diffs reported no differences; full offline tests passed (42 assertions).
 - PASS — Anthony reported both Cape Town macOS and iOS tests passed on 2026-09-07. This is owner-reported practical trial evidence; individual video/concurrency/privacy subtests were not separately enumerated.
-- Anthony: confirm LastPass saves of the new key/profile/backup. Preserve the Frankfurt profiles. DNS/IPv6 and sleep/network-transition observations remain limited to the recorded evidence.
-- Preserve Frankfurt throughout the comparison. No teardown, retained-EIP release or automatic lifecycle controller is authorized by this launch.
+- Anthony: confirm LastPass saves of the Cape Town key/profile/backup. DNS/IPv6 and sleep/network-transition observations remain limited to the recorded evidence.
+- Subsequent lifecycle decision: Anthony requested Frankfurt teardown and retained-EIP release after the Cape Town passes; see [Frankfurt retirement](launch.md#retirement). Local backups remain historical recovery material. Cape Town is unaffected.

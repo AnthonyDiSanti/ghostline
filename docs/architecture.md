@@ -4,7 +4,7 @@ Read when changing an endpoint or deciding which system owns configuration. Scop
 
 ## Initial shape
 
-**One EC2 instance and one EIP per independently selected deployment.** Frankfurt (`eu-central-1`) remains intact alongside Cape Town (`af-south-1`). Anthony explicitly authorized this parallel comparison; see [region selection](region-selection.md).
+**One EC2 instance and one EIP per independently selected deployment.** Cape Town (`af-south-1`) is live; Frankfurt (`eu-central-1`) was retired after the successful parallel comparison; see [region selection](region-selection.md).
 
 ```text
 macOS / iOS off-the-shelf client
@@ -57,7 +57,7 @@ These later controls are not requirements for an initial Amnezia audit. If the f
 
 ## Optional endpoint expansion
 
-Cape Town and Frankfurt are independent selectable exits, not chained hops. A named configuration selects one stack per command; each target has separate local artifacts, SSH credentials and Amnezia runtime identity. Preserve Frankfurt during this trial. There is no shared control plane, peering, automatic failover or automatic lifecycle manager.
+Named targets describe independent exits, not chained hops. Cape Town is live; Frankfurt remains a saved configuration after retirement. A named configuration selects one stack per command; each target has separate local artifacts, SSH credentials and Amnezia runtime identity. There is no shared control plane, peering, automatic failover or automatic lifecycle manager.
 
 Future on-demand environments can reuse this deployment boundary. Before deleting one, decide whether to retain its address and preserve its runtime recovery material: stopping EC2 still bills storage/EIP, deleting this stack retains a billable EIP, and recreating a host requires runtime installation/restoration. Neither removing a catalog entry nor disabling a region tears down its resources. Automating those lifecycle decisions is deferred.
 

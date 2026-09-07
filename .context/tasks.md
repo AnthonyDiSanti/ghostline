@@ -9,12 +9,13 @@ Task IDs are ULIDs. Keep active items limited to concrete planned or in-progress
   - Done: Implement/test/deploy CDK; verify tags and SSH; install XRay; export recovery/iPhone profiles; verify Mac native exit, HTTPS and reconnect; record Anthony’s 2026-09-07 practical macOS and iOS test passes.
   - Added: Named target commands/preflight, independent Cape Town IaC deployment, manual XRay install, local recovery/device exports, clean diffs and successful native Mac switching between both exits.
   - Trial: Anthony confirmed Cape Town macOS and iOS tests passed on 2026-09-07.
-  - Next: Confirm LastPass saves; record any further usage or sleep/network-transition observations without expanding PoC gates. Preserve Frankfurt.
+  - Retirement: Delete Frankfurt stack and explicitly release its retained EIP at Anthony’s request; verify no residual volumes/addresses/snapshots/stacks and unchanged Cape Town health. Complete on 2026-09-07.
+  - Next: Confirm LastPass saves; record any further usage or sleep/network-transition observations without expanding PoC gates. Frankfurt was retired at Anthony’s request; keep Cape Town live.
   - Scope: `docs/development.md` and `docs/product.md`; no custom runtime, hardening program, runbook framework, or HA prerequisite.
 
 ## Paused / Blocked
 
-- Anthony intermediates all LastPass activity. Both targets' keys and recovery/device exports are prepared locally; encrypted recovery saves remain unconfirmed. No implementation blocker remains.
+- Anthony intermediates all LastPass activity. Cape Town keys and recovery/device exports are prepared locally; encrypted recovery saves remain unconfirmed. Frankfurt copies remain historical material after retirement. No implementation blocker remains.
 
 ## Completed
 

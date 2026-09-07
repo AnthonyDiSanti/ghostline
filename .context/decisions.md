@@ -1,5 +1,12 @@
 # Decisions
 
+## 2026-09-07 — Retire Frankfurt after the Cape Town trial
+
+- Decider: Anthony requested Frankfurt teardown; Codex recommends deleting the complete dedicated stack and releasing its retained EIP.
+- Rationale: Cape Town passed both device trials and Frankfurt is no longer needed. No CDKToolkit, asset bucket, registry or deployment role was created in Frankfurt. The free networking is inexpensive to recreate; retaining the IPv4 address alone costs $0.005/hour (about $3.65 per 730-hour month).
+- Scope: Delete only Frankfurt `GhostlinePoc` and its retained EIP; preserve Cape Town and local recovery material. Keep the named Frankfurt configuration as a redeployment recipe, not a claim that resources exist. A future deployment needs a new address and runtime installation/restoration.
+- Sources: [CloudFormation pricing](https://aws.amazon.com/cloudformation/pricing/), [VPC/IPv4 pricing](https://aws.amazon.com/vpc/pricing/). Live inventory and a fresh no-change CDK diff confirmed the deletion scope; final results belong in `docs/launch.md`.
+
 ## 2026-09-07 — Correct the agent's npm environment
 
 - Decider: Anthony requested addressing the unknown-env-config warning; Codex traced its source.

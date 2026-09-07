@@ -52,7 +52,7 @@ Start with straightforward npm composition. Do not copy the large parallel phase
 
 ## Deployment inputs
 
-`deployment.json` contains shared account/sizing/cost dimensions and named targets. Each target owns region, AZ, pinned AMI, stack name and resource/key name. `frankfurt` preserves the original identities; `cape-town` creates an independent regional stack. The same stack name in different regions identifies different CloudFormation stacks. Adding a second environment in one region would require distinct stack and resource names.
+`deployment.json` contains shared account/sizing/cost dimensions and named targets. Each target owns region, AZ, pinned AMI, stack name and resource/key name. `frankfurt` retains the original deployment recipe; `cape-town` is the live regional stack. The catalog lists available configurations, not live AWS inventory; consult the launch records for lifecycle state. The same stack name in different regions identifies different CloudFormation stacks. Adding a second environment in one region would require distinct stack and resource names.
 
 The target is a positional npm-script argument, so use `npm run deploy cape-town`. The `--` separator is only needed when forwarding options that npm might otherwise interpret (for example `npm run test:vitest -- --reporter=verbose`); our deployment helper accepts only the target.
 
@@ -68,7 +68,7 @@ npm run diff cape-town
 npm run deploy cape-town
 ```
 
-For Frankfurt, use target `frankfurt` and public key `ghostline-poc.pub`. Update the `/32` to the operator's actual IPv4 after changing networks; disconnect the tunnel to determine that address and perform SSH administration. Do not widen SSH or replace keys on routine updates. Pass only public keys to CDK. Keep private keys in ignored `.local/keys/` and the designated encrypted store.
+Frankfurt teardown is complete; do not redeploy it without a new request. Its saved recipe uses target `frankfurt` and public key `ghostline-poc.pub`. Update the `/32` to the operator's actual IPv4 after changing networks; disconnect the tunnel to determine that address and perform SSH administration. Do not widen SSH or replace keys on routine updates. Pass only public keys to CDK. Keep private keys in ignored `.local/keys/` and the designated encrypted store.
 
 Each target writes synthesis and outputs under ignored `.local/deployments/<target>/`; deploying Cape Town cannot overwrite Frankfurt artifacts. Historical `.local/outputs.json` remains the original launch record. `SshCommand` assumes the matching private key is stored at `.local/keys/<resourceName>` from the repository root. Local recovery exports also need distinct target names.
 

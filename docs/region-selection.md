@@ -1,6 +1,6 @@
 # Endpoint region and destination privacy
 
-Decision snapshot: 2026-09-07. Anthony selected Cape Town (`af-south-1`) for the next trial after supplying [additional research](archive/vpn-location-research.md). Preserve Frankfurt and deploy an independent second endpoint to test privacy, performance and IaC repeatability. This supersedes the provisional Canada recommendation and earlier replacement/teardown plan. Frankfurt’s device browsing trials passed, but mandatory verification signup remains a privacy failure.
+Decision snapshot: 2026-09-07. Anthony selected Cape Town (`af-south-1`) after supplying [additional research](archive/vpn-location-research.md). Its independent deployment and macOS/iOS practical trials passed. Anthony subsequently requested Frankfurt teardown because it is no longer needed; see [lifecycle evidence](launch.md). This supersedes the earlier instruction to preserve Frankfurt during comparison. Frankfurt’s device browsing trials passed, but mandatory verification signup remains a privacy failure.
 
 ## Requirement and evidence
 
@@ -40,4 +40,4 @@ Canada is farther from Dubai than Frankfurt; higher latency is an engineering ex
 
 ## Independent deployment implications
 
-Cape Town gets regional AWS resources, an AMI/EIP, dedicated SSH key and fresh Amnezia runtime/profile identity. Keep Frankfurt intact, including its retained EIP and device profiles. There is one host per target, now two explicitly authorized targets; no automatic failover or lifecycle controller is needed. Future selectable/on-demand exits should reuse these boundaries. Deletion and retained-EIP cleanup require an explicit lifecycle decision, not an implicit consequence of changing the preferred region.
+Cape Town has independent regional AWS resources, an AMI/EIP, dedicated SSH key and fresh Amnezia runtime/profile identity. Frankfurt has been fully retired, including retained-EIP release. There is one host per live target; no automatic failover or lifecycle controller is needed. Future selectable/on-demand exits should reuse these boundaries. Deletion and retained-EIP cleanup require an explicit lifecycle decision, not an implicit consequence of changing the preferred region.

@@ -2,11 +2,11 @@
 
 A personal connectivity experiment: find out whether a privately hosted tunnel provides stable browsing and video from Dubai under Anthony's current internet filtering.
 
-Use **one EC2 instance and one Elastic IP per exit**, initially Frankfurt and now a parallel Cape Town trial, running an Amnezia-managed Xray / VLESS / REALITY endpoint. Provision the instance and basic networking with AWS CDK in TypeScript. Test macOS and iOS first. If it works, use the observed configuration and product choices to build our own deterministic container deployment and eventually remove Amnezia as the server installer/manager.
+Use **one EC2 instance and one Elastic IP per exit**, currently Cape Town, running an Amnezia-managed Xray / VLESS / REALITY endpoint. Provision the instance and basic networking with AWS CDK in TypeScript. Test macOS and iOS first. If it works, use the observed configuration and product choices to build our own deterministic container deployment and eventually remove Amnezia as the server installer/manager.
 
 ## Current status
 
-Frankfurt and Cape Town are deployed with Amnezia-managed XRay, one EC2 instance and retained EIP each. Anthony reported macOS and iOS practical tests passed for both; native Mac exit/HTTPS and switching between them also pass. Cape Town is the selected [privacy-oriented exit trial](docs/region-selection.md), preserving Frankfurt. See [Frankfurt](docs/launch.md) and [Cape Town](docs/launch-cape-town.md) launch evidence.
+Cape Town is the live Amnezia-managed XRay exit, with one EC2 instance and retained EIP. Anthony reported macOS and iOS practical tests passed. Frankfurt was retired after the comparison, including release of its EIP; its deployment recipe remains available. See [Frankfurt launch and retirement](docs/launch.md), [Cape Town evidence](docs/launch-cape-town.md), and [region selection](docs/region-selection.md).
 
 With Node 24 selected, run `cd infra && npm ci && npm test`. Deployment inputs and commands are in [development](docs/development.md).
 
