@@ -1,5 +1,15 @@
 # Decisions
 
+## 2026-09-07 — Own the runtime with a credential-preserving Xray checkpoint
+
+- Decider: Anthony authorized implementation after selecting AmneziaWG, shared compute and a staged ownership migration.
+- Decision: Keep the same Ubuntu 24.04 AMI and upstream container distribution choices. Export all Xray configuration, restore it on a fresh host, move the existing EIP allocation and confirm unchanged macOS/iOS profiles. Retire the original server after that checkpoint, before installing AWG on the new host's second EIP.
+- Boundary: One permanent host and two manually selected protocols, not automatic failover. No rollback command/framework, ECR/ECS infrastructure, Parameter Store or on-host AWS secret plumbing. Local bundles demonstrate portable credentials; Anthony handles LastPass.
+- Implementation: One ENI/two private IPs, separate Compose projects and Docker SNAT per protocol; staging IP becomes AWG's permanent IP. Preserve original CloudFormation resource identities and remove temporary migration scaffolding only after owner-confirmed retirement.
+- Evidence: Preparation diff added only five managed resources; cutover diff replaced only the EIP association. Both deployments completed. The complete six-file Xray bundle contains two clients; installed server JSON matches byte-for-byte. Actual container egress is the original EIP; repeat install retained the same container ID/start timestamp. Reboot/device evidence is recorded in the launch record as it completes.
+- Workflow breadcrumb: Update AGENTS and product/runtime navigation to the authorized ownership phase and explicit owner checkpoint; preserve the original host until both device passes.
+- Checkpoint result: Anthony validated the unchanged macOS/iOS profiles on 2026-09-07, then requested commit prep and continuation only after his commit. Record the migration checkpoint as passed; leave the deployed cutover stage, original host and disabled AWG unchanged during this pause.
+
 ## 2026-09-07 — Retire Frankfurt after the Cape Town trial
 
 - Decider: Anthony requested Frankfurt teardown; Codex recommends deleting the complete dedicated stack and releasing its retained EIP.

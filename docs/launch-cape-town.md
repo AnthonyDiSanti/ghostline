@@ -2,7 +2,37 @@
 
 Observed 2026-09-07. Anthony authorized a parallel Cape Town trial, preserving Frankfurt, to test regional privacy/performance and repeatability. See [development](development.md) for reusable commands and [Frankfurt launch](launch.md) for the original endpoint.
 
-## AWS deployment
+## Owned-runtime migration — current state
+
+Observed 2026-09-07 after Anthony authorized the implementation in [runtime](runtime.md). The stack is at `runtime.stage=cutover`, `awgEnabled=false`.
+
+| Item | Current value |
+| --- | --- |
+| Serving host | `i-017247cce7d2bf84f`, same Ubuntu AMI / `t3.small` |
+| Root volume | `vol-0da8507796f328afc`, encrypted 20 GiB gp3 |
+| Managed ENI | `eni-08e0645155028a484` |
+| Xray ingress/egress | Existing `16.28.130.178`, same allocation `eipalloc-09b530775698d23bb`, mapped to `10.77.0.31` |
+| Staging / future AWG address | `15.240.94.162`, allocation `eipalloc-0d22c628c5fde384e`, mapped to primary `10.77.0.124` |
+| Reference host retained until post-commit continuation | `i-0abac95ff3acf0d6a`; running without a public IP, original disk/configuration untouched |
+| Runtime | Ghostline-owned Xray 26.7.28; Docker 29.8.0; Compose 5.5.1 |
+| Local image tag | `ghostline-xray:76b2a96fa52395fb` |
+| Runtime access | TCP 443 on Xray private address; SSH from `5.195.76.221/32`; no live AWG or UDP 443 ingress |
+
+Preparation added only the managed host, ENI, security group, second EIP and its association. Every original resource remained unchanged. Cutover replaced only the existing Xray EIP association and changed the active instance output; the EIP allocation itself was preserved. Both reviewed CDK deployments completed successfully.
+
+Recovered all six Xray configuration files into `.local/recovery/cape-town-runtime.json` (mode 600; parent 700), preserving both existing clients. The replacement `server.json` is byte-for-byte identical. No new Xray identity or client profile was generated. New-host SSH trust was pinned from authenticated EC2 console output using the staging address; the dedicated admin key is unchanged.
+
+Verified running state, the address-specific TCP listener, actual kernel SNAT from `172.28.10.0/24` to `10.77.0.31`, and container egress `16.28.130.178`. Repeating installation kept container `4abfa1f1ac1afe28c82b05c8cf2a86340eefef3ecb6c34114fb2c0bc9e50d2cf` and its start timestamp unchanged. Reboot at 02:58 UTC restored the same container automatically; both addresses and source NAT persisted, configuration equality and original-IP egress passed again.
+
+Ubuntu's cloud-init already configured the secondary private IP in netplan. A redundant overlay introduced during bootstrap development was removed before cutover; no custom address-persistence service remains. Host Docker packages were installed from the official signed Ubuntu repository; the host/package layer is not claimed to be fully immutable.
+
+The unchanged native Mac profile connected after reboot: exit `16.28.130.178`, Wikipedia HTTPS 200. Mac is left connected to Cape Town. **PASS — Anthony validated the unchanged macOS/iOS profiles after migration on 2026-09-07.** This is practical owner-reported validation; individual DNS/IPv6/video subtests were not separately enumerated. At his request, work pauses for commit before reference retirement or AWG installation.
+
+AWG code/image and disposable-container startup/restart tests are prepared locally, including an actual handshake between generated 3.1 server/client identities. The pinned upstream image accepts generated 3.1 settings with TUN/NET_ADMIN; this is not a live client or censorship test. No real AWG peers/profiles have been generated. Next, after Anthony commits and resumes: reference retirement and migration-scaffold cleanup, then enable/install/test AWG on this same host.
+
+Final migration verification:Node 24 full npm gate passed all 63 tests and fresh offline synthesis. Both disposable-image test commands passed; the AWG test includes a generated-peer handshake. Fresh live Cape Town CDK diff reported no differences. Managed root disk encryption/size and Project/Environment/System=shared tags were verified directly. Git-visible file scanning found no imported REALITY private key, client IDs or short IDs; values were not printed.
+
+## Reference AWS deployment (before migration)
 
 | Item | Observed value |
 | --- | --- |
@@ -20,7 +50,7 @@ Anthony enabled the opt-in region; monitoring observed ENABLING, then ENABLED. T
 
 Retrieved host public keys from authenticated EC2 console output and pinned them in `.local/deployments/cape-town/known_hosts`. Strict SSH succeeded; cloud-init completed and passwordless sudo works for `ubuntu`. No first-connection trust bypass was needed.
 
-## Runtime and client trial
+## Reference runtime and client trial
 
 AmneziaVPN 5.0.1.5 completed installation successfully on the first Manual → XRay attempt. The saved server is named `Ghostline Cape Town`; Frankfurt remains as `Server 1`. Disconnect the Mac tunnel before server administration. Add a separate self-hosted server at the Cape Town EIP using `ubuntu` and the dedicated key; select **Manual → XRay → TCP 443**. Automatic selects AmneziaWG and is not the reference setup. Generate fresh runtime identity; do not copy Frankfurt's server secrets or overwrite its profile.
 
@@ -32,7 +62,7 @@ Versions/defaults match Frankfurt, but the locally built image IDs differ. This 
 
 Native Mac checks passed: disconnected exit `5.195.76.221`; connected Cape Town exit `16.28.130.178` with Wikipedia HTTPS 200; switch back to Frankfurt produced `3.69.128.6` and HTTPS 200; switch again to Cape Town restored `16.28.130.178`. Mac is left connected to Cape Town with split tunneling disabled. A single HTTPS fetch is not a throughput or video-performance benchmark. Private Relay and other previously selected client settings were not changed. DNS/IPv6 and sleep/network-transition evidence is not expanded by these checks.
 
-## Local material
+## Reference local material
 
 - Dedicated RSA4096 PEM admin key: `.local/keys/ghostline-poc-cape-town`, mode 600; its `.pub` is the only key material supplied to CDK. This is separate from Frankfurt's `ghostline-poc` key.
 - For another deployment, generate the RSA key with `ssh-keygen -t rsa -b 4096 -m PEM -f <private-key-path>`; the reference key has no passphrase for the accepted installer workflow. Keep it out of git and save it in LastPass through Anthony.
@@ -41,7 +71,7 @@ Native Mac checks passed: disconnected exit `5.195.76.221`; connected Cape Town 
 - Updated application recovery export containing both saved servers: `.local/recovery/ghostline-two-exits.backup`, 15,131 bytes, mode 600. This is a new file; original Frankfurt exports remain intact. It contains admin material and is not the device-sharing profile.
 - LastPass saves require owner confirmation; the agent does not access the vault. Suggested items: `Ghostline Cape Town — SSH admin key`, `Ghostline Cape Town — iPhone connection`, and `Ghostline — Two-exit Amnezia recovery`.
 
-## Trial result and remaining follow-ups
+## Reference trial result and remaining follow-ups
 
 - Completed: installation, local exports, native Mac exit/HTTPS and switching between both servers. Both regional CDK diffs reported no differences; full offline tests passed (42 assertions).
 - PASS — Anthony reported both Cape Town macOS and iOS tests passed on 2026-09-07. This is owner-reported practical trial evidence; individual video/concurrency/privacy subtests were not separately enumerated.

@@ -17,7 +17,9 @@
     "deploy": "node --import=tsx scripts/deployment.ts deploy",
     "cdk": "cdk",
     "preflight": "node --import=tsx scripts/deployment.ts preflight",
-    "deployments": "node --import=tsx scripts/deployment.ts list"
+    "deployments": "node --import=tsx scripts/deployment.ts list",
+    "runtime": "node --import=tsx scripts/runtime.ts",
+    "test:runtime": "node --import=tsx scripts/runtime-test.ts"
   },
   "dependencies": {
     "aws-cdk-lib": "2.268.0",

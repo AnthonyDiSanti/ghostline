@@ -1,4 +1,4 @@
-import { CfnOutput, RemovalPolicy, Stack, Tags, type StackProps } from 'aws-cdk-lib';
+import { CfnOutput, Fn, RemovalPolicy, Stack, Tags, type StackProps } from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
 import type { DeploymentConfig, LaunchInputs } from './config.js';
@@ -12,6 +12,8 @@ export class EndpointStack extends Stack {
   constructor(scope: Construct, id: string, props: EndpointStackProps) {
     super(scope, id, props);
     const { deployment: config, launch } = props;
+    const stage = config.runtime?.stage ?? 'reference';
+    const moved = stage === 'cutover' || stage === 'managed';
 
     // Plain resources keep this one-host topology free of incidental IAM/custom-resource services.
     const vpc = new ec2.CfnVPC(this, 'Vpc', {
@@ -35,7 +37,7 @@ export class EndpointStack extends Stack {
     });
     const endpoint = new Construct(this, 'Endpoint');
     Tags.of(endpoint).add('System', 'xray');
-    const securityGroup = new ec2.CfnSecurityGroup(endpoint, 'SecurityGroup', {
+    const securityGroup = stage === 'managed' ? undefined : new ec2.CfnSecurityGroup(endpoint, 'SecurityGroup', {
       vpcId: vpc.ref, groupDescription: 'Ghostline tunnel and operator SSH',
       securityGroupIngress: [
         { ipProtocol: 'tcp', fromPort: 443, toPort: 443, cidrIp: '0.0.0.0/0', description: 'Authenticated Xray tunnel' },
@@ -47,7 +49,7 @@ export class EndpointStack extends Stack {
     const key = new ec2.CfnKeyPair(endpoint, 'SshKey', {
       keyName: config.resourceName, publicKeyMaterial: launch.sshPublicKey,
     });
-    const instance = new ec2.CfnInstance(endpoint, 'Instance', {
+    const instance = securityGroup && new ec2.CfnInstance(endpoint, 'Instance', {
       imageId: config.amiId, instanceType: config.instanceType, keyName: key.ref,
       networkInterfaces: [{ deviceIndex: '0', subnetId: subnet.ref, groupSet: [securityGroup.attrGroupId], associatePublicIpAddress: false }],
       blockDeviceMappings: [{ deviceName: '/dev/sda1', ebs: {
@@ -56,18 +58,72 @@ export class EndpointStack extends Stack {
       propagateTagsToVolumeOnCreation: true,
       creditSpecification: { cpuCredits: 'unlimited' },
     });
-    instance.addResourceDependency(route);
-    instance.addResourceDependency(subnetRoutes);
-    Tags.of(instance).add('Name', config.resourceName);
+    if (instance) {
+      instance.addResourceDependency(route);
+      instance.addResourceDependency(subnetRoutes);
+      Tags.of(instance).add('Name', config.resourceName);
+    }
+
+    // Keep the reference logical IDs intact while a distinct host proves credential restoration.
+    let managed: ec2.CfnInstance | undefined;
+    let nic: ec2.CfnNetworkInterface | undefined;
+    let xrayPrivateIp: string | undefined;
+    if (stage !== 'reference') {
+      const host = new Construct(this, 'ManagedHost');
+      const group = new ec2.CfnSecurityGroup(host, 'SecurityGroup', {
+        vpcId: vpc.ref, groupDescription: 'Ghostline managed protocols and operator SSH',
+        securityGroupIngress: [
+          { ipProtocol: 'tcp', fromPort: 443, toPort: 443, cidrIp: '0.0.0.0/0', description: 'Authenticated Xray tunnel' },
+          { ipProtocol: 'tcp', fromPort: 22, toPort: 22, cidrIp: launch.operatorSshCidr, description: 'Operator SSH' },
+          ...(config.runtime?.awgEnabled ? [{ ipProtocol: 'udp', fromPort: 443, toPort: 443, cidrIp: '0.0.0.0/0', description: 'Authenticated AmneziaWG tunnel' }] : []),
+        ],
+        securityGroupEgress: [{ ipProtocol: '-1', cidrIp: '0.0.0.0/0', description: 'Tunnel and installer internet egress' }],
+      });
+      nic = new ec2.CfnNetworkInterface(host, 'NetworkInterface', {
+        subnetId: subnet.ref, groupSet: [group.attrGroupId], secondaryPrivateIpAddressCount: 1,
+        description: 'One private IPv4 per Ghostline protocol',
+      });
+      xrayPrivateIp = Fn.select(0, nic.attrSecondaryPrivateIpAddresses);
+      managed = new ec2.CfnInstance(host, 'Instance', {
+        imageId: config.amiId, instanceType: config.instanceType, keyName: key.ref,
+        networkInterfaces: [{ deviceIndex: '0', networkInterfaceId: nic.ref }],
+        blockDeviceMappings: [{ deviceName: '/dev/sda1', ebs: {
+          volumeSize: config.rootVolumeGiB, volumeType: 'gp3', encrypted: true, deleteOnTermination: true,
+        } }],
+        propagateTagsToVolumeOnCreation: true,
+        creditSpecification: { cpuCredits: 'unlimited' },
+      });
+      managed.addResourceDependency(route);
+      managed.addResourceDependency(subnetRoutes);
+      Tags.of(managed).add('Name', `${config.resourceName}-managed`);
+      const awgAddress = new ec2.CfnEIP(host, 'AwgAddress', { domain: 'vpc' });
+      awgAddress.addResourceDependency(attachment);
+      awgAddress.applyRemovalPolicy(RemovalPolicy.RETAIN);
+      Tags.of(awgAddress).add('System', 'amneziawg');
+      const awgAssociation = new ec2.CfnEIPAssociation(host, 'AwgAssociation', {
+        allocationId: awgAddress.attrAllocationId, networkInterfaceId: nic.ref, privateIpAddress: nic.attrPrimaryPrivateIpAddress,
+      });
+      awgAssociation.addResourceDependency(managed);
+      new CfnOutput(this, 'ManagedInstanceId', { value: managed.ref });
+      new CfnOutput(this, 'ManagedNetworkInterfaceId', { value: nic.ref });
+      new CfnOutput(this, 'XrayPrivateIp', { value: xrayPrivateIp });
+      new CfnOutput(this, 'AwgPrivateIp', { value: nic.attrPrimaryPrivateIpAddress });
+      new CfnOutput(this, 'AwgEndpointIp', { value: awgAddress.ref });
+      new CfnOutput(this, 'AwgEipAllocationId', { value: awgAddress.attrAllocationId });
+      if (instance) new CfnOutput(this, 'ReferenceInstanceId', { value: instance.ref });
+    }
 
     // Retain the address independently of the host; its own cost tags survive disassociation.
     const eip = new ec2.CfnEIP(endpoint, 'PublicAddress', { domain: 'vpc' });
     eip.addResourceDependency(attachment);
     eip.applyRemovalPolicy(RemovalPolicy.RETAIN);
-    new ec2.CfnEIPAssociation(endpoint, 'AddressAssociation', {
-      allocationId: eip.attrAllocationId, instanceId: instance.ref,
+    const association = new ec2.CfnEIPAssociation(endpoint, 'AddressAssociation', {
+      allocationId: eip.attrAllocationId,
+      ...(moved ? { networkInterfaceId: nic!.ref, privateIpAddress: xrayPrivateIp! } : { instanceId: instance!.ref }),
     });
-    new CfnOutput(this, 'InstanceId', { value: instance.ref });
+    if (moved) association.addResourceDependency(managed!);
+    if (stage === 'managed') Tags.of(key).add('System', 'shared', { priority: 200 });
+    new CfnOutput(this, 'InstanceId', { value: moved ? managed!.ref : instance!.ref });
     new CfnOutput(this, 'EndpointIp', { value: eip.ref });
     new CfnOutput(this, 'EipAllocationId', { value: eip.attrAllocationId });
     new CfnOutput(this, 'SshCommand', { value: `ssh -i .local/keys/${config.resourceName} ubuntu@${eip.ref}` });

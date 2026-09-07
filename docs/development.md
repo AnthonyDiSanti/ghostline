@@ -30,6 +30,8 @@ Resolve environment inputs at the CLI/configuration boundary and pass typed valu
 
 For subprocesses, use explicit argument arrays or execa tagged templates that preserve argument boundaries. Keep substantial shell snippets in script/fixture files. Prefer an AWS SDK call over a secret value embedded in process command-line arguments when implementing secret-writing automation.
 
+Runtime implementation and its explicit migration checkpoint are documented in [Runtime](runtime.md). The same npm package owns CDK and runtime helpers; container inputs live under `runtime/` at the repository root.
+
 ## Command contract
 
 Run these commands from `infra/` with Node 24 selected. Tests require no AWS credentials or live resources.
@@ -52,7 +54,7 @@ Start with straightforward npm composition. Do not copy the large parallel phase
 
 ## Deployment inputs
 
-`deployment.json` contains shared account/sizing/cost dimensions and named targets. Each target owns region, AZ, pinned AMI, stack name and resource/key name. `frankfurt` retains the original deployment recipe; `cape-town` is the live regional stack. The catalog lists available configurations, not live AWS inventory; consult the launch records for lifecycle state. The same stack name in different regions identifies different CloudFormation stacks. Adding a second environment in one region would require distinct stack and resource names.
+`deployment.json` contains shared account/sizing/cost dimensions and named targets. Each target owns region, AZ, pinned AMI, stack name and resource/key name. `frankfurt` retains the original deployment recipe; `cape-town` is the live regional stack. The catalog lists available configurations, not live AWS inventory; consult the launch records for lifecycle state. The same stack name in different regions identifies different CloudFormation stacks. Adding a second environment in one region would require distinct stack and resource names. Cape Town also owns an explicit `runtime.stage` and `awgEnabled` setting; see the migration-stage table in [Runtime](runtime.md).
 
 The target is a positional npm-script argument, so use `npm run deploy cape-town`. The `--` separator is only needed when forwarding options that npm might otherwise interpret (for example `npm run test:vitest -- --reporter=verbose`); our deployment helper accepts only the target.
 
@@ -96,7 +98,7 @@ Run focused tests first, then the full local gate. AWS synth/tests do not establ
 
 For documentation-only changes, inspect changed links and scope consistency across the full document set.
 
-## Release sequence
+## Historical reference release sequence
 
 1. Implement and verify the TypeScript/CDK/npm package — complete.
 2. Select installer-compatible inputs and implement one endpoint stack — complete.
@@ -106,4 +108,4 @@ For documentation-only changes, inspect changed links and scope consistency acro
    - Current evidence: owner-reported macOS/iOS practical tests pass for both exits; native Mac switching also passes. Individual privacy, concurrency, video and IPv6 subtests were not separately enumerated. See [Frankfurt](launch.md) and [Cape Town](launch-cape-town.md) evidence. LastPass saves remain unconfirmed.
 6. Decide from the experiment whether to adjust the setup, stop, try an alternative, or specify our own deterministic runtime.
 
-Cape Town repeated the same stack workflow and Amnezia Manual → XRay installation with fresh runtime identity while preserving Frankfurt. Use that workflow for future authorized targets. IaC recreates the host, not its installer-managed runtime. No fleet controller, automatic failover, scheduled shutdown or automated recovery is part of this work.
+Cape Town repeated the same stack workflow and Amnezia Manual → XRay installation with fresh runtime identity while preserving Frankfurt. Use that workflow for future authorized targets. IaC recreates the host, not its installer-managed runtime. No fleet controller, automatic protocol switching, scheduled shutdown or automated recovery is part of this work. The follow-on runtime migration is now authorized and implemented through the separate workflow linked above.

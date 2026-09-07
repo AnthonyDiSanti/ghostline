@@ -15,7 +15,7 @@ function onlyResource(template: Template, type: string) {
 }
 
 describe.each(deploymentIds)('single endpoint: %s', (target) => {
-  const testDeployment = { ...getDeployment(target), account: '000000000000' };
+  const testDeployment = { ...getDeployment(target), account: '000000000000', runtime: undefined };
   const { stack } = buildApp(launch, testDeployment);
   const template = Template.fromStack(stack);
 

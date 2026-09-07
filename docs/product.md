@@ -16,14 +16,18 @@ The PoC is both a useful connection and a reference experiment. Use Amnezia's ex
 | Devices | macOS laptop and iOS phone, including concurrent use; exact OS/client versions recorded at launch |
 | Infrastructure | AWS CDK / TypeScript; existing production AWS account; dedicated project resources |
 | Region | Cape Town is live; Frankfurt was retired after the successful comparison, with its deployment recipe retained |
-| Initial transport | Xray / VLESS / REALITY over TCP 443, installed and managed through Amnezia |
-| Runtime flexibility | Tolerate Amnezia's setup and management requirements to obtain a strong reference configuration; assume sensible defaults for the experiment |
+| Transport | Preserve Xray / VLESS / REALITY TCP 443; add independently credentialed AmneziaWG UDP 443 after the migration checkpoint |
+| Runtime ownership | Move the successful reference to Ghostline-managed containers on one Ubuntu host with two EIPs; preserve upstream product choices |
 | Routing | Prefer full-device routing; use off-the-shelf clients |
 | IPv6 | Want client-side IPv6 blocking while an IPv4 tunnel is active; record actual client support and limitations without building a custom client |
 | Failure protection | Enable available client controls where practical; best-effort mobile behavior is accepted |
-| Recovery material | Save essential credentials/configuration produced at launch in the chosen encrypted stores; a rebuild exercise comes later |
+| Recovery material | Demonstrate restoration of existing Xray credentials on a fresh host; preserve protected local bundles and let Anthony intermediate LastPass |
 | Operations | Manual setup and repair; record activities actually performed during launch, with no separate runbook prerequisite |
-| Secrets | LastPass for personal/admin material; AWS Systems Manager Parameter Store for application secrets |
+| Secrets | LastPass for personal/admin material; protected local runtime bundles now; Parameter Store integration deferred |
+
+## Current migration checkpoint
+
+Restore Xray onto a fresh server with the same credentials and EIP, then confirm unchanged macOS/iOS profiles still work. Keep the original host until Anthony reports both passes; retire it before installing AWG. The final setup has one server and two protocol-specific EIPs. After installing AWG, test both protocols and their distinct egress identities. No rollback framework, Parameter Store plumbing or orchestration platform is required.
 
 ## Success evidence
 
@@ -45,12 +49,11 @@ Loss of the endpoint and AWS management access can leave the PoC unavailable. Ma
 
 ## Later, only when useful
 
-Support a few manually selectable exits and on-demand environment lifecycles. The current work establishes repeatable independent deployments only; orchestration, automatic failover and lifecycle automation remain deferred.
+Support a few manually selectable exits and on-demand environment lifecycles later. The current work establishes one shared host with manually selectable protocols. Automatic switching is neither implemented nor an assumed future capability.
 
-- Replace Amnezia server management with deterministic deployment of our own containerized solution, based on what worked.
 - Add Windows and Android; extend router support to OpenWrt/GL.iNet with third-party packages allowed and UI on/off control as a soft goal.
 - Add further exits or another protocol in response to observed need. Keep independent runtime identities for each endpoint.
-- Consider shared EC2 compute, then ECS only if it helps. Fargate requires a separate design; it is not a committed destination.
+- Consider ECR image delivery and ECS only if they help. Fargate requires a separate design; it is not a committed destination.
 - Add independent friend access or on-demand lifecycle controls if requested.
 - Revisit streaming geographic catalogs if desired; no Netflix/catalog acceptance now.
 

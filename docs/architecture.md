@@ -1,64 +1,64 @@
 # Architecture and runtime ownership
 
-Read when changing an endpoint or deciding which system owns configuration. Scope and acceptance are in [product](product.md). Observed identifiers and runtime settings are in the [Frankfurt](launch.md) and [Cape Town](launch-cape-town.md) launch records.
+Read when changing an endpoint or deciding which layer owns configuration. [Product](product.md) owns scope; [runtime](runtime.md) owns commands and migration stages; [Cape Town evidence](launch-cape-town.md) owns live state.
 
-## Initial shape
+## Selected topology
 
-**One EC2 instance and one EIP per independently selected deployment.** Cape Town (`af-south-1`) is live; Frankfurt (`eu-central-1`) was retired after the successful parallel comparison; see [region selection](region-selection.md).
+**One Ubuntu 24.04 EC2 instance, one ENI, two private IPv4 addresses and two retained EIPs in Cape Town.** The original reference host remains temporarily until Anthony confirms the migrated Xray service on macOS and iOS. Retire it before installing the alternative protocol. There is no second permanent server and no automatic switching.
 
-```text
-macOS / iOS off-the-shelf client
-    -> endpoint Elastic IP, TCP 443
-    -> EC2 host running Amnezia-managed Xray / VLESS / REALITY
-    -> internet destination
-```
+| Gateway | Published listener | Outbound identity |
+| --- | --- | --- |
+| Xray / VLESS / REALITY | Secondary private IPv4, TCP 443 | Secondary private IPv4 → original Xray EIP |
+| AmneziaWG | Primary private IPv4, UDP 443 | Primary private IPv4 → second EIP |
 
-Use one CDK stack for the instance, EIP, and basic networking: a small dedicated VPC, one public subnet in one Availability Zone, internet-gateway routing, and the necessary security group.
+The second EIP initially provides staging/admin access, then becomes AWG's endpoint. Separate Docker bridges explicitly select source NAT and port bindings. Merely binding a listener does not select outgoing connection identity. [Docker publishing and SNAT](https://docs.docker.com/engine/network/port-publishing/).
 
-Use the explicitly selected regional target in the existing production AWS account. The committed deployment selects Ubuntu 24.04 x86_64, `t3.small`, and an encrypted 20 GiB gp3 root disk. Runtime versions and REALITY settings are owned by Amnezia and recorded during launch. The upstream proposal favors a small x86-64 host; compatibility takes priority over prematurely standardizing an image.
+Keep the existing `t3.small`, encrypted 20 GiB gp3 disk, dedicated VPC/public subnet, internet gateway and operator `/32` SSH rule. The pinned Ubuntu AMI renders its ENI's secondary IPv4 through cloud-init/netplan; bootstrap verifies it instead of introducing another address-management service. No NAT gateway, load balancer, private-subnet tiers, peering, IAM instance profile or bootstrap stack is needed.
 
-Expose the selected tunnel listener and the operator access Amnezia requires. Supply an operator source range for SSH at launch and adapt it as needed for travel. Do not add production peering or place this on an existing application host. No NAT Gateway, load balancer, private-subnet tiers, interface endpoint suite, HA placement, or account-wide governance stack is needed for this shape.
+Both protocols share the host, kernel, capacity, AWS region and restart/failure dependencies. Separate IPs provide selectable protocol identities, not HA or guaranteed censorship unlinkability. Port 443 does not itself make a protocol ordinary HTTPS/HTTP3. Clients switch manually.
 
-## Reference phase ownership
+## Protocol layers
 
-| Owner | Responsibility now |
+| Component | Responsibility |
 | --- | --- |
-| CDK | AWS resources, addressing, host launch inputs, necessary access, resource identifiers |
-| Amnezia | Server installation, protocol configuration, containers, generated state, and management operations |
-| Existing clients | Connection UX, device routes, DNS, IPv6 blocking and failure protection where supported |
-| Anthony/operator | Launch actions, chosen secret storage, evaluating real connectivity |
-| Repository | Infrastructure source; nonsecret launch observations and product/engineering decisions |
+| Xray-core | Proxy engine; opens destination connections and implements the selected protocols |
+| VLESS | Proxy session carrying client authentication and destination requests |
+| REALITY | Secure transport and camouflage around that session |
+| TCP 443 | Outer transport/listener for the existing Xray endpoint |
+| AmneziaWG | Independent WireGuard-derived UDP tunnel with its own obfuscation and credentials |
+| Existing macOS/iOS clients | Connection UI, device routes, DNS and available IPv6/failure protection |
 
-Amnezia is deliberately temporary as the server manager. Allow its normal installation and administration model for the experiment, including full-access management connections where needed. Prefer VPN-only device profiles when readily supported, but do not turn a custom credential-management layer or revocation audit into a prerequisite for first use.
+Xray retains version 26.7.28, VLESS Vision and the reference REALITY configuration, including `www.googletagmanager.com:443`. Preserve the complete live configuration rather than reconstructing it from this summary. Destination HTTPS encryption remains separate from tunnel protection. [Xray-core](https://github.com/XTLS/Xray-core), [VLESS](https://xtls.github.io/en/config/inbounds/vless.html), [REALITY](https://github.com/XTLS/REALITY/blob/main/README.en.md).
 
-Do not install a competing reconciler over Amnezia's containers. Recording a working configuration is useful; freezing that configuration into our own deploy system belongs after the reference result. CDK host recreation does not imply restoration of Amnezia runtime state.
+AWG uses upstream userspace implementation/tools and the inspected Amnezia 5.0.1.5 generation rules. Its protocol dependency is independent of Amnezia's server installer. Match device support to the actual generated 3.1 configuration; local engine acceptance does not establish UAE reachability or Apple import compatibility.
 
-## Configuration and secrets
+## Ownership boundary
 
-Keep a small typed deployment configuration for nonsecret constants: region, instance selection, names/tags, and necessary operator inputs. AWS CLI profile/account selection is a launch input; do not inherit personal-assistant's deployment identity, region, resource names, or parameter paths.
+| Owner | Responsibility |
+| --- | --- |
+| CDK | Region/host/network resources, explicit migration stage, EIP associations and cost tags |
+| Ghostline runtime | Pinned container recipes, Compose lifecycle, preserved configuration, private-IP binding/SNAT, explicit local credential generation/import |
+| Amnezia application | Existing device connection profiles; no server management on the replacement host |
+| Anthony | Practical macOS/iOS checkpoints and LastPass operations |
 
-Use LastPass for personal/admin credentials and recovery exports. Use Parameter Store SecureString for application-level secrets when Ghostline needs to store them independently; `/ghostline` is the proposed namespace. Do not force a Parameter Store integration into the Amnezia installer just to match the eventual architecture. Secret values never belong in committed profiles, CDK outputs, user data, screenshots, or launch notes. [Parameter Store documentation](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html).
+Amnezia's accepted reference setup worked and is the source of observed product/protocol decisions. The new runtime adapts its server recipes instead of forking the application. Preserve upstream licenses and provenance; see [runtime notice](../runtime/NOTICE.md).
 
-Save the essential material created during launch outside the EC2 host. Record only its purpose and storage location/reference in project notes, not the values. A full restore procedure and rebuild trial are deferred. The EIP has CloudFormation Retain policies; the root disk deletes with the host. A retained address alone does not preserve runtime identity. Removing the stack leaves an allocated, billable EIP until deliberately released.
+The EC2 OS remains Ubuntu 24.04. Container distributions remain consistent with the inspected upstream recipes: Alpine for Xray and the pinned upstream Alpine-based AWG image. No distribution upgrade, stealth retuning or comprehensive hardening program is folded into migration.
 
-## Cost allocation
+## Credentials and repeatability
 
-Mirror personal-assistant's exact, case-sensitive billing dimensions. `infra/deployment.json` owns shared `globalTags`: `Project=ghostline` and `Environment=prod`. Apply these globally, default `System=shared` for networking, and override `System=xray` for the endpoint instance, root volume, EIP, security group and SSH key. Reserve `System` from global overrides. Set EC2 `PropagateTagsToVolumeOnCreation` explicitly so storage joins the same cost grouping.
+Export the entire Xray configuration directory into a protected local bundle, then install it unchanged on the fresh host. Preserve all client identities, REALITY keys/short IDs and the original EIP allocation so existing device profiles need no edit. New host SSH keys are separately verified from authenticated EC2 console output.
 
-The account's `Project`, `Environment` and `System` cost-allocation keys were already Active during launch; no account-wide billing changes were made. Consolidated Cost Explorer analysis can group by `Project` and `System`, optionally filtering `Environment=prod`. Billing ingestion lags resource creation; live resource tags are verified separately from cost records. No shared billing stack is deployed. Use Cost Explorer’s native Region dimension to compare exits while preserving the cross-project tag schema.
+CDK contains only nonsecret inputs/outputs. Runtime secrets live in ignored local files and protected host mounts; never put them in images, userdata, arguments, screenshots or logs. Anthony intermediates LastPass saves. Parameter Store remains the preferred future application store, but no Parameter Store integration or host AWS plumbing is needed here.
 
-## From reference to deterministic deployment
+Local Docker builds produce content-tagged amd64 images and ordinary transfer archives. There is no release catalog, automated rollback, image-backup framework, ECR or ECS infrastructure. Future SHA-tagged ECR images can replace delivery without changing protocol identity. Boot and ordinary installation never generate credentials.
 
-Once the connection is useful, review the actual image/runtime versions, container launch settings, protocol configuration, required state, and client profile format. Use those observations to specify our own deployment. Reuse upstream software and understood product decisions, rather than reimplementing the protocol.
+## Resource lifetime and cost allocation
 
-The later architecture should explicitly own reproducible container inputs, configuration, secret injection, runtime lifecycle, and appropriate host/runtime access controls. Move ownership once, then remove Amnezia server management rather than keeping two configuration owners. Off-the-shelf connection clients remain independent choices.
+Migration uses the same Cape Town stack and retains original resource logical IDs. Preparation adds a distinct host; cutover changes the EIP association, not the allocation. AWS models association updates as replacement; the EIP resource remains retained. [CloudFormation EIPAssociation](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-ec2-eipassociation.html).
 
-These later controls are not requirements for an initial Amnezia audit. If the first setup fails, prioritize diagnosing reachability and compatibility over completing the future architecture.
+After the owner confirms both unchanged Xray profiles, remove the reference host/disk and temporary migration scaffolding. Only then enable/install AWG. Keep release and fleet automation out of this work unit. Frankfurt remains a historical deployment and an available recipe; do not redeploy it implicitly.
 
-## Optional endpoint expansion
+Mirror personal-assistant's case-sensitive dimensions: `Project=ghostline`, `Environment=prod`, and resource-owned `System`. Shared managed compute/root disk/networking use `System=shared`; protocol EIPs use `System=xray` and `System=amneziawg`. The temporary original host keeps its historical `System=xray` tag until retirement. Root-volume tags propagate from EC2; verify actual tags. Keep account-wide billing controls unchanged and use Cost Explorer's native Region dimension.
 
-Named targets describe independent exits, not chained hops. Cape Town is live; Frankfurt remains a saved configuration after retirement. A named configuration selects one stack per command; each target has separate local artifacts, SSH credentials and Amnezia runtime identity. There is no shared control plane, peering, automatic failover or automatic lifecycle manager.
-
-Future on-demand environments can reuse this deployment boundary. Before deleting one, decide whether to retain its address and preserve its runtime recovery material: stopping EC2 still bills storage/EIP, deleting this stack retains a billable EIP, and recreating a host requires runtime installation/restoration. Neither removing a catalog entry nor disabling a region tears down its resources. Automating those lifecycle decisions is deferred.
-
-Keep shared-host source routing, orchestration, and Fargate addressing research deferred. Earlier discussion is preserved in the [historical PRD](archive/Private_Connectivity_Service_PRD_v0.3.md), but it is not an implementation backlog to execute automatically.
+Both EIPs have Retain policies and remain billable after stack deletion until explicitly released. The EC2 root disk deletes with its host. Neither preserving an EIP nor retaining a catalog entry preserves runtime credentials; the recovery bundle supplies that state.
