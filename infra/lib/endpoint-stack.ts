@@ -12,8 +12,7 @@ export class EndpointStack extends Stack {
   constructor(scope: Construct, id: string, props: EndpointStackProps) {
     super(scope, id, props);
     const { deployment: config, launch } = props;
-    const stage = config.runtime?.stage ?? 'reference';
-    const moved = stage === 'cutover' || stage === 'managed';
+    const managedRuntime = config.runtime !== undefined;
 
     // Plain resources keep this one-host topology free of incidental IAM/custom-resource services.
     const vpc = new ec2.CfnVPC(this, 'Vpc', {
@@ -37,7 +36,7 @@ export class EndpointStack extends Stack {
     });
     const endpoint = new Construct(this, 'Endpoint');
     Tags.of(endpoint).add('System', 'xray');
-    const securityGroup = stage === 'managed' ? undefined : new ec2.CfnSecurityGroup(endpoint, 'SecurityGroup', {
+    const securityGroup = managedRuntime ? undefined : new ec2.CfnSecurityGroup(endpoint, 'SecurityGroup', {
       vpcId: vpc.ref, groupDescription: 'Ghostline tunnel and operator SSH',
       securityGroupIngress: [
         { ipProtocol: 'tcp', fromPort: 443, toPort: 443, cidrIp: '0.0.0.0/0', description: 'Authenticated Xray tunnel' },
@@ -46,6 +45,7 @@ export class EndpointStack extends Stack {
       // The proxy and installer require normal internet egress; no production network peering exists.
       securityGroupEgress: [{ ipProtocol: '-1', cidrIp: '0.0.0.0/0', description: 'Tunnel and installer internet egress' }],
     });
+    // KeyPair tag changes require replacement; preserve this existing, unbilled key's identity.
     const key = new ec2.CfnKeyPair(endpoint, 'SshKey', {
       keyName: config.resourceName, publicKeyMaterial: launch.sshPublicKey,
     });
@@ -64,11 +64,11 @@ export class EndpointStack extends Stack {
       Tags.of(instance).add('Name', config.resourceName);
     }
 
-    // Keep the reference logical IDs intact while a distinct host proves credential restoration.
+    // Preserve the deployed managed logical IDs and the original retained EIP/key identities.
     let managed: ec2.CfnInstance | undefined;
     let nic: ec2.CfnNetworkInterface | undefined;
     let xrayPrivateIp: string | undefined;
-    if (stage !== 'reference') {
+    if (managedRuntime) {
       const host = new Construct(this, 'ManagedHost');
       const group = new ec2.CfnSecurityGroup(host, 'SecurityGroup', {
         vpcId: vpc.ref, groupDescription: 'Ghostline managed protocols and operator SSH',
@@ -110,7 +110,6 @@ export class EndpointStack extends Stack {
       new CfnOutput(this, 'AwgPrivateIp', { value: nic.attrPrimaryPrivateIpAddress });
       new CfnOutput(this, 'AwgEndpointIp', { value: awgAddress.ref });
       new CfnOutput(this, 'AwgEipAllocationId', { value: awgAddress.attrAllocationId });
-      if (instance) new CfnOutput(this, 'ReferenceInstanceId', { value: instance.ref });
     }
 
     // Retain the address independently of the host; its own cost tags survive disassociation.
@@ -119,11 +118,10 @@ export class EndpointStack extends Stack {
     eip.applyRemovalPolicy(RemovalPolicy.RETAIN);
     const association = new ec2.CfnEIPAssociation(endpoint, 'AddressAssociation', {
       allocationId: eip.attrAllocationId,
-      ...(moved ? { networkInterfaceId: nic!.ref, privateIpAddress: xrayPrivateIp! } : { instanceId: instance!.ref }),
+      ...(managedRuntime ? { networkInterfaceId: nic!.ref, privateIpAddress: xrayPrivateIp! } : { instanceId: instance!.ref }),
     });
-    if (moved) association.addResourceDependency(managed!);
-    if (stage === 'managed') Tags.of(key).add('System', 'shared', { priority: 200 });
-    new CfnOutput(this, 'InstanceId', { value: moved ? managed!.ref : instance!.ref });
+    if (managedRuntime) association.addResourceDependency(managed!);
+    new CfnOutput(this, 'InstanceId', { value: managedRuntime ? managed!.ref : instance!.ref });
     new CfnOutput(this, 'EndpointIp', { value: eip.ref });
     new CfnOutput(this, 'EipAllocationId', { value: eip.attrAllocationId });
     new CfnOutput(this, 'SshCommand', { value: `ssh -i .local/keys/${config.resourceName} ubuntu@${eip.ref}` });

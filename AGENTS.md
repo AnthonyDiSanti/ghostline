@@ -2,9 +2,9 @@
 
 ## Scope and operating stance
 
-Ghostline is a personal connectivity PoC. The Amnezia-managed Xray reference passed macOS/iOS practical tests. The current work migrates its credentials and EIP onto a fresh Ghostline-managed Ubuntu 24.04 host, then adds AmneziaWG on a second EIP on the same host. See `docs/runtime.md` and the Cape Town launch record for the checkpoint state.
+Ghostline is a personal connectivity PoC. The Amnezia-managed Xray reference passed macOS/iOS practical tests. Xray and AmneziaWG now run on one Ghostline-managed Ubuntu 24.04 host with separate EIPs; Anthony confirmed both final device checks passed. See `docs/runtime.md` and the Cape Town launch record for the checkpoint state.
 
-Preserve observed protocol choices and credential identity during migration. Keep the original host until Anthony confirms unchanged macOS/iOS Xray profiles pass, then retire it before installing AWG. The final topology has one host, two protocols and two EIPs, with manual client switching. Do not introduce HA, ECS/ECR infrastructure, Parameter Store plumbing, a rollback framework or an installer audit as prerequisites.
+Preserve observed protocol choices and credential identity during runtime changes. The unchanged macOS/iOS Xray migration checkpoint passed and the original host is retired. The final topology has one host, two protocols and two EIPs, with manual client switching. Do not introduce HA, ECS/ECR infrastructure, Parameter Store plumbing, a rollback framework or an installer audit as prerequisites.
 
 Keep secrets out of git and preserve existing production-account controls. Product scope is defined in `docs/product.md`; do not silently promote deferred work into acceptance gates.
 

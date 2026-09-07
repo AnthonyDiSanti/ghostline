@@ -30,7 +30,7 @@ Resolve environment inputs at the CLI/configuration boundary and pass typed valu
 
 For subprocesses, use explicit argument arrays or execa tagged templates that preserve argument boundaries. Keep substantial shell snippets in script/fixture files. Prefer an AWS SDK call over a secret value embedded in process command-line arguments when implementing secret-writing automation.
 
-Runtime implementation and its explicit migration checkpoint are documented in [Runtime](runtime.md). The same npm package owns CDK and runtime helpers; container inputs live under `runtime/` at the repository root.
+Runtime implementation and client profile handling are documented in [Runtime](runtime.md). The same npm package owns CDK and runtime helpers; container inputs live under `runtime/` at the repository root.
 
 ## Command contract
 
@@ -54,7 +54,7 @@ Start with straightforward npm composition. Do not copy the large parallel phase
 
 ## Deployment inputs
 
-`deployment.json` contains shared account/sizing/cost dimensions and named targets. Each target owns region, AZ, pinned AMI, stack name and resource/key name. `frankfurt` retains the original deployment recipe; `cape-town` is the live regional stack. The catalog lists available configurations, not live AWS inventory; consult the launch records for lifecycle state. The same stack name in different regions identifies different CloudFormation stacks. Adding a second environment in one region would require distinct stack and resource names. Cape Town also owns an explicit `runtime.stage` and `awgEnabled` setting; see the migration-stage table in [Runtime](runtime.md).
+`deployment.json` contains shared account/sizing/cost dimensions and named targets. Each target owns region, AZ, pinned AMI, stack name and resource/key name. `frankfurt` retains the original deployment recipe; `cape-town` is the live regional stack. The catalog lists available configurations, not live AWS inventory; consult the launch records for lifecycle state. The same stack name in different regions identifies different CloudFormation stacks. Adding a second environment in one region would require distinct stack and resource names. Cape Town selects the managed topology with `runtime: { "awgEnabled": true }`; see [Runtime](runtime.md).
 
 The target is a positional npm-script argument, so use `npm run deploy cape-town`. The `--` separator is only needed when forwarding options that npm might otherwise interpret (for example `npm run test:vitest -- --reporter=verbose`); our deployment helper accepts only the target.
 

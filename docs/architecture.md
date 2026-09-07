@@ -1,6 +1,6 @@
 # Architecture and runtime ownership
 
-Read when changing an endpoint or deciding which layer owns configuration. [Product](product.md) owns scope; [runtime](runtime.md) owns commands and migration stages; [Cape Town evidence](launch-cape-town.md) owns live state.
+Read when changing an endpoint or deciding which layer owns configuration. [Product](product.md) owns scope; [runtime](runtime.md) owns runtime commands and client imports; [Cape Town evidence](launch-cape-town.md) owns live state.
 
 ## Selected topology
 
@@ -11,7 +11,7 @@ Read when changing an endpoint or deciding which layer owns configuration. [Prod
 | Xray / VLESS / REALITY | Secondary private IPv4, TCP 443 | Secondary private IPv4 → original Xray EIP |
 | AmneziaWG | Primary private IPv4, UDP 443 | Primary private IPv4 → second EIP |
 
-The second EIP initially provides staging/admin access, then becomes AWG's endpoint. Separate Docker bridges explicitly select source NAT and port bindings. Merely binding a listener does not select outgoing connection identity. [Docker publishing and SNAT](https://docs.docker.com/engine/network/port-publishing/).
+The second EIP provides admin access and AWG's endpoint. Separate Docker bridges explicitly select source NAT and port bindings. Merely binding a listener does not select outgoing connection identity. [Docker publishing and SNAT](https://docs.docker.com/engine/network/port-publishing/).
 
 Keep the existing `t3.small`, encrypted 20 GiB gp3 disk, dedicated VPC/public subnet, internet gateway and operator `/32` SSH rule. The pinned Ubuntu AMI renders its ENI's secondary IPv4 through cloud-init/netplan; bootstrap verifies it instead of introducing another address-management service. No NAT gateway, load balancer, private-subnet tiers, peering, IAM instance profile or bootstrap stack is needed.
 
@@ -36,7 +36,7 @@ AWG uses upstream userspace implementation/tools and the inspected Amnezia 5.0.1
 
 | Owner | Responsibility |
 | --- | --- |
-| CDK | Region/host/network resources, explicit migration stage, EIP associations and cost tags |
+| CDK | Region/host/network resources, EIP associations, protocol ingress and cost tags |
 | Ghostline runtime | Pinned container recipes, Compose lifecycle, preserved configuration, private-IP binding/SNAT, explicit local credential generation/import |
 | Amnezia application | Existing device connection profiles; no server management on the replacement host |
 | Anthony | Practical macOS/iOS checkpoints and LastPass operations |
@@ -57,8 +57,8 @@ Local Docker builds produce content-tagged amd64 images and ordinary transfer ar
 
 Migration uses the same Cape Town stack and retains original resource logical IDs. Preparation adds a distinct host; cutover changes the EIP association, not the allocation. AWS models association updates as replacement; the EIP resource remains retained. [CloudFormation EIPAssociation](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-ec2-eipassociation.html).
 
-After the owner confirms both unchanged Xray profiles, remove the reference host/disk and temporary migration scaffolding. Only then enable/install AWG. Keep release and fleet automation out of this work unit. Frankfurt remains a historical deployment and an available recipe; do not redeploy it implicitly.
+The owner confirmed both unchanged Xray profiles; the reference host/disk and temporary migration scaffolding are now removed. AWG runs on the same managed host. Keep release and fleet automation out of this work unit. Frankfurt remains a historical deployment and an available recipe; do not redeploy it implicitly.
 
-Mirror personal-assistant's case-sensitive dimensions: `Project=ghostline`, `Environment=prod`, and resource-owned `System`. Shared managed compute/root disk/networking use `System=shared`; protocol EIPs use `System=xray` and `System=amneziawg`. The temporary original host keeps its historical `System=xray` tag until retirement. Root-volume tags propagate from EC2; verify actual tags. Keep account-wide billing controls unchanged and use Cost Explorer's native Region dimension.
+Mirror personal-assistant's case-sensitive dimensions: `Project=ghostline`, `Environment=prod`, and resource-owned `System`. Shared managed compute/root disk/networking use `System=shared`; protocol EIPs use `System=xray` and `System=amneziawg`. The existing unbilled SSH KeyPair keeps its historical `System=xray` tag because changing its tags requires resource replacement. Root-volume tags propagate from EC2; verify actual tags. Keep account-wide billing controls unchanged and use Cost Explorer's native Region dimension.
 
 Both EIPs have Retain policies and remain billable after stack deletion until explicitly released. The EC2 root disk deletes with its host. Neither preserving an EIP nor retaining a catalog entry preserves runtime credentials; the recovery bundle supplies that state.

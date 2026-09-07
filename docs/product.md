@@ -16,8 +16,8 @@ The PoC is both a useful connection and a reference experiment. Use Amnezia's ex
 | Devices | macOS laptop and iOS phone, including concurrent use; exact OS/client versions recorded at launch |
 | Infrastructure | AWS CDK / TypeScript; existing production AWS account; dedicated project resources |
 | Region | Cape Town is live; Frankfurt was retired after the successful comparison, with its deployment recipe retained |
-| Transport | Preserve Xray / VLESS / REALITY TCP 443; add independently credentialed AmneziaWG UDP 443 after the migration checkpoint |
-| Runtime ownership | Move the successful reference to Ghostline-managed containers on one Ubuntu host with two EIPs; preserve upstream product choices |
+| Transport | Preserve Xray / VLESS / REALITY TCP 443; use independently credentialed AmneziaWG UDP 443 as the manual alternative |
+| Runtime ownership | Ghostline-managed containers on one Ubuntu host with two EIPs; preserve upstream product choices |
 | Routing | Prefer full-device routing; use off-the-shelf clients |
 | IPv6 | Want client-side IPv6 blocking while an IPv4 tunnel is active; record actual client support and limitations without building a custom client |
 | Failure protection | Enable available client controls where practical; best-effort mobile behavior is accepted |
@@ -25,9 +25,9 @@ The PoC is both a useful connection and a reference experiment. Use Amnezia's ex
 | Operations | Manual setup and repair; record activities actually performed during launch, with no separate runbook prerequisite |
 | Secrets | LastPass for personal/admin material; protected local runtime bundles now; Parameter Store integration deferred |
 
-## Current migration checkpoint
+## Completed runtime checkpoint
 
-Restore Xray onto a fresh server with the same credentials and EIP, then confirm unchanged macOS/iOS profiles still work. Keep the original host until Anthony reports both passes; retire it before installing AWG. The final setup has one server and two protocol-specific EIPs. After installing AWG, test both protocols and their distinct egress identities. No rollback framework, Parameter Store plumbing or orchestration platform is required.
+Xray was restored onto a fresh server with its original credentials and EIP; Anthony confirmed unchanged macOS/iOS profiles passed. The original host and migration scaffolding are retired. AWG now shares that one host through its own EIP and independent client credentials. Both server runtimes passed reinstall/reboot and distinct egress checks; Anthony confirmed the final iPhone and Mac AWG tests passed on 2026-09-07. Switching remains manual. See the [Cape Town evidence](launch-cape-town.md) for measured checks and owner reports.
 
 ## Success evidence
 

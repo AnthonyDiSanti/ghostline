@@ -102,3 +102,19 @@
 - Decider: Anthony
 - Decision: Review the template and design inputs, discuss concerns, inspect a reusable reference repository, then fill documentation and plan implementation.
 - Status: Both reviews and documentation rebuild are complete. Infrastructure was subsequently implemented and deployed; see the current handoff.
+
+## 2026-09-07 — Retire the reference host and enable shared-host AWG
+
+- Decider: Anthony authorized continuation after committing the validated Xray migration; Codex implemented it.
+- Result: Retire original instance `i-0abac95ff3acf0d6a`, its security group and root disk; verify termination and disk absence. Preserve managed host, ENI and both EIPs. Remove one-time migration stages; deploy only UDP 443 ingress for AWG.
+- Constraint learned: AWS KeyPair tag changes require replacement and can cascade to EC2. Preserve the existing free key's historical System=xray tag; billable shared compute/disk/networking already have the intended dimensions. Regression tests guard resource identities.
+- Client sharing: Generate independent Mac/iOS peers once, with locally derived VPN-link files and native-config QR images. Keep Amnezia as the connection client; no server installer or online QR service. Update AGENTS to remove the completed retirement checkpoint.
+
+- Repeatability fix: owned-runtime export exposed Mac tar metadata pollution. Disable AppleDouble emission at archive creation, remove verified sidecars once, and keep strict bundle validation. Successful re-export preserves all six original Xray file values; a real extended-attribute regression test guards the fix.
+
+## 2026-09-07 — Accept the shared-host AWG work unit
+
+- Decider: Anthony reported both outstanding device tests passed and requested commit prep.
+- Result: Close the iPhone AWG import/practical/manual-switch and Mac post-reboot AWG checkpoints. The authorized one-host, two-protocol work unit is complete; do not repeat accepted tests or add deployment work before commit.
+- Evidence limit: This is practical owner confirmation, not a new agent-measured IP/DNS/IPv6 result. LastPass recovery saves remain owner-mediated and unconfirmed; document them as a follow-up rather than a code-commit blocker.
+- Instruction breadcrumb: Update AGENTS from planned migration to the validated deployed state.

@@ -2,9 +2,9 @@
 
 Observed 2026-09-07. Anthony authorized a parallel Cape Town trial, preserving Frankfurt, to test regional privacy/performance and repeatability. See [development](development.md) for reusable commands and [Frankfurt launch](launch.md) for the original endpoint.
 
-## Owned-runtime migration — current state
+## Owned runtime — current state
 
-Observed 2026-09-07 after Anthony authorized the implementation in [runtime](runtime.md). The stack is at `runtime.stage=cutover`, `awgEnabled=false`.
+Observed 2026-09-07 after Anthony authorized the implementation in [runtime](runtime.md). The stack uses `runtime.awgEnabled=true`; migration stages are retired.
 
 | Item | Current value |
 | --- | --- |
@@ -12,11 +12,11 @@ Observed 2026-09-07 after Anthony authorized the implementation in [runtime](run
 | Root volume | `vol-0da8507796f328afc`, encrypted 20 GiB gp3 |
 | Managed ENI | `eni-08e0645155028a484` |
 | Xray ingress/egress | Existing `16.28.130.178`, same allocation `eipalloc-09b530775698d23bb`, mapped to `10.77.0.31` |
-| Staging / future AWG address | `15.240.94.162`, allocation `eipalloc-0d22c628c5fde384e`, mapped to primary `10.77.0.124` |
-| Reference host retained until post-commit continuation | `i-0abac95ff3acf0d6a`; running without a public IP, original disk/configuration untouched |
-| Runtime | Ghostline-owned Xray 26.7.28; Docker 29.8.0; Compose 5.5.1 |
-| Local image tag | `ghostline-xray:76b2a96fa52395fb` |
-| Runtime access | TCP 443 on Xray private address; SSH from `5.195.76.221/32`; no live AWG or UDP 443 ingress |
+| AWG ingress/egress and admin address | `15.240.94.162`, allocation `eipalloc-0d22c628c5fde384e`, mapped to primary `10.77.0.124` |
+| Reference retirement | `i-0abac95ff3acf0d6a` terminated; `vol-064009c61166ba8bb` absent |
+| Runtime | Ghostline-owned Xray 26.7.28 and userspace AWG 3.1; Docker 29.8.0; Compose 5.5.1 |
+| Local image tags | `ghostline-xray:76b2a96fa52395fb`, `ghostline-awg:b36a66191dd0a8bc` |
+| Runtime access | TCP 443 on Xray private address; UDP 443 on AWG private address; SSH from `5.195.76.221/32` |
 
 Preparation added only the managed host, ENI, security group, second EIP and its association. Every original resource remained unchanged. Cutover replaced only the existing Xray EIP association and changed the active instance output; the EIP allocation itself was preserved. Both reviewed CDK deployments completed successfully.
 
@@ -26,11 +26,19 @@ Verified running state, the address-specific TCP listener, actual kernel SNAT fr
 
 Ubuntu's cloud-init already configured the secondary private IP in netplan. A redundant overlay introduced during bootstrap development was removed before cutover; no custom address-persistence service remains. Host Docker packages were installed from the official signed Ubuntu repository; the host/package layer is not claimed to be fully immutable.
 
-The unchanged native Mac profile connected after reboot: exit `16.28.130.178`, Wikipedia HTTPS 200. Mac is left connected to Cape Town. **PASS — Anthony validated the unchanged macOS/iOS profiles after migration on 2026-09-07.** This is practical owner-reported validation; individual DNS/IPv6/video subtests were not separately enumerated. At his request, work pauses for commit before reference retirement or AWG installation.
+The unchanged native Mac profile connected after reboot: exit `16.28.130.178`, Wikipedia HTTPS 200. **PASS — Anthony validated the unchanged macOS/iOS profiles after migration on 2026-09-07.** This is practical owner-reported validation; individual DNS/IPv6/video subtests were not separately enumerated. He committed this checkpoint in `cee7d4c` and then authorized continuation through AWG validation.
 
-AWG code/image and disposable-container startup/restart tests are prepared locally, including an actual handshake between generated 3.1 server/client identities. The pinned upstream image accepts generated 3.1 settings with TUN/NET_ADMIN; this is not a live client or censorship test. No real AWG peers/profiles have been generated. Next, after Anthony commits and resumes: reference retirement and migration-scaffold cleanup, then enable/install/test AWG on this same host.
+### AWG continuation
 
-Final migration verification:Node 24 full npm gate passed all 63 tests and fresh offline synthesis. Both disposable-image test commands passed; the AWG test includes a generated-peer handshake. Fresh live Cape Town CDK diff reported no differences. Managed root disk encryption/size and Project/Environment/System=shared tags were verified directly. Git-visible file scanning found no imported REALITY private key, client IDs or short IDs; values were not printed.
+Retirement diff removed only the original EC2 instance and its security group. Verified the instance terminated and its root disk disappeared; the managed host, ENI, SSH key and both EIP allocations stayed intact. Removed temporary migration stages afterward. A separate reviewed deployment added only UDP 443 ingress. Final live CDK diff is clean.
+
+Installed AWG on the same host with independent Mac/iPhone credentials, mode 600 under `.local/recovery/cape-town-awg/`. Server startup, UDP binding, actual kernel SNAT and container egress `15.240.94.162` passed. Existing Xray config and `16.28.130.178` egress still passed. Repeat installation preserved both container IDs and start times. Shared-host reboot restored both runtimes, their private bindings, config equality and actual distinct EIPs.
+
+Mac AmneziaVPN 5.0.1.5 accepted `macos.vpn`, identified AmneziaWG version 3.1, and passed real exit `15.240.94.162` plus Wikipedia HTTPS 200. Profile name is `Ghostline Cape Town AWG`; original Xray profile is preserved. Post-reboot Mac Xray exit/HTTPS also passed. **PASS — Anthony confirmed both remaining tests passed on 2026-09-07: the iPhone AWG import/practical trial with manual switching back to Xray, and the Mac post-reboot AWG selection/reconnect.** These are owner-reported results; no additional exit-IP readings or individual DNS/IPv6 subtest results were supplied. Qt automation required owner assistance to apply the Mac profile row selection; this is a client automation limitation, not an outstanding connectivity failure.
+
+Recovery export from the owned Xray container passed with all six original file values byte-for-byte equal. The check caught macOS tar AppleDouble sidecars; installation archives now disable them. Removed only files with verified AppleDouble magic, preserving actual configuration. A real extended-attribute regression test covers this behavior.
+
+Node 24 final gate passed typecheck, both offline synth targets and 66 tests. Prior disposable-image checks remain valid because container recipes did not change. The current network has no successful direct IPv6 baseline, so IPv6 leak prevention cannot be claimed from this trial. Record device DNS/routes separately from generated profile intent.
 
 ## Reference AWS deployment (before migration)
 

@@ -1,6 +1,6 @@
-# Owned runtime and credential migration
+# Owned runtime and client profiles
 
-Read before installing containers or advancing the Cape Town ownership migration. [Architecture](architecture.md) owns the final topology; [launch evidence](launch-cape-town.md) owns live identifiers and actual device results.
+Read before installing containers or changing the Cape Town deployment. [Architecture](architecture.md) owns the final topology; [launch evidence](launch-cape-town.md) owns live identifiers and actual device results.
 
 ## Ownership and packaging
 
@@ -14,7 +14,7 @@ Each protocol has its own Compose project and Docker bridge. Publishing and sour
 
 ## Local credentials
 
-`npm run runtime cape-town export` captures all six reference Xray files into `.local/recovery/cape-town-runtime.json`: the complete `server.json`, four key/identity files and `clientsTable`. It preserves both existing clients and refuses to overwrite an existing bundle. Installation copies those file bytes unchanged. Source secrets are never printed or passed through command arguments.
+`npm run runtime cape-town export` captures all six Xray files into `.local/recovery/cape-town-runtime.json`: the complete `server.json`, four key/identity files and `clientsTable`. It preserves both existing clients and refuses to overwrite an existing bundle. Installation copies those file bytes unchanged. Source secrets are never printed or passed through command arguments.
 
 The bundle is a protected plaintext local file, not encrypted vault storage. Directory permissions are `0700`, file permissions `0600`; `.local/` is ignored. Anthony saves recovery material in LastPass. The existing dedicated SSH key is still required; host SSH keys are newly verified, not migrated identities. Parameter Store and host secret-fetching plumbing remain deferred.
 
@@ -26,36 +26,32 @@ From `infra/`, with Node 24 selected:
 
 | Command | Effect |
 | --- | --- |
-| `npm run runtime cape-town export` | Export the reference Xray configuration once before cutover |
+| `npm run runtime cape-town export` | Export the current Xray configuration to a new protected bundle |
 | `npm run runtime cape-town build xray` | Build/load/save the pinned amd64 Xray image locally |
 | `npm run test:runtime cape-town xray` | Test startup, restart and malformed-configuration exit with disposable credentials |
-| `npm run runtime cape-town trust` | Pin staging-address SSH keys from authenticated EC2 console output |
+| `npm run runtime cape-town trust` | Pin admin/AWG-address SSH keys from authenticated EC2 console output |
 | `npm run runtime cape-town bootstrap` | Install Docker/Compose and verify cloud-init persisted both private addresses |
 | `npm run runtime cape-town install xray` | Restore the local bundle and start/reconcile only Xray |
 | `npm run runtime cape-town verify xray` | Check state, binding, kernel SNAT, original config and real egress after cutover |
 | `npm run runtime cape-town build awg` | Build the pinned userspace AWG image locally |
 | `npm run test:runtime cape-town awg` | Test generated 3.1 peer handshake, daemon startup and restart locally |
-| `npm run runtime cape-town generate awg` | Generate server and device configurations once, after reference retirement |
-| `npm run runtime cape-town install awg` | Install only AWG after the owner checkpoint, retirement and UDP ingress deployment |
+| `npm run runtime cape-town generate awg` | Generate server and device configurations once, for the managed deployment |
+| `npm run runtime cape-town share awg` | Derive local VPN-link files and native-config QR images for both peers |
+| `npm run runtime cape-town install awg` | Install only AWG after UDP ingress deployment |
 | `npm run runtime cape-town verify awg` | Check runtime and network configuration; actual device handshake/browsing is separate |
 
 An optional final positional path selects a different bundle/configuration, for example `npm run runtime cape-town install xray /absolute/path/recovery.json`. No `--` separator is needed. AWS calls use profile `personal`, verify the account, and read live stack/instance metadata instead of trusting stale local outputs. Admin SSH uses the staging/AWG EIP and the target's existing dedicated key. Disconnect the Mac tunnel before administration; do not widen the operator `/32`.
 
 An unchanged installation preserves the container and credentials. A changed image or server-configuration hash makes Compose recreate only that protocol. Secret upload staging is removed in a `finally` block; images contain no credentials. The server copy lives under `/opt/ghostline/<protocol>/config`, mounted read-only. Avoid printing Compose-expanded configuration or server config while diagnosing failures.
 
-## Explicit migration stages
+## Deployment and client imports
 
-`infra/deployment.json` selects the stage; ordinary deploy never advances it. Run a fresh `npm run diff cape-town` before every authorized deployment.
+Cape Town uses `runtime: { "awgEnabled": true }`. A catalog entry without `runtime` retains the original single-address reference recipe; Frankfurt is not deployed. Temporary migration stages are retired and rejected by validation. Keep the permanent host, ENI, retained EIP and SSH key logical identities stable. AWS KeyPair tag changes require replacement, so the existing unbilled key keeps its historical `System=xray` tag.
 
-| Stage | Infrastructure and checkpoint |
-| --- | --- |
-| `reference` (default for an unchanged recipe) | Original single host and Xray EIP |
-| `prepared` | Add distinct managed host/ENI/security group and the staging/AWG EIP; every original resource stays unchanged |
-| `cutover` | Replace only the Xray EIP association, moving the retained allocation to the managed host's secondary private address; keep original host |
-| `managed` | After Anthony confirms unchanged macOS/iOS profiles pass, delete original host and its security group; retain the shared SSH key and both EIPs |
+Run a fresh `npm run diff cape-town` before every authorized deployment. Enabling AWG changes only UDP 443 ingress. Runtime install reconciles each protocol independently on the same host.
 
-`awgEnabled` stays false through the Xray checkpoint. After retirement, set it true and deploy UDP 443 ingress, then generate/install AWG. Runtime installation refuses AWG while a reference instance remains. Remove temporary migration stages and their scaffolding after retirement without changing the permanent host, ENI or EIP logical identities.
+Run `share awg` after generation. Import `macos.vpn` through AmneziaVPN → plus → File with connection settings. This compressed `vpn://` link contains native AWG configuration, not server-management credentials. The Mac import was accepted by AmneziaVPN 5.0.1.5. Native `.conf` files are also accepted by the upstream parser.
 
-Before asking for the device checkpoint, verify the EIP allocation is unchanged, test actual egress, reboot the replacement host and repeat runtime installation. The owner then tests the unchanged macOS/iOS profiles. A failed trial means diagnose the current state while the original host remains; no automated fallback or second permanent server is implemented.
+For iOS, open `.local/recovery/cape-town-awg/ios-qr.png` on the Mac and scan it using AmneziaVPN's connection QR importer. The QR encodes native configuration directly; the app's QR and text-link paths differ. Alternatively transfer `ios.vpn` or `ios.conf` locally and import it. Use separate peer profiles on each device. Generated links and QR images contain credentials and inherit protected local file permissions; no online QR service is used.
 
-After AWG installation, test both protocols and distinct observed exit IPs on both devices, DNS/IPv6 behavior and reboot persistence. Switching is manual between protocols. Do not describe this as automatic failover or infer host availability from two addresses.
+After installation, test both protocols and distinct observed exit IPs on both devices, DNS/IPv6 behavior and reboot persistence. Switching is manual between protocols. Do not describe this as automatic failover or infer host availability from two addresses. Historical migration checkpoints are recorded in the launch evidence.

@@ -13,7 +13,6 @@ export interface DeploymentConfig {
   rootVolumeGiB: number;
   globalTags: Record<string, string>;
   runtime?: {
-    stage: 'reference' | 'prepared' | 'cutover' | 'managed';
     awgEnabled: boolean;
   };
 }
@@ -48,7 +47,7 @@ export function getDeployment(id: string | undefined): DeploymentConfig {
   }
   const { deployments, ...shared } = defaults;
   const config = { ...shared, ...deployments[id as keyof typeof deployments], id };
-  // JSON is checked at this boundary, including the migration stage and AWG checkpoint constraint.
+  // Validate catalog JSON at the boundary before building any cloud resources.
   return validateDeployment(config as DeploymentConfig);
 }
 
@@ -66,10 +65,8 @@ export function validateDeployment(config: DeploymentConfig): DeploymentConfig {
     || !Number.isInteger(config.rootVolumeGiB) || config.rootVolumeGiB < 8) {
     throw new Error('Deployment requires a pinned AMI, t3 instance and root disk of at least 8 GiB.');
   }
-  if (config.runtime && (!['reference', 'prepared', 'cutover', 'managed'].includes(config.runtime.stage)
-    || typeof config.runtime.awgEnabled !== 'boolean'
-    || (config.runtime.awgEnabled && config.runtime.stage !== 'managed'))) {
-    throw new Error('Runtime stage must be explicit; AWG requires the completed Xray migration.');
+  if (config.runtime && (typeof config.runtime.awgEnabled !== 'boolean' || Object.hasOwn(config.runtime, 'stage'))) {
+    throw new Error('Migration stages are retired; runtime requires an explicit awgEnabled boolean.');
   }
   return { ...config, globalTags: validateGlobalTags(config.globalTags) };
 }

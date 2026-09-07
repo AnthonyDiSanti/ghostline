@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { getDeployment } from '../lib/config.js';
 import { composeConfig, parseJson, validateAddresses, validateBundle } from '../lib/runtime.js';
 import { generateAwgProfiles } from '../lib/awg.js';
+import { profileQr, vpnLink } from '../lib/profile-share.js';
+import { installationArchive } from '../lib/archive.js';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const [target, action, protocol = 'xray', bundleArg, ...extra] = process.argv.slice(2);
@@ -59,13 +61,11 @@ function exportXray() {
   // Export once; overwriting the source bundle during migration would obscure identity preservation.
   if (existsSync(bundlePath)) throw new Error('Recovery bundle already exists; choose a new explicit path to export again.');
   const state = outputs();
-  if (config.runtime && config.runtime.stage !== 'reference' && config.runtime.stage !== 'prepared') {
-    throw new Error('Reference export must precede EIP cutover.');
-  }
-  const source = parseJson(ssh(state.EndpointIp!, 'sudo python3 -', readFileSync(resolve(root, 'runtime/export-xray.py'))).toString());
+  const container = config.runtime ? 'ghostline-xray' : 'amnezia-xray';
+  const source = parseJson(ssh((config.runtime ? state.AwgEndpointIp : state.EndpointIp)!, `sudo python3 - ${container}`, readFileSync(resolve(root, 'runtime/export-xray.py'))).toString());
   if (!source.versionText.startsWith('Xray 26.7.28 ')) throw new Error('Observed Xray version differs from the migration pin.');
   const bundle = validateBundle({ version: 1, deployment: config.id,
-    sourceInstanceId: state.ReferenceInstanceId ?? state.InstanceId, xrayVersion: '26.7.28', files: source.files }, config.id);
+    sourceInstanceId: state.InstanceId, xrayVersion: '26.7.28', files: source.files }, config.id);
   privateDirectory(resolve(bundlePath, '..'));
   writeFileSync(bundlePath, JSON.stringify(bundle, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
   console.log(`Saved complete Xray recovery bundle: ${bundlePath} (${Object.keys(bundle.files).length} files; secret values withheld).`);
@@ -100,7 +100,7 @@ function build() {
 function managedState() {
   // Cross-check the ENI and staging EIP against EC2 before sending credentials to a host.
   const state = outputs();
-  if (!state.ManagedInstanceId || !state.AwgEndpointIp) throw new Error('Deploy the prepared managed host first.');
+  if (!state.ManagedInstanceId || !state.AwgEndpointIp) throw new Error('Deploy the managed host first.');
   const instance = aws(['ec2', 'describe-instances', '--instance-ids', state.ManagedInstanceId]).Reservations[0].Instances[0];
   const nic = instance.NetworkInterfaces.find((item: any) => item.NetworkInterfaceId === state.ManagedNetworkInterfaceId);
   if (instance.State.Name !== 'running' || !nic || instance.ImageId !== config.amiId
@@ -138,8 +138,8 @@ function bootstrap() {
 
 function install() {
   const { state, addresses } = managedState();
-  if (protocol === 'awg' && (!config.runtime?.awgEnabled || config.runtime.stage !== 'managed' || state.ReferenceInstanceId)) {
-    throw new Error('AWG installation requires owner-verified Xray migration and retirement of the reference host.');
+  if (protocol === 'awg' && !config.runtime?.awgEnabled) {
+    throw new Error('Enable and deploy AWG infrastructure before installing the protocol.');
   }
   const image = parseJson(readFileSync(resolve(work, `${protocol}-image.json`), 'utf8'));
   const compose = composeConfig(protocol as 'xray' | 'awg', image.tag, addresses);
@@ -170,7 +170,7 @@ function install() {
         resolve(work, `${protocol}.tar`), `ubuntu@${state.AwgEndpointIp}:ghostline-${protocol}.tar`]);
       ssh(state.AwgEndpointIp!, `sudo docker load -i ghostline-${protocol}.tar >/dev/null && rm ghostline-${protocol}.tar`);
     }
-    const tar = run('tar', ['-C', staging, '-cf', '-', 'config', 'compose.json']);
+    const tar = installationArchive(staging);
     ssh(state.AwgEndpointIp!, `sudo install -d -m 0700 /opt/ghostline/${protocol} && sudo tar --no-same-owner -xf - -C /opt/ghostline/${protocol}`, tar);
     if (protocol === 'xray') {
       ssh(state.AwgEndpointIp!, 'sudo docker compose -f /opt/ghostline/xray/compose.json run --rm --no-deps xray -test -config /opt/amnezia/xray/server.json');
@@ -185,7 +185,7 @@ function install() {
 function generateAwg() {
   // Peer creation is an explicit one-time action, never part of boot or ordinary installation.
   const { state } = managedState();
-  if (config.runtime?.stage !== 'managed' || state.ReferenceInstanceId) throw new Error('Complete the Xray checkpoint and retire the reference host before generating AWG profiles.');
+  if (!config.runtime) throw new Error('AWG profiles require a managed deployment.');
   if (existsSync(bundlePath)) throw new Error('AWG credentials already exist; installation reuses them.');
   const folder = resolve(bundlePath, '..');
   privateDirectory(folder);
@@ -195,6 +195,20 @@ function generateAwg() {
     writeFileSync(resolve(folder, `${name}.conf`), profile, { mode: 0o600, flag: 'wx' });
   }
   console.log(`Saved independent macOS/iOS AWG profiles and server configuration in ${folder}; credentials withheld.`);
+}
+
+async function shareAwg() {
+  // Derive portable imports from existing peer files without generating or changing any credentials.
+  if (protocol !== 'awg') throw new Error('Profile sharing currently supports AWG only.');
+  const folder = resolve(bundlePath, '..');
+  for (const name of ['macos', 'ios']) {
+    const file = resolve(folder, `${name}.conf`);
+    if (statSync(file).mode & 0o077) throw new Error('Peer configuration permissions must be 0600.');
+    const profile = readFileSync(file, 'utf8');
+    writeFileSync(resolve(folder, `${name}.vpn`), vpnLink(profile) + '\n', { mode: 0o600 });
+    writeFileSync(resolve(folder, `${name}-qr.png`), await profileQr(profile), { mode: 0o600 });
+  }
+  console.log(`Saved local VPN-link files and QR images in ${folder}; no keys printed or uploaded.`);
 }
 
 function verify() {
@@ -225,28 +239,28 @@ function verify() {
       throw new Error('AWG has not applied its UDP 443 configuration.');
     }
   }
-  // A staging Xray address has no EIP yet; perform the real egress check once AWS associates one.
+  // Both protocols require their assigned live EIP; missing associations must fail verification.
   const associated = nic.PrivateIpAddresses.find((item: any) => item.PrivateIpAddress === expectedIp)?.Association?.PublicIp;
-  if (associated) {
-    const expectedPublic = protocol === 'xray' ? state.EndpointIp : state.AwgEndpointIp;
-    const actualPublic = ssh(state.AwgEndpointIp!, `sudo docker exec ghostline-${protocol} wget -T 15 -qO- https://checkip.amazonaws.com`).toString().trim();
-    if (associated !== expectedPublic || actualPublic !== expectedPublic) throw new Error('Observed protocol egress does not match its assigned EIP.');
-  }
-  console.log(`${protocol}: running; private listener/kernel SNAT verified; configuration preserved${associated ? '; actual egress matches its EIP' : '; public egress awaits cutover'}. Device browsing remains a separate check.`);
+  if (!associated) throw new Error('Protocol private address has no associated EIP.');
+  const expectedPublic = protocol === 'xray' ? state.EndpointIp : state.AwgEndpointIp;
+  const actualPublic = ssh(state.AwgEndpointIp!, `sudo docker exec ghostline-${protocol} wget -T 15 -qO- https://checkip.amazonaws.com`).toString().trim();
+  if (associated !== expectedPublic || actualPublic !== expectedPublic) throw new Error('Observed protocol egress does not match its assigned EIP.');
+  console.log(`${protocol}: running; private listener/kernel SNAT verified; configuration preserved; actual egress matches its EIP. Device browsing remains a separate check.`);
 }
 
 try {
-  if (extra.length || !['xray', 'awg'].includes(protocol)) throw new Error('Usage: npm run runtime <target> <export|build|trust|bootstrap|generate|install|verify> [xray|awg] [bundle-path]');
+  if (extra.length || !['xray', 'awg'].includes(protocol)) throw new Error('Usage: npm run runtime <target> <export|build|trust|bootstrap|generate|share|install|verify> [xray|awg] [bundle-path]');
   privateDirectory(work);
   switch (action) {
-    case 'export': if (protocol !== 'xray') throw new Error('Reference export supports Xray only.'); exportXray(); break;
+    case 'export': if (protocol !== 'xray') throw new Error('Runtime export supports Xray only.'); exportXray(); break;
     case 'build': build(); break;
     case 'trust': pinHostKey(); break;
     case 'bootstrap': bootstrap(); break;
     case 'generate': if (protocol !== 'awg') throw new Error('Existing Xray identities must be imported.'); generateAwg(); break;
+    case 'share': await shareAwg(); break;
     case 'install': install(); break;
     case 'verify': verify(); break;
-    default: throw new Error('Select a runtime action: export, build, trust, bootstrap, generate, install, verify.');
+    default: throw new Error('Select a runtime action: export, build, trust, bootstrap, generate, share, install, verify.');
   }
 } catch (error) {
   // Errors raised above are fixed diagnostics, never captured command output or secret JSON.

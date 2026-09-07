@@ -20,7 +20,7 @@
       "amiId": "ami-01effbf5effae5715",
       "stackName": "GhostlinePoc",
       "resourceName": "ghostline-poc-cape-town",
-      "runtime": { "stage": "cutover", "awgEnabled": false }
+      "runtime": { "awgEnabled": true }
     }
   }
 }

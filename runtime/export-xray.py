@@ -2,11 +2,12 @@
 import base64
 import json
 import subprocess
+import sys
 
 
 def docker(*args):
     # Capture secret output; the caller writes this stream directly to a protected bundle.
-    return subprocess.check_output(["docker", "exec", "amnezia-xray", *args], stderr=subprocess.DEVNULL)
+    return subprocess.check_output(["docker", "exec", sys.argv[1], *args], stderr=subprocess.DEVNULL)
 
 
 names = docker("find", "/opt/amnezia/xray", "-maxdepth", "1", "-type", "f").decode().splitlines()
