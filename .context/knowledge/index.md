@@ -4,6 +4,6 @@ Start here before vendor/infrastructure integration work. Stable Ghostline behav
 
 - [Amnezia launch notes](amnezia.md) — installer temporary-directory failure and credential handling.
 - [Reference repository notes](reference-repository.md) — location, provenance, stale-note pitfalls, and safe reuse boundaries for personal-assistant.
-- [Region/privacy research](../../docs/region-selection.md) — EFF/ORG rationale, current official age-check sources, and limits of country-based recommendations. Recheck before choosing an exit; no tested replacement yet.
+- [Region/privacy research](../../docs/region-selection.md) — EFF/ORG rationale, official age-check sources, supplied Cape Town research and limits of country-based recommendations. Cape Town is the selected parallel trial; owner-reported macOS/iOS practical trials passed; avoid inferring unreported subtests.
 
 Add a topic only when it prevents repeated investigation. Link useful external documentation from the canonical topic that depends on it; do not build a parallel vendor-doc encyclopedia here.

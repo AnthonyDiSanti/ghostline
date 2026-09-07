@@ -12,10 +12,12 @@
     "test:vitest": "vitest run",
     "test:cdk": "node --import=tsx scripts/synth-test.ts",
     "test": "npm run build && npm run test:cdk && npm run test:vitest",
-    "synth": "cdk synth --profile personal",
-    "diff": "cdk diff --profile personal",
-    "deploy": "cdk deploy --profile personal --outputs-file ../.local/outputs.json",
-    "cdk": "cdk"
+    "synth": "node --import=tsx scripts/deployment.ts synth",
+    "diff": "node --import=tsx scripts/deployment.ts diff",
+    "deploy": "node --import=tsx scripts/deployment.ts deploy",
+    "cdk": "cdk",
+    "preflight": "node --import=tsx scripts/deployment.ts preflight",
+    "deployments": "node --import=tsx scripts/deployment.ts list"
   },
   "dependencies": {
     "aws-cdk-lib": "2.268.0",

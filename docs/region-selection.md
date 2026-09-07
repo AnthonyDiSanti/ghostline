@@ -1,6 +1,6 @@
 # Endpoint region and destination privacy
 
-Research snapshot: 2026-09-07. Frankfurt is deployed and both device browsing trials passed, but Anthony encountered an age-verification prompt and considers mandatory identity disclosure incompatible with Ghostline's privacy requirements. No region migration has been performed.
+Decision snapshot: 2026-09-07. Anthony selected Cape Town (`af-south-1`) for the next trial after supplying [additional research](archive/vpn-location-research.md). Preserve Frankfurt and deploy an independent second endpoint to test privacy, performance and IaC repeatability. This supersedes the provisional Canada recommendation and earlier replacement/teardown plan. Frankfurt’s device browsing trials passed, but mandatory verification signup remains a privacy failure.
 
 ## Requirement and evidence
 
@@ -16,7 +16,14 @@ EFF warns that age-verification systems can expose identifying information, asso
 
 Do not reuse older country comparisons as current law. EFF's April 2025 EU analysis predates the Commission's March 2026 preliminary DSA findings against four major adult platforms. Those findings concern insufficient protection of minors and effective age verification; they do not establish that every EU website currently requires identity disclosure. [EFF EU analysis](https://www.eff.org/deeplinks/2025/04/digital-identities-and-future-age-verification-europe), [Commission findings](https://germany.representation.ec.europa.eu/nachrichten-und-veranstaltungen/pressemitteilungen/schutz-von-minderjahrigen-pornhub-stripchat-xnxx-und-xvideos-verstossen-gegen-das-gesetz-uber-2026-03-26_de).
 
-## Candidate assessment
+## Selected trial: Cape Town
+
+The supplied report favors South Africa for internet openness and lower age-verification pressure. Its external citation tokens cannot be resolved from the imported file, so its absence-of-law finding remains attributed to that research. Independently consulted [Freedom House’s 2025 South Africa assessment](https://freedomhouse.org/country/south-africa/freedom-net/2025), which rates internet freedom Free, 73/100 and reports no website blocking. Neither this rating nor country choice guarantees a destination will omit verification. Anthony subsequently reported the Cape Town macOS and iOS practical trials passed; see [launch evidence](launch-cape-town.md). No quantitative Dubai performance benchmark or exhaustive legal guarantee follows from that report.
+
+AWS account monitoring observed `af-south-1` transition from `ENABLING` to `ENABLED` after Anthony enabled it. Regional EC2 preflight then confirmed the pinned Canonical image, AZ and instance offering. [Deployment workflow](development.md) owns the commands; [Cape Town launch evidence](launch-cape-town.md) owns resulting resources and client checks.
+
+## Earlier candidate assessment (superseded selection)
+
 
 | Region | Evidence and assessment |
 | --- | --- |
@@ -25,12 +32,12 @@ Do not reuse older country comparisons as current law. EFF's April 2025 EU analy
 | Paris | Not a suitable alternative: France enforces age-verification obligations on covered adult sites. [Arcom](https://www.arcom.fr/en/press/online-pornography-new-steps-taken-protect-persons-under-18). |
 | Zurich | Not an assured escape from age checks: the Swiss Federal Council's February 2026 answer states that covered providers, including pornography platforms, must check age, while acknowledging enforcement challenges. This is not a claim that every foreign site applies a Swiss identity check. [Parliamentary answer 25.4615](https://ws-old.parlament.ch/affairs/20254615). |
 | Stockholm / other EU regions | Do not assume absence of national identity checks guarantees access: the EU enforcement described above also matters. Actual current site behavior is untested. |
-| Canada Central (`ca-central-1`) | Recommended next candidate to test, not an approved migration or guarantee. Parliament currently lists pornography bill S-209 at second reading in the Commons, not enacted. A changing policy landscape remains a risk. [S-209 status](https://www.parl.ca/legisinfo/en/bill/45-1/s-209). |
+| Canada Central (`ca-central-1`) | Previously proposed candidate; superseded by the owner-selected Cape Town trial. Parliament currently lists pornography bill S-209 at second reading in the Commons, not enacted. A changing policy landscape remains a risk. [S-209 status](https://www.parl.ca/legisinfo/en/bill/45-1/s-209). |
 
 Canada also introduced Bill C-34 (Safe Social Media Act) on June 10, 2026; treat proposed measures separately from enacted obligations and recheck status before deployment. [Government proposal](https://www.canada.ca/en/canadian-heritage/services/safe-social-media-act.html), [Parliament status](https://www.parl.ca/legisinfo/en/bill/45-1/c-34). The AWS region identifier is confirmed in [AWS's region list](https://docs.aws.amazon.com/global-infrastructure/latest/regions/aws-regions.html).
 
-Canada is farther from Dubai than Frankfurt; higher latency is an engineering expectation, not a measured result. Pending S-209 is evidence about that bill, not an exhaustive finding that Canada has no relevant obligations. No candidate has yet been demonstrated to satisfy both the privacy and Dubai-performance requirements, and no jurisdiction guarantees that every site will omit verification. Test the actual browsing experience, including normal video use, from a candidate exit before accepting it. Canada remains a provisional trial recommendation, not a demonstrated solution.
+Canada is farther from Dubai than Frankfurt; higher latency is an engineering expectation, not a measured result. Pending S-209 is evidence about that bill, not an exhaustive finding that Canada has no relevant obligations. At the earlier comparison stage no candidate had been tested; Cape Town has since passed the owner-reported macOS/iOS practical trial. No jurisdiction guarantees that every site will omit verification. Test the actual browsing experience, including normal video use, from a candidate exit before accepting it. Canada was not selected; Cape Town is the current trial.
 
-## Migration implications
+## Independent deployment implications
 
-Changing countries requires regional AWS resources and a new regional AMI/EIP, followed by Amnezia/profile updates. Retire the Frankfurt stack and explicitly release its retained EIP after accepting the replacement; do not leave an unintended second permanent endpoint. Keep the one-host steady-state topology, cost tags and secret-storage boundaries. Migration execution remains a subsequent work unit after candidate selection and prompt clarification.
+Cape Town gets regional AWS resources, an AMI/EIP, dedicated SSH key and fresh Amnezia runtime/profile identity. Keep Frankfurt intact, including its retained EIP and device profiles. There is one host per target, now two explicitly authorized targets; no automatic failover or lifecycle controller is needed. Future selectable/on-demand exits should reuse these boundaries. Deletion and retained-EIP cleanup require an explicit lifecycle decision, not an implicit consequence of changing the preferred region.

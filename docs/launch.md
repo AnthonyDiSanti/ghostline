@@ -1,4 +1,6 @@
-# PoC launch evidence
+# Frankfurt launch evidence
+
+Frankfurt remains preserved during the separately authorized [Cape Town trial](launch-cape-town.md).
 
 Observed 2026-09-07. Infrastructure and the Amnezia XRay runtime are deployed. Native macOS tunnel/reconnect checks pass, and Anthony reported practical macOS browsing passed on 2026-09-07. Anthony also reported the iOS test passed. Video remains unconfirmed; a reported age-verification prompt creates an unresolved destination-privacy issue. This records launch activities, not a general operations manual.
 

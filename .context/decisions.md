@@ -1,11 +1,29 @@
 # Decisions
 
+## 2026-09-07 — Correct the agent's npm environment
+
+- Decider: Anthony requested addressing the unknown-env-config warning; Codex traced its source.
+- Evidence: The managed command environment injects both cases of `npm_config_http_proxy` alongside supported `npm_config_proxy` and `npm_config_https_proxy` pointing at the same managed proxy. No matching setting was found in inspected npm/shell configuration or shell snapshots; both invalid names occur in the installed Codex executable. Installed npm defines `proxy` and `https-proxy`, not `http-proxy`.
+- Action: Omit only the unsupported duplicate names from agent-run npm commands, retaining supported proxy settings and normal warning levels. Record the machine-specific command correction in ignored `AGENTS.local.md`; no application wrapper or cloud change is needed.
+- Verification: Full npm test passed all 42 assertions without the unknown-env-config warning. `npm config get proxy` confirmed the supported proxy value was unchanged. Registry ping passed with the environment's normal network escalation; the initial sandboxed ping encountered ECONNRESET.
+- Limit: This corrects agent invocations; Codex still injects the invalid names. Drop the command adjustment once the upstream runtime fixes environment generation. Global instructions were not changed.
+
+## 2026-09-07 — Add Cape Town while preserving Frankfurt
+
+- Decider: Anthony (trial, preservation and future direction); Codex (implementation boundary).
+- Decision: Add one independent Cape Town endpoint from the same minimal IaC. Preserve Frankfurt and its profiles. Prepare for future selectable/on-demand exits through named deployment configuration, not a fleet controller or HA design.
+- Implementation: Explicit target commands, regional AMI/AZ pins, separate artifacts/SSH key and unchanged consolidated cost tags. Keep Frankfurt’s stack/resource identities; live diff confirmed no changes. Amnezia remains the runtime installer, with fresh identity per host.
+- Evidence: Archive the supplied VPN location research under `docs/archive/`; external citation tokens remain unresolved. Region monitoring observed ENABLING then ENABLED and a successful EC2 preflight after Anthony enabled Cape Town.
+- Workflow breadcrumb: AGENTS now states one endpoint stack per explicit target, requires preserving other deployments, and routes agents to the selected target's launch record. Auto-review initially rejected agent-driven region enablement; Anthony performed it, resolving that prerequisite without changing IAM controls.
+- Result: Cape Town deployed; Amnezia XRay installation and native Mac exit/HTTPS succeeded. Both exits work when selected, and both CDK diffs are clean. Saved dedicated key, VPN-only profile and two-server recovery export locally.
+- Trial update: Anthony reported Cape Town macOS and iOS tests passed. LastPass saves remain unconfirmed; keep automated lifecycle management deferred.
+
 ## 2026-09-07 — Make destination identity disclosure a release constraint
 
 - Decider: Anthony.
 - Decision: Mandatory identity verification or compulsory age-verification signup during intended browsing, including adult content, breaches Ghostline privacy requirements; choose another exit region if location causes the requirement.
 - Evidence: Anthony reported iOS practical testing passed, then confirmed an age-verification flow requiring signup. German adult-access rules are confirmed; the specific browser and triggering location remain unconfirmed. EFF/ORG guidance supports the privacy concern but supplies no country whitelist; current EU/Swiss sources prevent assuming nearby regions are exempt.
-- Follow-up: `docs/region-selection.md` records sourced findings and Canada Central as a candidate. No cloud/config migration performed; keep one endpoint as the steady-state topology.
+- Superseded follow-up: Canada was a provisional candidate and one endpoint was the earlier scope. Anthony subsequently selected a parallel Cape Town trial while preserving Frankfurt; see the decision above.
 
 ## 2026-09-07 — Implement the complete reference setup, then debug
 

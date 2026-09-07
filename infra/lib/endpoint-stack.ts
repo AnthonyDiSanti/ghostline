@@ -45,7 +45,7 @@ export class EndpointStack extends Stack {
       securityGroupEgress: [{ ipProtocol: '-1', cidrIp: '0.0.0.0/0', description: 'Tunnel and installer internet egress' }],
     });
     const key = new ec2.CfnKeyPair(endpoint, 'SshKey', {
-      keyName: 'ghostline-poc', publicKeyMaterial: launch.sshPublicKey,
+      keyName: config.resourceName, publicKeyMaterial: launch.sshPublicKey,
     });
     const instance = new ec2.CfnInstance(endpoint, 'Instance', {
       imageId: config.amiId, instanceType: config.instanceType, keyName: key.ref,
@@ -58,7 +58,7 @@ export class EndpointStack extends Stack {
     });
     instance.addResourceDependency(route);
     instance.addResourceDependency(subnetRoutes);
-    Tags.of(instance).add('Name', 'ghostline-poc');
+    Tags.of(instance).add('Name', config.resourceName);
 
     // Retain the address independently of the host; its own cost tags survive disassociation.
     const eip = new ec2.CfnEIP(endpoint, 'PublicAddress', { domain: 'vpc' });
@@ -70,6 +70,6 @@ export class EndpointStack extends Stack {
     new CfnOutput(this, 'InstanceId', { value: instance.ref });
     new CfnOutput(this, 'EndpointIp', { value: eip.ref });
     new CfnOutput(this, 'EipAllocationId', { value: eip.attrAllocationId });
-    new CfnOutput(this, 'SshCommand', { value: `ssh -i .local/keys/ghostline-poc ubuntu@${eip.ref}` });
+    new CfnOutput(this, 'SshCommand', { value: `ssh -i .local/keys/${config.resourceName} ubuntu@${eip.ref}` });
   }
 }

@@ -2,6 +2,9 @@ import { isIP } from 'node:net';
 import defaults from '../deployment.json' with { type: 'json' };
 
 export interface DeploymentConfig {
+  id: string;
+  stackName: string;
+  resourceName: string;
   account: string;
   region: string;
   availabilityZone: string;
@@ -32,10 +35,34 @@ export function validateGlobalTags(tags: Record<string, string>): Record<string,
   return { ...tags };
 }
 
-export const deployment: DeploymentConfig = {
-  ...defaults,
-  globalTags: validateGlobalTags(defaults.globalTags),
-};
+export const deploymentIds = Object.keys(defaults.deployments);
+
+export function getDeployment(id: string | undefined): DeploymentConfig {
+  // Reject missing/unknown targets instead of silently deploying into the default AWS region.
+  if (!id || !Object.hasOwn(defaults.deployments, id)) {
+    throw new Error(`Select a deployment: ${deploymentIds.join(', ')}.`);
+  }
+  const { deployments, ...shared } = defaults;
+  const config = { ...shared, ...deployments[id as keyof typeof deployments], id };
+  return validateDeployment(config);
+}
+
+export function validateDeployment(config: DeploymentConfig): DeploymentConfig {
+  // Pin regional inputs and identities; an AZ from a different region must fail before AWS calls.
+  if (!/^[a-z][a-z0-9-]*$/.test(config.id) || !/^[A-Za-z][A-Za-z0-9-]{0,127}$/.test(config.stackName)
+    || !/^[a-z][a-z0-9-]{0,100}$/.test(config.resourceName)) {
+    throw new Error('Invalid deployment, stack or resource name.');
+  }
+  if (!/^\d{12}$/.test(config.account) || !/^[a-z]{2}(?:-[a-z]+)+-\d+$/.test(config.region)
+    || !new RegExp(`^${config.region}[a-z]$`).test(config.availabilityZone)) {
+    throw new Error('Deployment requires an account and matching region/availability zone.');
+  }
+  if (!/^ami-[a-f0-9]{17}$/.test(config.amiId) || !/^t3\.[a-z0-9]+$/.test(config.instanceType)
+    || !Number.isInteger(config.rootVolumeGiB) || config.rootVolumeGiB < 8) {
+    throw new Error('Deployment requires a pinned AMI, t3 instance and root disk of at least 8 GiB.');
+  }
+  return { ...config, globalTags: validateGlobalTags(config.globalTags) };
+}
 
 export function validateLaunchInputs(input: LaunchInputs): LaunchInputs {
   // SSH always targets one operator address; moving networks must not widen the access rule.

@@ -1,9 +1,25 @@
 {
   "account": "757999402784",
-  "region": "eu-central-1",
-  "availabilityZone": "eu-central-1a",
-  "amiId": "ami-03f92a7a8a26c81af",
   "instanceType": "t3.small",
   "rootVolumeGiB": 20,
-  "globalTags": { "Project": "ghostline", "Environment": "prod" }
+  "globalTags": {
+    "Project": "ghostline",
+    "Environment": "prod"
+  },
+  "deployments": {
+    "frankfurt": {
+      "region": "eu-central-1",
+      "availabilityZone": "eu-central-1a",
+      "amiId": "ami-03f92a7a8a26c81af",
+      "stackName": "GhostlinePoc",
+      "resourceName": "ghostline-poc"
+    },
+    "cape-town": {
+      "region": "af-south-1",
+      "availabilityZone": "af-south-1a",
+      "amiId": "ami-01effbf5effae5715",
+      "stackName": "GhostlinePoc",
+      "resourceName": "ghostline-poc-cape-town"
+    }
+  }
 }

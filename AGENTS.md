@@ -21,9 +21,9 @@ If root `AGENTS.local.md` exists, read it for machine-specific command/environme
 
 ## Code and commands
 
-The executable CDK package is under `infra/`. Use Node 24 and `npm ci`; `npm test` runs typechecking, fresh offline synth, and Vitest assertions. `npm run synth`, `npm run diff`, and `npm run deploy` require the launch inputs documented in `docs/development.md`. Read `docs/launch.md` before touching the deployed endpoint.
+The executable CDK package is under `infra/`. Use Node 24 and `npm ci`; `npm test` runs typechecking, fresh offline synth, and Vitest assertions. `npm run synth <target>`, `npm run diff <target>`, and `npm run deploy <target>` require the launch inputs documented in `docs/development.md`. Read the target's launch record linked from `docs/README.md` before touching a deployed endpoint.
 
-Use npm under `infra/`, strict TypeScript, a thin CDK CLI and shared testable app builder. Prefer one straightforward endpoint stack. Keep nonsecret configuration separate from runtime secret values; LastPass is the personal/admin store and Parameter Store is the application-secret store.
+Use npm under `infra/`, strict TypeScript, a thin CDK CLI and shared testable app builder. Prefer one straightforward endpoint stack per explicitly selected deployment. Preserve existing targets unless their modification or removal is authorized; see the named catalog and scoped commands in `docs/development.md`. Keep nonsecret configuration separate from runtime secret values; LastPass is the personal/admin store and Parameter Store is the application-secret store.
 
 For non-trivial code changes:
 - Add short intent comments to non-obvious functions/blocks.

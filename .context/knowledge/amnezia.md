@@ -9,3 +9,8 @@ Consult before retrying client/server installation. Sources: official [requireme
 
 - Actual XRay source `client/core/protocols/xrayProtocol.cpp` calls `StopRoutingIpv6` on connect and restores routing on stop. GUI exposes Soft KillSwitch, enabled in this setup; native IPv6 remains unverified because the tested network lacks successful IPv6-only resolution.
 - SSH to the endpoint times out while the Mac tunnel is connected; disconnect before Amnezia server administration. Do not broaden the AWS SSH range to diagnose client routing.
+- For a second region, generate a separate RSA4096 key with `ssh-keygen -m PEM`, and add a new self-hosted server through Manual → XRay. Keep the existing server/profile; IaC does not clone installer-managed runtime state. Use distinct names for recovery/device exports.
+- If Qt's AX state changes but the screenshot remains on the previous page, raise the window using its exposed Raise action, then refresh AX/screenshot before choosing controls.
+
+- Qt AX clicks on server radio buttons can change the displayed checkmark without applying the selected server. Click the visible server row, then verify the main screen’s endpoint IP and native egress. Switching requires disconnecting first.
+- On macOS 5.0.1.5 the Connection export’s Share button opens a local Save dialog: `Pages2/PageShareConnection.qml` calls `getFileName(..., true)` then `ExportUiController::exportConfig` → `SystemController::saveFile` → `QFile`. Mobile branches differ. Source verification resolved an auto-review rejection of the ambiguous Share label; do not assume other Share controls are local exports.
