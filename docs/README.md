@@ -8,6 +8,7 @@ Read by task. These documents are the current project specification, incorporati
 | Choose or change infrastructure/runtime ownership | [Architecture](architecture.md) | EC2 topology, Amnezia reference phase, configuration/secrets boundaries |
 | Scaffold, write, or verify implementation | [Development](development.md) | Code layout, npm command contract, testing, first implementation sequence |
 | Migrate credentials or install owned containers | [Runtime](runtime.md) | Local bundles, pinned builds, client imports, protocol installation and verification |
+| Compare Fargate, stopped EC2 and cold rebuild costs | [Lifecycle assessment](deployment-lifecycle.md) | Protocol compatibility, Cape Town price model and on-demand management tradeoffs |
 | Reuse personal-assistant code or conventions | [Reference reuse](reference-reuse.md) | Source locations, adaptation decisions, possible shared components |
 | Inspect deployed resources, launch actions and device evidence | [Frankfurt launch/retirement](launch.md), [Cape Town launch](launch-cape-town.md) | Per-target lifecycle state, nonsecret observations and remaining trial work |
 | Select an endpoint country against destination privacy requirements | [Region assessment](region-selection.md) | Age-verification research, candidate rationale and migration constraints |

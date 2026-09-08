@@ -15,7 +15,7 @@
 
 ## Next steps
 
-1. The authorized runtime/AWG work unit is complete and ready for Anthony's commit; no further deployment or client changes are needed for this pass.
+1. The runtime/AWG work unit is committed as `2582219`. Anthony requested an on-demand platform/cost analysis; [assessment](../docs/deployment-lifecycle.md) is complete. Recommend EC2 stop/start for retained identities, cold release for rare exits; Fargate cannot run the current AWG TUN/NET_ADMIN runtime. No lifecycle implementation is authorized yet.
 2. Anthony saves recovery material in LastPass if not already done. Required current artifacts: `.local/keys/ghostline-poc-cape-town`, `.local/recovery/cape-town-runtime.json` (or the byte-equivalent `cape-town-owned-runtime.json`), and all three `.conf` files in `.local/recovery/cape-town-awg/`. VPN links/QRs can be regenerated from those peer files. Vault saves remain unconfirmed and are owner-mediated; this does not block the code commit.
 3. Retain evidence limits for future trials: Xray showed Cloudflare resolvers, but AWG-specific resolver/routes were not separately observed. No usable direct IPv6 baseline was available, so IPv6 leak prevention is not certified. These are follow-up observations, not expanded acceptance gates.
 
@@ -27,6 +27,12 @@
 - Recovery: owned-runtime export `.local/recovery/cape-town-owned-runtime.json` matches all six original file values. Export exposed AppleDouble sidecars from Mac tar; disable metadata in the archive helper and remove only verified sidecars from the server. Real configs remain untouched.
 - npm uses local Node 24.20.0 and NPM_CONFIG_CACHE=/tmp/ghostline-npm-cache. Follow `AGENTS.local.md`: omit only unsupported npm_config_http_proxy/NPM_CONFIG_HTTP_PROXY, preserve supported proxies/warnings. AWS/SSH/Docker need sandbox escalation here.
 - SSH trust for staging address was pinned from authenticated EC2 console keys. Use `15.240.94.162` for managed-host administration; do not blindly replace the old Xray-address known-host entry. Disconnect the Mac tunnel before SSH; never widen its operator /32.
-- Started clean at `cee7d4c`; this continuation is uncommitted and the index is untouched. Original retirement and live AWG install are complete. Preserve the SSH KeyPair historical tag; retagging would replace it and could cascade to the working host.
+- Current analysis started clean at `2582219`; only analysis/docs/context changes are uncommitted and the index is untouched. Original retirement and live AWG install are complete. Preserve the SSH KeyPair historical tag; retagging would replace it and could cascade to the working host.
 
 - Commit prep: record Anthony’s final device passes, close the runtime task and update current product/agent status. Documentation-only edits this turn reuse the passing 66-test implementation gate and clean live diff. Fresh credential scan, 90 local documentation links, Python syntax, manifest/lockfile consistency and `git diff --check` passed. No cloud/client changes or generated artifact refreshes; index remains untouched.
+
+- Lifecycle assessment verification: inspect current runtime/CDK, query official Cape Town prices, verify cost arithmetic. No deployments, instance state changes or live client tests; estimates exclude traffic/credits/tax unless explicitly shown. Runtime tests were not rerun for this documentation-only analysis.
+
+- Cost clarification: retaining EIPs is possible with Fargate through separately provisioned ingress/egress gateways. Even deleting those gateways while idle leaves an illustrative Xray-only break-even of only ~27.4 active hours/month against EC2 stop/start; keeping them deployed is more costly even at zero tasks. Details/formulas added to the assessment.
+
+- Mac client repair (2026-09-07): user reported running app with no windows after restart/reinstall. Found persistent `Conf.startMinimized=true`; backed up preferences, stopped only GUI, disabled that setting and relaunched. Window responds and both profiles remain; encrypted profile blob/default identity verified unchanged. Client is left disconnected; no cloud/runtime changes. See knowledge note for exact recovery. Existing dirty lifecycle research is preserved.

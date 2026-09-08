@@ -118,3 +118,16 @@
 - Result: Close the iPhone AWG import/practical/manual-switch and Mac post-reboot AWG checkpoints. The authorized one-host, two-protocol work unit is complete; do not repeat accepted tests or add deployment work before commit.
 - Evidence limit: This is practical owner confirmation, not a new agent-measured IP/DNS/IPv6 result. LastPass recovery saves remain owner-mediated and unconfirmed; document them as a follow-up rather than a code-commit blocker.
 - Instruction breadcrumb: Update AGENTS from planned migration to the validated deployed state.
+
+## 2026-09-07 — Assess on-demand platform choices
+
+- Requester: Anthony; analysis/recommendation by Codex, not an accepted migration decision.
+- Finding: Fargate rejects the TUN device and NET_ADMIN used by current AWG. Direct public Xray tasks could have negligible idle compute/network cost but changing addresses; retained NLB/NAT infrastructure is materially more expensive.
+- Recommendation: Keep the validated EC2 runtime and evaluate explicit stop/start first. Cape Town modeled idle cost is $9.394/month (20 GiB gp3 + two EIPs); deleting disk/compute while retaining IPs saves only $2.094/month. Keep free basic networking. Rare exits can release addresses if profile/discovery changes are acceptable.
+- Follow-up: Choose retained versus disposable identities before designing lifecycle automation. Egress, optional retained storage and CPU surplus charges remain separate. Source/rate details are in `docs/deployment-lifecycle.md`; no cloud changes were made.
+
+## 2026-09-07 — Repair the hidden client window without resetting profiles
+
+- Decider: Codex, within Anthony's request to diagnose and fix the unusable Mac client.
+- Evidence/action: normal idle GUI event loop plus enabled Start minimized preference; back up preferences and disable only `Conf.startMinimized`, then relaunch. Visible UI and both saved profiles returned; encrypted profile data/default identity remain unchanged.
+- Consequence: No full uninstall, credential reset, Keychain edit or server change. Keep Start minimized disabled on this client build; reusable recovery is in `.context/knowledge/amnezia.md`.

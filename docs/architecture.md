@@ -4,7 +4,7 @@ Read when changing an endpoint or deciding which layer owns configuration. [Prod
 
 ## Selected topology
 
-**One Ubuntu 24.04 EC2 instance, one ENI, two private IPv4 addresses and two retained EIPs in Cape Town.** The original reference host remains temporarily until Anthony confirms the migrated Xray service on macOS and iOS. Retire it before installing the alternative protocol. There is no second permanent server and no automatic switching.
+**One Ubuntu 24.04 EC2 instance, one ENI, two private IPv4 addresses and two retained EIPs in Cape Town.** Both device checkpoints passed and the original reference host is retired. There is no second permanent server and no automatic switching.
 
 | Gateway | Published listener | Outbound identity |
 | --- | --- | --- |
@@ -62,3 +62,5 @@ The owner confirmed both unchanged Xray profiles; the reference host/disk and te
 Mirror personal-assistant's case-sensitive dimensions: `Project=ghostline`, `Environment=prod`, and resource-owned `System`. Shared managed compute/root disk/networking use `System=shared`; protocol EIPs use `System=xray` and `System=amneziawg`. The existing unbilled SSH KeyPair keeps its historical `System=xray` tag because changing its tags requires resource replacement. Root-volume tags propagate from EC2; verify actual tags. Keep account-wide billing controls unchanged and use Cost Explorer's native Region dimension.
 
 Both EIPs have Retain policies and remain billable after stack deletion until explicitly released. The EC2 root disk deletes with its host. Neither preserving an EIP nor retaining a catalog entry preserves runtime credentials; the recovery bundle supplies that state.
+
+For the researched Fargate versus EC2 start/stop/rebuild tradeoffs, see the [on-demand lifecycle assessment](deployment-lifecycle.md). Its recommendations are not deployed lifecycle features.
