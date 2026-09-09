@@ -4,13 +4,18 @@ Task IDs are ULIDs. Keep active items limited to concrete planned or in-progress
 
 ## Active
 
+- id: 01K4M00000000000000000001 — title: Deploy Stockholm and add explicit regional lifecycle — owner: Codex — status: awaiting iOS and owner practical validation — last update: 2026-09-09
+  - Authorized: Independent Stockholm Xray/AWG deployment, preserving Cape Town; reusable stack with retained-IP parking/redeploy and explicit PoC full release.
+  - Implemented: Named Stockholm target, active/parked EndpointStack, scoped destroy/release with retry record, fresh per-device Xray generation and VLESS sharing. Full gate 82 tests; disposable Xray/AWG tests pass.
+  - Live: Initial deploy and park passed; original EIPs remained tracked and tagged. Redeploy with preserved IPs and both runtime installations passed. Mac Xray, isolated AWG and two guarded native AWG reconnect tests passed. Native AWG renewed its session, passed 30/30 sustained HTTPS/exit checks, with one brief ping/DNS loss; original outage was not reproduced. Automatic recovery restored direct internet and left the Mac disconnected. iOS/owner practical performance remain pending.
+
 - id: 01K4HEGQ000000000000000002 — title: Implement the first connectivity experiment — owner: Codex — status: awaiting owner recovery confirmation — last update: 2026-09-07
   - Goal: Scaffold CDK/TypeScript/npm, launch one EC2 instance with one EIP in Frankfurt running Amnezia when requested, and obtain macOS/iOS connection evidence.
   - Done: Implement/test/deploy CDK; verify tags and SSH; install XRay; export recovery/iPhone profiles; verify Mac native exit, HTTPS and reconnect; record Anthony’s 2026-09-07 practical macOS and iOS test passes.
   - Added: Named target commands/preflight, independent Cape Town IaC deployment, manual XRay install, local recovery/device exports, clean diffs and successful native Mac switching between both exits.
   - Trial: Anthony confirmed Cape Town macOS and iOS tests passed on 2026-09-07.
   - Retirement: Delete Frankfurt stack and explicitly release its retained EIP at Anthony’s request; verify no residual volumes/addresses/snapshots/stacks and unchanged Cape Town health. Complete on 2026-09-07.
-  - Next: Confirm LastPass saves; record any further usage or sleep/network-transition observations without expanding PoC gates. Frankfurt was retired at Anthony’s request; keep Cape Town live.
+  - Next: Confirm LastPass saves. On 2026-09-09 Anthony reported both Cape Town protocols too slow and requested a nearer primary while preserving Cape Town as backup. Anthony excludes Tel Aviv; region research recommends Frankfurt if age verification is ignored, otherwise a Stockholm trial; Stockholm deployment is now authorized and tracked above. See `docs/region-selection.md`.
   - Scope: `docs/development.md` and `docs/product.md`; reference-phase task; the separately authorized runtime migration is tracked above.
 
 ## Paused / Blocked

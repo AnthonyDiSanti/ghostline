@@ -2,9 +2,9 @@
 
 ## Scope and operating stance
 
-Ghostline is a personal connectivity PoC. The Amnezia-managed Xray reference passed macOS/iOS practical tests. Xray and AmneziaWG now run on one Ghostline-managed Ubuntu 24.04 host with separate EIPs; Anthony confirmed both final device checks passed. See `docs/runtime.md` and the Cape Town launch record for the checkpoint state.
+Ghostline is a personal connectivity PoC. The Amnezia-managed Xray reference passed macOS/iOS practical tests. The Cape Town checkpoint runs Xray and AmneziaWG on one Ghostline-managed Ubuntu 24.04 host with separate EIPs; Anthony confirmed both final device checks passed there. Stockholm is now deployed separately with passing agent-run Mac checks; its iOS and owner practical trials remain pending. See `docs/runtime.md` and the regional launch records.
 
-Preserve observed protocol choices and credential identity during runtime changes. The unchanged macOS/iOS Xray migration checkpoint passed and the original host is retired. The final topology has one host, two protocols and two EIPs, with manual client switching. Do not introduce HA, ECS/ECR infrastructure, Parameter Store plumbing, a rollback framework or an installer audit as prerequisites.
+Preserve observed protocol choices and credential identity during runtime changes. The unchanged macOS/iOS Xray migration checkpoint passed and the original host is retired. Each active region has one host, two protocols and two EIPs, with manual client switching. Stockholm is the primary trial and Cape Town the backup; read each launch record before changes. Do not introduce HA, ECS/ECR infrastructure, Parameter Store plumbing, a rollback framework or an installer audit as prerequisites.
 
 Keep secrets out of git and preserve existing production-account controls. Product scope is defined in `docs/product.md`; do not silently promote deferred work into acceptance gates.
 
@@ -25,7 +25,7 @@ The executable CDK package is under `infra/`. Use Node 24 and `npm ci`; `npm tes
 
 Runtime commands are `npm run runtime <target> <action> [xray|awg] [bundle-path]`; see `docs/runtime.md`. Tests with disposable containers use `npm run test:runtime <target> <protocol>` after building that image. Runtime helpers require pinned SSH trust and keep source secrets out of output. Anthony intermediates LastPass activity.
 
-Use npm under `infra/`, strict TypeScript, a thin CDK CLI and shared testable app builder. Prefer one straightforward endpoint stack per explicitly selected deployment. Preserve existing targets unless their modification or removal is authorized; see the named catalog and scoped commands in `docs/development.md`. Keep nonsecret configuration separate from runtime secret values; LastPass is the personal/admin store and Parameter Store is the application-secret store.
+Use npm under `infra/`, strict TypeScript, a thin CDK CLI and shared testable app builder. Prefer one straightforward endpoint stack per explicitly selected deployment. Preserve existing targets unless their modification or removal is authorized; see the named catalog and scoped commands in `docs/development.md`. Use `park <target>` to retain tracked EIPs and `destroy <target>` to release disposable exits; preserve runtime credentials before removing an installed host. Keep nonsecret configuration separate from runtime secret values; LastPass is the personal/admin store and Parameter Store is the application-secret store.
 
 For non-trivial code changes:
 - Add short intent comments to non-obvious functions/blocks.

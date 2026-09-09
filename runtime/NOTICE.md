@@ -7,7 +7,7 @@ Ghostline adapts the server packaging and protocol-parameter decisions from
 
 AmneziaVPN is copyright its upstream contributors and distributed under GPLv3;
 the accompanying `LICENSE.amnezia` preserves that license. The adapted AWG
-generation in `infra/lib/awg.ts` and runtime recipes follow those terms.
+generation in `infra/lib/awg.ts`, Xray settings in `infra/lib/xray.ts`, and runtime recipes follow those terms.
 See upstream [third-party terms](https://github.com/amnezia-vpn/amnezia-client/blob/5.0.1.5/THIRD_PARTY_LICENSES.md)
 for its dependencies. Ghostline retains upstream protocol implementations;
 it does not fork the desktop application.

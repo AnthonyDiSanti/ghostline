@@ -11,4 +11,6 @@ const publicKeyPath = process.env.GHOSTLINE_SSH_PUBLIC_KEY_PATH;
 if (!cidr || !publicKeyPath) {
   throw new Error('Set GHOSTLINE_SSH_CIDR and GHOSTLINE_SSH_PUBLIC_KEY_PATH before running CDK.');
 }
-buildApp({ operatorSshCidr: cidr, sshPublicKey: readFileSync(publicKeyPath, 'utf8') }, deployment);
+const lifecycle = process.env.GHOSTLINE_LIFECYCLE ?? 'active';
+if (!['active', 'parked'].includes(lifecycle)) throw new Error('Invalid lifecycle state.');
+buildApp({ operatorSshCidr: cidr, sshPublicKey: readFileSync(publicKeyPath, 'utf8') }, deployment, {}, lifecycle as 'active' | 'parked');

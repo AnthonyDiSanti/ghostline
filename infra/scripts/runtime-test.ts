@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { generateKeyPairSync, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { generateXrayProfiles } from '../lib/xray.js';
 import { generateAwgProfiles } from '../lib/awg.js';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -16,22 +17,20 @@ const temp = mkdtempSync(resolve(tempRoot, 'fixture-'));
 const name = `ghostline-test-${randomUUID()}`;
 
 function docker(args: string[], success = true) {
-  // Only disposable credentials enter this test; even their subprocess diagnostics remain private.
+  // Only disposable credentials enter this test, so failures can include useful subprocess diagnostics.
   const result = spawnSync('docker', args, { encoding: 'utf8' });
-  if (success) assert.equal(result.status, 0, `Docker test command failed: ${args[0]}`);
+  if (success) assert.equal(result.status, 0, `Docker test command failed: ${args[0]}\n${result.stdout}\n${result.stderr}`);
   return result;
 }
 
 try {
   const mount = protocol === 'xray' ? '/opt/amnezia/xray' : '/etc/amnezia/amneziawg';
   if (protocol === 'xray') {
-    const keys = generateKeyPairSync('x25519');
-    writeFileSync(resolve(temp, 'server.json'), JSON.stringify({
-      inbounds: [{ port: 443, protocol: 'vless', settings: { clients: [{ id: randomUUID(), flow: 'xtls-rprx-vision' }], decryption: 'none' },
-        streamSettings: { network: 'tcp', security: 'reality', realitySettings: { dest: 'www.googletagmanager.com:443', serverNames: ['www.googletagmanager.com'],
-          privateKey: keys.privateKey.export({ type: 'pkcs8', format: 'der' }).subarray(-32).toString('base64url'), shortIds: ['0123456789abcdef'] } } }],
-      outbounds: [{ protocol: 'freedom' }], log: { loglevel: 'error' },
-    }), { mode: 0o600 });
+    // Exercise the same generator used for a fresh deployment against the pinned Xray binary.
+    const generated = generateXrayProfiles(target, 'disposable-test', '127.0.0.1');
+    writeFileSync(resolve(temp, 'server.json'), Buffer.from(generated.bundle.files['server.json']!, 'base64'), { mode: 0o600 });
+    writeFileSync(resolve(temp, 'client.json'), JSON.stringify(generated.profiles.macos), { mode: 0o600 });
+    docker(['run', '--rm', '--platform', 'linux/amd64', '--entrypoint', '/usr/bin/xray', '-v', `${temp}:/test:ro`, metadata.tag, '-test', '-config', '/test/client.json']);
   } else {
     const generated = generateAwgProfiles('127.0.0.1');
     writeFileSync(resolve(temp, 'awg0.conf'), generated.serverConfig, { mode: 0o600 });

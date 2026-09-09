@@ -20,7 +20,19 @@
       "amiId": "ami-01effbf5effae5715",
       "stackName": "GhostlinePoc",
       "resourceName": "ghostline-poc-cape-town",
-      "runtime": { "awgEnabled": true }
+      "runtime": {
+        "awgEnabled": true
+      }
+    },
+    "stockholm": {
+      "region": "eu-north-1",
+      "availabilityZone": "eu-north-1a",
+      "amiId": "ami-035c8a091035e710a",
+      "stackName": "GhostlinePoc",
+      "resourceName": "ghostline-poc-stockholm",
+      "runtime": {
+        "awgEnabled": true
+      }
     }
   }
 }

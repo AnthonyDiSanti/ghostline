@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getDeployment } from '../lib/config.js';
 import { composeConfig, parseJson, validateAddresses, validateBundle } from '../lib/runtime.js';
+import { generateXrayProfiles, xrayLink } from '../lib/xray.js';
 import { generateAwgProfiles } from '../lib/awg.js';
 import { profileQr, vpnLink } from '../lib/profile-share.js';
 import { installationArchive } from '../lib/archive.js';
@@ -122,9 +123,13 @@ function pinHostKey() {
   const existing = existsSync(knownHosts) ? readFileSync(knownHosts, 'utf8').split('\n') : [];
   const previous = existing.filter(line => line.startsWith(`${state.AwgEndpointIp} `));
   const lines = keys.map((key: string) => `${state.AwgEndpointIp} ${key}`);
-  if (previous.some(line => !lines.includes(line))) throw new Error('Pinned staging host key changed; inspect explicitly before replacing trust.');
-  writeFileSync(knownHosts, [...new Set([...existing.filter(Boolean), ...lines])].join('\n') + '\n', { mode: 0o600 });
-  console.log('Pinned managed host keys from authenticated EC2 console output.');
+  // An explicit trust action can accept a rebuilt host only after live ENI/EIP and authenticated console checks.
+  if (previous.some(line => !lines.includes(line))) {
+    writeFileSync(knownHosts + '.previous', existing.join('\n') + '\n', { mode: 0o600 });
+  }
+  writeFileSync(knownHosts, [...new Set([...existing.filter(line => line && !line.startsWith(`${state.AwgEndpointIp} `)), ...lines])].join('\n') + '\n', { mode: 0o600 });
+  writeFileSync(knownHosts + '.instance', state.ManagedInstanceId! + '\n', { mode: 0o600 });
+  console.log(`Pinned host ${state.ManagedInstanceId} keys from authenticated EC2 console output.`);
 }
 
 function bootstrap() {
@@ -197,16 +202,32 @@ function generateAwg() {
   console.log(`Saved independent macOS/iOS AWG profiles and server configuration in ${folder}; credentials withheld.`);
 }
 
-async function shareAwg() {
+function generateXray() {
+  // Generation is opt-in and cannot overwrite a recovery bundle or existing device files.
+  const { state } = managedState();
+  const folder = resolve(bundlePath + '.clients');
+  if (existsSync(bundlePath) || existsSync(folder)) throw new Error('Xray credentials already exist; installation reuses them.');
+  const generated = generateXrayProfiles(config.id, state.ManagedInstanceId!, state.EndpointIp!);
+  privateDirectory(resolve(bundlePath, '..'));
+  privateDirectory(folder);
+  writeFileSync(bundlePath, JSON.stringify(generated.bundle, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
+  for (const [name, profile] of Object.entries(generated.profiles)) {
+    writeFileSync(resolve(folder, `${name}.json`), JSON.stringify(profile, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
+  }
+  console.log(`Saved independent Xray recovery bundle and macOS/iOS profiles in ${folder}; credentials withheld.`);
+}
+
+async function share() {
   // Derive portable imports from existing peer files without generating or changing any credentials.
-  if (protocol !== 'awg') throw new Error('Profile sharing currently supports AWG only.');
-  const folder = resolve(bundlePath, '..');
+  const folder = protocol === 'awg' ? resolve(bundlePath, '..') : resolve(bundlePath + '.clients');
   for (const name of ['macos', 'ios']) {
-    const file = resolve(folder, `${name}.conf`);
+    const file = resolve(folder, `${name}.${protocol === 'awg' ? 'conf' : 'json'}`);
     if (statSync(file).mode & 0o077) throw new Error('Peer configuration permissions must be 0600.');
     const profile = readFileSync(file, 'utf8');
-    writeFileSync(resolve(folder, `${name}.vpn`), vpnLink(profile) + '\n', { mode: 0o600 });
-    writeFileSync(resolve(folder, `${name}-qr.png`), await profileQr(profile), { mode: 0o600 });
+    const link = protocol === 'awg' ? vpnLink(profile) : xrayLink(parseJson(profile), `Ghostline ${config.id} Xray ${name}`);
+    // Amnezia treats a trailing VLESS newline as part of its display-name fragment.
+    writeFileSync(resolve(folder, `${name}.vpn`), link + (protocol === 'awg' ? '\n' : ''), { mode: 0o600 });
+    writeFileSync(resolve(folder, `${name}-qr.png`), await profileQr(protocol === 'awg' ? profile : link), { mode: 0o600 });
   }
   console.log(`Saved local VPN-link files and QR images in ${folder}; no keys printed or uploaded.`);
 }
@@ -256,8 +277,8 @@ try {
     case 'build': build(); break;
     case 'trust': pinHostKey(); break;
     case 'bootstrap': bootstrap(); break;
-    case 'generate': if (protocol !== 'awg') throw new Error('Existing Xray identities must be imported.'); generateAwg(); break;
-    case 'share': await shareAwg(); break;
+    case 'generate': if (protocol === 'awg') generateAwg(); else generateXray(); break;
+    case 'share': await share(); break;
     case 'install': install(); break;
     case 'verify': verify(); break;
     default: throw new Error('Select a runtime action: export, build, trust, bootstrap, generate, share, install, verify.');

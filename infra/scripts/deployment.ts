@@ -39,7 +39,7 @@ function preflight(config: DeploymentConfig) {
 
 // Keep lifecycle actions explicit; no region enablement, fleet loop, or automatic deletion is hidden here.
 const [action, target, ...extra] = process.argv.slice(2);
-if (extra.length) throw new Error('Usage: npm run <synth|diff|deploy|preflight> <deployment>');
+if (extra.length) throw new Error('Usage: npm run <synth|diff|deploy|park|preflight> <deployment>');
 if (action === 'list') {
   if (target) throw new Error('deployments takes no arguments.');
   for (const id of deploymentIds) {
@@ -49,12 +49,21 @@ if (action === 'list') {
 } else if (action === 'preflight') {
   preflight(getDeployment(target));
 } else {
-  const command = deploymentCommand(action ?? '', target, infraDir);
+  const command = deploymentCommand(action === 'park' ? 'deploy' : action ?? '', target, infraDir);
   if (action !== 'synth') preflight(command.config);
   mkdirSync(command.artifactDir, { recursive: true, mode: 0o700 });
   console.log(`Target: ${command.config.id} (${command.config.account}/${command.config.region}/${command.config.stackName})`);
+  const environment = { ...process.env, GHOSTLINE_DEPLOYMENT: command.config.id, GHOSTLINE_LIFECYCLE: action === 'park' ? 'parked' : 'active' };
+  if (action === 'park') {
+    // Refuse to allocate idle addresses for a target that has never been deployed.
+    const stack = aws(command.config, ['cloudformation', 'describe-stacks', '--stack-name', command.config.stackName]).Stacks[0];
+    if (!['CREATE_COMPLETE', 'UPDATE_COMPLETE'].includes(stack.StackStatus)) throw new Error('Only a completed stack can be parked.');
+    const diff = spawnSync(process.execPath, [resolve(infraDir, 'node_modules/aws-cdk/bin/cdk'),
+      ...deploymentCommand('diff', target, infraDir).args], { cwd: infraDir, stdio: 'inherit', env: environment });
+    if (diff.error || diff.status !== 0) throw new Error('Park diff failed.');
+  }
   const child = spawnSync(process.execPath, [resolve(infraDir, 'node_modules/aws-cdk/bin/cdk'), ...command.args], {
-    cwd: infraDir, stdio: 'inherit', env: { ...process.env, GHOSTLINE_DEPLOYMENT: command.config.id },
+    cwd: infraDir, stdio: 'inherit', env: environment,
   });
   if (child.error) throw child.error;
   process.exitCode = child.status ?? 1;

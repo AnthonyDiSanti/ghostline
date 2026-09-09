@@ -15,7 +15,7 @@ The PoC is both a useful connection and a reference experiment. Use Amnezia's ex
 | Owner | Anthony; one administrator and one initial user |
 | Devices | macOS laptop and iOS phone, including concurrent use; exact OS/client versions recorded at launch |
 | Infrastructure | AWS CDK / TypeScript; existing production AWS account; dedicated project resources |
-| Region | Cape Town is live; Frankfurt was retired after the successful comparison, with its deployment recipe retained |
+| Region | Stockholm is the authorized primary trial; retain Cape Town as a slower backup; Frankfurt is retired |
 | Transport | Preserve Xray / VLESS / REALITY TCP 443; use independently credentialed AmneziaWG UDP 443 as the manual alternative |
 | Runtime ownership | Ghostline-managed containers on one Ubuntu host with two EIPs; preserve upstream product choices |
 | Routing | Prefer full-device routing; use off-the-shelf clients |
@@ -49,12 +49,12 @@ Loss of the endpoint and AWS management access can leave the PoC unavailable. Ma
 
 ## Later, only when useful
 
-Support a few manually selectable exits and on-demand environment lifecycles later. The current work establishes one shared host with manually selectable protocols. Automatic switching is neither implemented nor an assumed future capability.
+Support explicit named exits with one shared host per region, manual protocol selection and park/redeploy/destroy commands. Retain EIPs only when useful; release disposable PoC exits to avoid idle charges. Automatic switching is neither implemented nor an assumed future capability.
 
 - Add Windows and Android; extend router support to OpenWrt/GL.iNet with third-party packages allowed and UI on/off control as a soft goal.
 - Add further exits or another protocol in response to observed need. Keep independent runtime identities for each endpoint.
 - Consider ECR image delivery and ECS only if they help. Fargate requires a separate design; it is not a committed destination.
-- Add independent friend access or on-demand lifecycle controls if requested.
+- Add independent friend access or scheduled lifecycle controls if requested.
 - Revisit streaming geographic catalogs if desired; no Netflix/catalog acceptance now.
 
 No public service, custom client, user portal, HA deployment, multi-region test program, automatic rotation, or elaborate operational framework is part of the initial experiment.

@@ -12,13 +12,14 @@ Use the single npm package under `infra/`, following the reference repository's 
 | `infra/cdk.json`, `tsconfig.json`, `vitest.config.ts` | CDK invocation, TypeScript settings, test setup |
 | `infra/bin/ghostline.ts` | Thin CLI entrypoint |
 | `infra/lib/app.ts` | Testable app builder receiving explicit configuration |
-| `infra/lib/endpoint-stack.ts` | Single endpoint's AWS resource wiring |
+| `infra/lib/endpoint-stack.ts` | Reusable regional endpoint; active or parked resource graph |
+| `infra/lib/lifecycle.ts`, `infra/scripts/destroy.ts` | Scoped stack deletion and explicit retained-EIP release |
 | `infra/deployment.json`, `infra/lib/config.ts` | Named regional targets, shared defaults and validation |
 | `infra/lib/commands.ts`, `infra/scripts/deployment.ts` | Explicit target selection, isolated artifacts and live preflight |
 | `infra/test/` | Focused configuration and synthesized-resource assertions |
 | `infra/scripts/` | Only launch/verification helpers that earn their existence |
 
-Create `ops/` or a runtime/container directory when there are actual assets to own. Do not create empty framework layers or a custom Amnezia replacement during scaffolding.
+Keep shared wiring in `EndpointStack`; the named catalog supplies regional inputs without duplicating stacks or introducing a fleet controller.
 
 ## TypeScript and npm
 
@@ -48,13 +49,15 @@ Run these commands from `infra/` with Node 24 selected. Tests require no AWS cre
 | `npm run preflight <target>` | Check account, region enablement, AMI, AZ and instance offering |
 | `npm run synth <target>` | Synthesize the intended deployment configuration; no implicit secret reads |
 | `npm run diff <target>` | Preview the selected stack's AWS changes |
-| `npm run deploy <target>` | Apply the reviewed deployment when launch is authorized |
+| `npm run deploy <target>` | Create/recreate the active host/networking and reattach any parked EIPs |
+| `npm run park <target>` | Preview and remove host/disk/networking; keep only the tracked, billable EIPs |
+| `npm run destroy <target>` | Delete this stack and explicitly release its retained EIPs |
 
 Start with straightforward npm composition. Do not copy the large parallel phase runner, synth-cache locking, plugin suites, container lints, or image workflows before Ghostline needs them. Add container checks when we own container assets.
 
 ## Deployment inputs
 
-`deployment.json` contains shared account/sizing/cost dimensions and named targets. Each target owns region, AZ, pinned AMI, stack name and resource/key name. `frankfurt` retains the original deployment recipe; `cape-town` is the live regional stack. The catalog lists available configurations, not live AWS inventory; consult the launch records for lifecycle state. The same stack name in different regions identifies different CloudFormation stacks. Adding a second environment in one region would require distinct stack and resource names. Cape Town selects the managed topology with `runtime: { "awgEnabled": true }`; see [Runtime](runtime.md).
+`deployment.json` contains shared account/sizing/cost dimensions and named targets. Each target owns region, AZ, pinned AMI, stack name and resource/key name. `frankfurt` retains the original deployment recipe; `cape-town` is the backup and `stockholm` is the authorized primary trial. The catalog lists available configurations, not live AWS inventory; consult the launch records for lifecycle state. The same stack name in different regions identifies different CloudFormation stacks. Adding a second environment in one region would require distinct stack and resource names. Cape Town and Stockholm select the managed topology with `runtime: { "awgEnabled": true }`; see [Runtime](runtime.md).
 
 The target is a positional npm-script argument, so use `npm run deploy cape-town`. The `--` separator is only needed when forwarding options that npm might otherwise interpret (for example `npm run test:vitest -- --reporter=verbose`); our deployment helper accepts only the target.
 
@@ -86,7 +89,7 @@ Wait for `ENABLED` and a passing preflight. Do not hide account enablement insid
 
 The asset-free stack uses CDK's built-in `LegacyStackSynthesizer` with current CLI credentials and an inline CloudFormation template. No bootstrap roles/bucket/repository are required. Offline synthesis verifies that no deployment role, bootstrap requirement, or file asset has crept in, and that the template remains below the inline size limit. Reconsider the synthesizer when adding managed runtime assets; do not add a custom compatibility layer.
 
-Each target pins its own AMI/AZ. Both initial targets use Canonical Ubuntu 24.04 server build `20260904`, with distinct regional AMI IDs. CDK portability warnings are expected; preflight verifies availability without silently upgrading an existing host. Resolve future image pins using [Canonical image discovery](https://documentation.ubuntu.com/aws/en/latest/aws-how-to/instances/find-ubuntu-images/) and verify them through AWS before deployment. L1 EC2 resources keep incidental IAM/custom resources out of the topology. See [architecture](architecture.md) for resource lifetime and billing tags.
+Each target pins its own AMI/AZ. All three targets use Canonical Ubuntu 24.04 server build `20260904`, with distinct regional AMI IDs. CDK portability warnings are expected; preflight verifies availability without silently upgrading an existing host. Resolve future image pins using [Canonical image discovery](https://documentation.ubuntu.com/aws/en/latest/aws-how-to/instances/find-ubuntu-images/) and verify them through AWS before deployment. L1 EC2 resources keep incidental IAM/custom resources out of the topology. See [architecture](architecture.md) for resource lifetime and billing tags.
 
 ## Verification principles
 
@@ -108,4 +111,24 @@ For documentation-only changes, inspect changed links and scope consistency acro
    - Current evidence: owner-reported macOS/iOS practical tests pass for both exits; native Mac switching also passes. Individual privacy, concurrency, video and IPv6 subtests were not separately enumerated. See [Frankfurt](launch.md) and [Cape Town](launch-cape-town.md) evidence. LastPass saves remain unconfirmed.
 6. Decide from the experiment whether to adjust the setup, stop, try an alternative, or specify our own deterministic runtime.
 
-Cape Town repeated the same stack workflow and Amnezia Manual → XRay installation with fresh runtime identity while preserving Frankfurt. Use that workflow for future authorized targets. IaC recreates the host, not its installer-managed runtime. No fleet controller, automatic protocol switching, scheduled shutdown or automated recovery is part of this work. The follow-on runtime migration is now authorized and implemented through the separate workflow linked above.
+Cape Town repeated the same stack workflow and Amnezia Manual → XRay installation with fresh runtime identity while preserving Frankfurt. New targets use Ghostline runtime generation and installation, without Amnezia server orchestration. IaC recreates the host; protected local bundles restore its runtime identity. No fleet controller, automatic protocol switching, scheduled shutdown or automated recovery is part of this work. The follow-on runtime migration is now authorized and implemented through the separate workflow linked above.
+
+## On-demand regional lifecycle
+
+`EndpointStack` is reusable across explicit account/region configurations. Active state contains the one-host topology. Parked state contains only its retained EIP resources with unchanged logical IDs, properties and cost tags. CloudFormation still owns the allocations, so the next ordinary `deploy` reuses them. No separate bootstrap, registry, controller, load balancer or NAT gateway is created.
+
+Choose the intended outcome explicitly:
+
+```sh
+npm run park stockholm      # Delete host/root disk and networking; keep paying for the same IPs.
+npm run diff stockholm      # Preview recreation with the retained IPs.
+npm run deploy stockholm   # Recreate host/networking; restore runtime using the existing local files.
+# Or, when the PoC exit is no longer useful:
+npm run destroy stockholm  # Delete stack, wait, then release its exact retained allocations.
+```
+
+Parking destroys runtime data on the root disk. Preserve the SSH key, Xray bundle and device JSON files, and all three AWG configurations before parking an installed endpoint. After redeployment, run `trust`, `bootstrap`, `install` and `verify` for both protocols; do not regenerate credentials. Private IPs and host SSH keys may change; installation renders the new bindings. Explicit `trust` verifies the current EC2 instance/ENI/EIP and console keys, archives prior trust when needed, and pins the new host.
+
+During the PoC, prefer `destroy` when abandoning a region. Catalog entries and local recovery material cost no AWS allocation fees and do not keep hosts or IPs alive. `destroy` needs AWS access but no SSH key/AMI preflight. It captures CloudFormation's address inventory into `.local/deployments/<target>/pending-release.json` before deletion, waits for `DELETE_COMPLETE`, then verifies that each remaining allocation still belongs to that exact stack and is unattached before releasing it. A retry resumes the original stack ARN after partial failure; completion renames the record to `last-release.json`. Inspect any refusal instead of disassociating or releasing unrelated addresses. Do not bypass the helper with plain CDK/CloudFormation deletion unless you intend to track and release retained IPs manually.
+
+Releasing IPs means a future launch receives new addresses, requiring client endpoint updates. Parking preserves addresses but is not an encrypted credential backup. See [cost assessment](deployment-lifecycle.md) for the recurring EIP charge.

@@ -1,5 +1,15 @@
 # Decisions
 
+## 2026-09-09 — Retain Cape Town as backup and reassess a nearer primary
+
+- Decider: Anthony reports unacceptable speed on both AWG and REALITY, confirms Frankfurt was substantially faster, and wants Cape Town preserved for verification problems. He excludes Tel Aviv because he does not want a persistent UAE-to-Israel connection; this is an owner constraint, not a measured surveillance claim.
+- Recommendation: Codex recommends Stockholm (`eu-north-1`) for the next independent trial, superseding the earlier Tel Aviv recommendation. No new location or deployment is authorized yet.
+- Rationale: Stockholm is approximately Frankfurt-distance from Dubai. Milan is only marginally closer and Italy enforces pornography age checks; Zurich also has relevant age-check obligations. Sweden rejected specific pornography verification motions in January 2026, while broader national/EU age-assurance work remains a limitation. Frankfurt is a known faster option if the owner accepts its observed verification friction.
+- Scenario clarification: Anthony then asked to ignore age verification in the comparison. Under that assumption, recommend Frankfurt first because its performance is owner-proven. Keep this conditional; no product requirement or deployment authorization changed. Broad internet access does not imply literally zero content blocking.
+- Latest direction: Anthony agrees Stockholm is worth testing as the intended primary, preserving Cape Town as backup. Treat actual speed as unverified and do not infer launch authorization from the recommendation discussion.
+- Milan comparison: Codex favors Stockholm independently of age verification because Italy’s Piracy Shield adds content-blocking and reported collateral-blocking risk. Sweden also has targeted blocks; neither AWS egress was measured. The roughly 100 km distance difference does not establish a speed winner.
+- Follow-up: Compare real Dubai performance and browsing pass/fail before promotion; both protocols being slow does not rule out their shared host as a bottleneck. Preserve existing resources/profiles. Evidence and the full-AWS-region scope live in `docs/region-selection.md`.
+
 ## 2026-09-07 — Own the runtime with a credential-preserving Xray checkpoint
 
 - Decider: Anthony authorized implementation after selecting AmneziaWG, shared compute and a staged ownership migration.
@@ -131,3 +141,17 @@
 - Decider: Codex, within Anthony's request to diagnose and fix the unusable Mac client.
 - Evidence/action: normal idle GUI event loop plus enabled Start minimized preference; back up preferences and disable only `Conf.startMinimized`, then relaunch. Visible UI and both saved profiles returned; encrypted profile data/default identity remain unchanged.
 - Consequence: No full uninstall, credential reset, Keychain edit or server change. Keep Start minimized disabled on this client build; reusable recovery is in `.context/knowledge/amnezia.md`.
+
+## 2026-09-09 — Stockholm and explicit address lifecycle (Anthony / Codex)
+
+- Anthony authorized deploying Stockholm with both protocols and retaining Cape Town as backup. Use the same Canonical Ubuntu 24.04 build in eu-north-1, one host/two EIPs and independent regional credentials.
+- Anthony requested reusable regional stacks, retained-IP redeployment and explicit PoC release. Extend existing `EndpointStack` with active/parked states: parked leaves only tracked EIPs, and active reattaches them. `destroy` deletes the stack then releases only its captured, still-owned unattached allocations. Prefer full release for abandoned PoC exits; no idle addresses allocated merely by adding catalog entries.
+- Fresh Xray generation follows the inspected Amnezia 5.0.1.5 REALITY/Vision settings with separate device UUIDs. Standard VLESS imports/QRs avoid returning to Amnezia's server installer. Cape Town credentials and deployment are untouched.
+
+- Agent contract updated to scope the one-host constraint per region and name the explicit retention/release commands, matching Anthony’s new multi-region lifecycle request.
+
+## 2026-09-09 — Guard disruptive AWG client testing (Anthony / Codex)
+
+- Anthony explicitly authorized reconnecting AWG to diagnose the Mac outage, with local recovery if connectivity fails. Verify Amnezia's own daemon deactivate API, arm a bounded local watchdog before connecting, run controlled probes and always restore disconnected/direct state after the test. No security controls, runtime credentials or server configuration are relaxed to make the test pass.
+
+- Commit-prep breadcrumb: clarify that the owner-confirmed Apple checkpoint is Cape Town, with Stockholm iOS/practical trials still pending; replace stale AppleScript UI guidance with the verified CUA Raise workflow.

@@ -1,6 +1,6 @@
 # Owned runtime and client profiles
 
-Read before installing containers or changing the Cape Town deployment. [Architecture](architecture.md) owns the final topology; [launch evidence](launch-cape-town.md) owns live identifiers and actual device results.
+Read before installing containers or changing a regional deployment. [Architecture](architecture.md) owns the final topology; [launch records](README.md) own live identifiers and actual device results.
 
 ## Ownership and packaging
 
@@ -20,12 +20,16 @@ The bundle is a protected plaintext local file, not encrypted vault storage. Dir
 
 For AWG, explicit generation creates `.local/recovery/cape-town-awg/awg0.conf`, `macos.conf` and `ios.conf`, each mode `0600`. The server and two peers have independent keys, with a distinct preshared key per peer. Installation never generates or rotates identities. Profiles use Amnezia's inspected 3.1 defaults, UDP 443, MTU 1280, full-device routes including IPv6 capture, and Cloudflare DNS. Actual client DNS/IPv6 protection remains a device test, not a claim from generated text.
 
+For a fresh owned deployment, `npm run runtime stockholm generate xray` creates `.local/recovery/stockholm-runtime.json` and per-device JSON profiles in `.local/recovery/stockholm-runtime.json.clients/`. It creates a fresh REALITY key pair, short ID and separate macOS/iOS UUIDs using the inspected reference settings. `generate awg` creates the corresponding Stockholm AWG directory. Both refuse to overwrite existing credentials. Generate once; restore the same files after parking/rebuilding. Export remains the path for preserving an existing Xray installation.
+
 ## Commands
 
 From `infra/`, with Node 24 selected:
 
 | Command | Effect |
 | --- | --- |
+| `npm run runtime stockholm generate xray` | Create independent server identity and two client profiles for a new regional endpoint |
+| `npm run runtime stockholm share xray` | Derive local VLESS link files and QR images from existing client JSON |
 | `npm run runtime cape-town export` | Export the current Xray configuration to a new protected bundle |
 | `npm run runtime cape-town build xray` | Build/load/save the pinned amd64 Xray image locally |
 | `npm run test:runtime cape-town xray` | Test startup, restart and malformed-configuration exit with disposable credentials |
@@ -46,7 +50,7 @@ An unchanged installation preserves the container and credentials. A changed ima
 
 ## Deployment and client imports
 
-Cape Town uses `runtime: { "awgEnabled": true }`. A catalog entry without `runtime` retains the original single-address reference recipe; Frankfurt is not deployed. Temporary migration stages are retired and rejected by validation. Keep the permanent host, ENI, retained EIP and SSH key logical identities stable. AWS KeyPair tag changes require replacement, so the existing unbilled key keeps its historical `System=xray` tag.
+Cape Town and Stockholm use `runtime: { "awgEnabled": true }`. A catalog entry without `runtime` retains the original single-address reference recipe; Frankfurt is not deployed. Temporary migration stages are retired and rejected by validation. Keep the permanent host, ENI, retained EIP and SSH key logical identities stable. AWS KeyPair tag changes require replacement, so the existing unbilled key keeps its historical `System=xray` tag.
 
 Run a fresh `npm run diff cape-town` before every authorized deployment. Enabling AWG changes only UDP 443 ingress. Runtime install reconciles each protocol independently on the same host.
 
@@ -55,3 +59,27 @@ Run `share awg` after generation. Import `macos.vpn` through AmneziaVPN → plus
 For iOS, open `.local/recovery/cape-town-awg/ios-qr.png` on the Mac and scan it using AmneziaVPN's connection QR importer. The QR encodes native configuration directly; the app's QR and text-link paths differ. Alternatively transfer `ios.vpn` or `ios.conf` locally and import it. Use separate peer profiles on each device. Generated links and QR images contain credentials and inherit protected local file permissions; no online QR service is used.
 
 After installation, test both protocols and distinct observed exit IPs on both devices, DNS/IPv6 behavior and reboot persistence. Switching is manual between protocols. Do not describe this as automatic failover or infer host availability from two addresses. Historical migration checkpoints are recorded in the launch evidence.
+
+## Fresh regional launch / rebuild
+
+After the scoped CDK deployment, run the following for the selected target (Stockholm shown):
+
+```sh
+npm run runtime stockholm build xray
+npm run runtime stockholm build awg
+npm run runtime stockholm trust
+npm run runtime stockholm bootstrap
+# First launch only; omit both generate commands when restoring saved identity.
+npm run runtime stockholm generate xray
+npm run runtime stockholm generate awg
+npm run runtime stockholm install xray
+npm run runtime stockholm install awg
+npm run runtime stockholm verify xray
+npm run runtime stockholm verify awg
+npm run runtime stockholm share xray
+npm run runtime stockholm share awg
+```
+
+Fresh Xray `.vpn` files contain standard `vless://` links, supported by Amnezia 5.0.1.5's native importer. They include the device UUID, public REALITY key, short ID and endpoint, without the server private key or SSH credentials. Xray QR images encode the same VLESS link. AWG retains its verified native-config QR/compressed-link formats. Import the target's `macos.vpn` through plus → File with connection settings; Anthony imports each `ios-qr.png` using the iPhone QR scanner. Keep Cape Town profiles while testing Stockholm.
+
+After a parked deployment is rebuilt, existing EIPs and client credentials remain valid. `trust` can replace the prior SSH pin only from the authenticated console of the currently verified instance, retaining a local `.previous` file; it never uses unauthenticated `ssh-keyscan`. Then bootstrap and install both protocols from the preserved local files. The runtime generates new Compose bindings for the new private addresses. `deploy` alone does not install containers or restore credentials.

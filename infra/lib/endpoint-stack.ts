@@ -6,6 +6,7 @@ import type { DeploymentConfig, LaunchInputs } from './config.js';
 export interface EndpointStackProps extends StackProps {
   deployment: DeploymentConfig;
   launch: LaunchInputs;
+  lifecycle?: 'active' | 'parked';
 }
 
 export class EndpointStack extends Stack {
@@ -13,6 +14,23 @@ export class EndpointStack extends Stack {
     super(scope, id, props);
     const { deployment: config, launch } = props;
     const managedRuntime = config.runtime !== undefined;
+
+    // Keep address construct paths stable in both states so a redeploy reattaches the same allocations.
+    const endpoint = new Construct(this, 'Endpoint');
+    Tags.of(endpoint).add('System', 'xray');
+    const eip = new ec2.CfnEIP(endpoint, 'PublicAddress', { domain: 'vpc' });
+    eip.applyRemovalPolicy(RemovalPolicy.RETAIN);
+    new CfnOutput(this, 'EndpointIp', { value: eip.ref });
+    new CfnOutput(this, 'EipAllocationId', { value: eip.attrAllocationId });
+    const host = managedRuntime ? new Construct(this, 'ManagedHost') : undefined;
+    const awgAddress = host ? new ec2.CfnEIP(host, 'AwgAddress', { domain: 'vpc' }) : undefined;
+    if (awgAddress) {
+      awgAddress.applyRemovalPolicy(RemovalPolicy.RETAIN);
+      Tags.of(awgAddress).add('System', 'amneziawg');
+      new CfnOutput(this, 'AwgEndpointIp', { value: awgAddress.ref });
+      new CfnOutput(this, 'AwgEipAllocationId', { value: awgAddress.attrAllocationId });
+    }
+    if (props.lifecycle === 'parked') return;
 
     // Plain resources keep this one-host topology free of incidental IAM/custom-resource services.
     const vpc = new ec2.CfnVPC(this, 'Vpc', {
@@ -34,8 +52,6 @@ export class EndpointStack extends Stack {
     const subnetRoutes = new ec2.CfnSubnetRouteTableAssociation(this, 'SubnetRoutes', {
       routeTableId: routeTable.ref, subnetId: subnet.ref,
     });
-    const endpoint = new Construct(this, 'Endpoint');
-    Tags.of(endpoint).add('System', 'xray');
     const securityGroup = managedRuntime ? undefined : new ec2.CfnSecurityGroup(endpoint, 'SecurityGroup', {
       vpcId: vpc.ref, groupDescription: 'Ghostline tunnel and operator SSH',
       securityGroupIngress: [
@@ -68,8 +84,7 @@ export class EndpointStack extends Stack {
     let managed: ec2.CfnInstance | undefined;
     let nic: ec2.CfnNetworkInterface | undefined;
     let xrayPrivateIp: string | undefined;
-    if (managedRuntime) {
-      const host = new Construct(this, 'ManagedHost');
+    if (host && awgAddress) {
       const group = new ec2.CfnSecurityGroup(host, 'SecurityGroup', {
         vpcId: vpc.ref, groupDescription: 'Ghostline managed protocols and operator SSH',
         securityGroupIngress: [
@@ -96,10 +111,7 @@ export class EndpointStack extends Stack {
       managed.addResourceDependency(route);
       managed.addResourceDependency(subnetRoutes);
       Tags.of(managed).add('Name', `${config.resourceName}-managed`);
-      const awgAddress = new ec2.CfnEIP(host, 'AwgAddress', { domain: 'vpc' });
       awgAddress.addResourceDependency(attachment);
-      awgAddress.applyRemovalPolicy(RemovalPolicy.RETAIN);
-      Tags.of(awgAddress).add('System', 'amneziawg');
       const awgAssociation = new ec2.CfnEIPAssociation(host, 'AwgAssociation', {
         allocationId: awgAddress.attrAllocationId, networkInterfaceId: nic.ref, privateIpAddress: nic.attrPrimaryPrivateIpAddress,
       });
@@ -108,22 +120,16 @@ export class EndpointStack extends Stack {
       new CfnOutput(this, 'ManagedNetworkInterfaceId', { value: nic.ref });
       new CfnOutput(this, 'XrayPrivateIp', { value: xrayPrivateIp });
       new CfnOutput(this, 'AwgPrivateIp', { value: nic.attrPrimaryPrivateIpAddress });
-      new CfnOutput(this, 'AwgEndpointIp', { value: awgAddress.ref });
-      new CfnOutput(this, 'AwgEipAllocationId', { value: awgAddress.attrAllocationId });
     }
 
     // Retain the address independently of the host; its own cost tags survive disassociation.
-    const eip = new ec2.CfnEIP(endpoint, 'PublicAddress', { domain: 'vpc' });
     eip.addResourceDependency(attachment);
-    eip.applyRemovalPolicy(RemovalPolicy.RETAIN);
     const association = new ec2.CfnEIPAssociation(endpoint, 'AddressAssociation', {
       allocationId: eip.attrAllocationId,
       ...(managedRuntime ? { networkInterfaceId: nic!.ref, privateIpAddress: xrayPrivateIp! } : { instanceId: instance!.ref }),
     });
     if (managedRuntime) association.addResourceDependency(managed!);
     new CfnOutput(this, 'InstanceId', { value: managedRuntime ? managed!.ref : instance!.ref });
-    new CfnOutput(this, 'EndpointIp', { value: eip.ref });
-    new CfnOutput(this, 'EipAllocationId', { value: eip.attrAllocationId });
-    new CfnOutput(this, 'SshCommand', { value: `ssh -i .local/keys/${config.resourceName} ubuntu@${eip.ref}` });
+    new CfnOutput(this, 'SshCommand', { value: `ssh -i .local/keys/${config.resourceName} ubuntu@${awgAddress?.ref ?? eip.ref}` });
   }
 }

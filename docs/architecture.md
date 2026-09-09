@@ -4,7 +4,7 @@ Read when changing an endpoint or deciding which layer owns configuration. [Prod
 
 ## Selected topology
 
-**One Ubuntu 24.04 EC2 instance, one ENI, two private IPv4 addresses and two retained EIPs in Cape Town.** Both device checkpoints passed and the original reference host is retired. There is no second permanent server and no automatic switching.
+**Per active region: one Ubuntu 24.04 EC2 instance, one ENI, two private IPv4 addresses and two retained EIPs.** Cape Town remains the backup; Stockholm is the authorized primary trial. Cape Town’s device checkpoints passed and its original reference host is retired. There is no second permanent server per regional endpoint and no automatic switching.
 
 | Gateway | Published listener | Outbound identity |
 | --- | --- | --- |
@@ -55,12 +55,12 @@ Local Docker builds produce content-tagged amd64 images and ordinary transfer ar
 
 ## Resource lifetime and cost allocation
 
-Migration uses the same Cape Town stack and retains original resource logical IDs. Preparation adds a distinct host; cutover changes the EIP association, not the allocation. AWS models association updates as replacement; the EIP resource remains retained. [CloudFormation EIPAssociation](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-ec2-eipassociation.html).
+The reusable `EndpointStack` accepts explicit regional configuration and an active/parked lifecycle state. Parking removes all compute, disk and networking resources while leaving the original EIP resources owned by CloudFormation. Deploying again reuses those logical IDs and allocations. `destroy` explicitly releases the retained allocations after deleting the selected stack. Disposable PoC exits should use `destroy` to avoid idle IP costs; retain IPs only when their identity is useful. [Lifecycle commands](development.md#on-demand-regional-lifecycle).
 
-The owner confirmed both unchanged Xray profiles; the reference host/disk and temporary migration scaffolding are now removed. AWG runs on the same managed host. Keep release and fleet automation out of this work unit. Frankfurt remains a historical deployment and an available recipe; do not redeploy it implicitly.
+The Cape Town credential migration preserved the original EIP allocation and all Xray clients; its original host is retired. Fresh regions generate independent credentials through explicit runtime commands, then install the same pinned protocol recipes. Frankfurt remains only a historical deployment recipe.
 
 Mirror personal-assistant's case-sensitive dimensions: `Project=ghostline`, `Environment=prod`, and resource-owned `System`. Shared managed compute/root disk/networking use `System=shared`; protocol EIPs use `System=xray` and `System=amneziawg`. The existing unbilled SSH KeyPair keeps its historical `System=xray` tag because changing its tags requires resource replacement. Root-volume tags propagate from EC2; verify actual tags. Keep account-wide billing controls unchanged and use Cost Explorer's native Region dimension.
 
 Both EIPs have Retain policies and remain billable after stack deletion until explicitly released. The EC2 root disk deletes with its host. Neither preserving an EIP nor retaining a catalog entry preserves runtime credentials; the recovery bundle supplies that state.
 
-For the researched Fargate versus EC2 start/stop/rebuild tradeoffs, see the [on-demand lifecycle assessment](deployment-lifecycle.md). Its recommendations are not deployed lifecycle features.
+For the researched Fargate versus EC2 start/stop/rebuild tradeoffs, see the [on-demand lifecycle assessment](deployment-lifecycle.md). The basic park/redeploy/destroy paths are now implemented; Fargate, stop/start automation and scheduling remain assessment topics.
