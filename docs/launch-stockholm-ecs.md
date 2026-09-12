@@ -1,6 +1,6 @@
 # Stockholm ECS trial — 2026-09-10
 
-Status: ECS bridge checkpoint accepted. Anthony confirmed connectivity through both protocols and IP masquerading on 2026-09-12, then requested commit prep. Cutover remains separate. This independent target does not replace the existing Stockholm or Cape Town host yet. [Architecture and commands](ecs.md).
+Status: ECS bridge checkpoint accepted. Anthony confirmed connectivity through both protocols and IP masquerading on 2026-09-12, then requested commit prep. Unattended retained-IP lifecycle validation also passed on 2026-09-12. Cutover remains separate. This independent target does not replace the existing Stockholm or Cape Town host yet. [Architecture and commands](ecs.md).
 
 - Target `stockholm-ecs`, profile `personal`, account `757999402784`, region `eu-north-1`, AZ `eu-north-1a`.
 - Endpoint stack `GhostlineEcsTrial`; durable image stack `GhostlineEcsTrialImages`.
@@ -35,3 +35,23 @@ On 2026-09-10, restored the original native Stockholm Xray selection after isola
 ## Owner acceptance — 2026-09-12
 
 Anthony reported: “Both protocols are working,” then added: “I confirmed the IP masquerading as well.” Record this as owner acceptance of protocol connectivity and IP masquerading for the ECS bridge checkpoint. The report does not enumerate devices or separate DNS, IPv6, concurrency or performance subtests; do not infer those results. Existing Stockholm/Cape Town resources remain preserved until an explicit cutover/retirement instruction.
+
+## Unattended lifecycle validation — 2026-09-12
+
+Anthony requested this checkpoint before Stockholm cutover and explicitly excluded Cape Town. All mutations targeted `stockholm-ecs`; the older Stockholm `GhostlinePoc` stack/resources remained identical and its host remained running throughout the recorded comparisons. The Mac passed direct-internet checks before and after the run; final exit was `5.195.76.221`. The agent did not change native routes or profiles.
+
+Corrected one automation gap before teardown: ECS deploy/publish inherited CDK's interactive IAM approval default. The explicit ECS command now disables that prompt after its fresh diff, retaining target/account/region checks. Global CDK settings, legacy commands, IAM policies and network controls did not change. Regression coverage guards ECS-only noninteractive scope.
+
+| Sequence | Observed result |
+| --- | --- |
+| Running host → park → deploy | Passed with stdin closed. Removed host `i-0da0f70b19c4a51d1`, its disk, ENI and cluster; rebuilt as `i-0dd477fc361ee6ff1`. Both real protocol HTTPS/exit and server configuration/isolation checks passed. |
+| Stop → start | Passed on `i-0dd477fc361ee6ff1`, preserving host, disk, ENI and both EIPs. Both services drained to zero and returned to one; server and real client checks passed. Stop took 39 seconds; start took 176 seconds, including EC2 health readiness. |
+| Stop → park → deploy | Passed in one unattended sequence with all checks and stdin closed. Stopped-host park took 93 seconds; deploy took 285 seconds. The empty ECS registration/cluster, host, disk and ENI were removed without intervention, then replaced automatically. Both real protocol HTTPS/exit and server checks passed again. |
+
+Both original allocations/public IPs and their tags survived both parking cycles. All six regional SecureString values and versions matched the baseline, as did published image tags/digests. Neither cycle imported credentials, published/rebuilt images, used SSH, installed runtime files manually, or required cleanup/repair between commands.
+
+Final live state: host `i-0ccd265f182b32daf`, ENI `eni-07b6ab15aaa75d982`, encrypted 30 GiB disk `vol-05348498adf9b9730`. Both ECS services have desired/running count one and pending count zero. Xray remains `51.20.163.146`; AWG remains `16.16.73.146`. The prior two hosts/disks/ENIs are gone. Disposable test containers were removed.
+
+Final CDK diff: no changes in endpoint or image stack. Full local gate: typecheck, four offline target synths and 96 tests pass. Task-local nonsecret snapshots, credential hashes and command logs are under `.local/diagnostics/stockholm-ecs-lifecycle-2026-09-12/`; plaintext credentials are excluded from those artifacts.
+
+This closes the explicit stop/start and retained-IP cold-rebuild checkpoint. Full address release/new-profile behavior, idle expiration and a remote controller were not exercised or introduced. Existing native profiles retain the same endpoint/credential identities. Cutover/old-host retirement remains a separate instruction.

@@ -201,3 +201,11 @@ The AWS AL2023 image runs the preserved Xray and userspace AWG images with ECS b
 - Outcome: Close the AL2023 x86_64 ECS bridge trial work unit. Record owner-confirmed connectivity and IP masquerading separately from the existing agent-run HTTPS/configuration/lifecycle evidence; devices and other privacy subtests were not enumerated.
 - Follow-up: Cutover and old-host retirement require an explicit instruction. Graviton/Bottlerocket, combined containers/IPs, Cape Town secret normalization and automatic expiry remain separate work.
 - Instruction breadcrumb: Update AGENTS with acceptance, preserve the explicit cutover boundary, and route ECS commands to docs/ecs.md.
+
+## 2026-09-12 — Prove unattended Stockholm lifecycle before cutover
+
+- Decider: Anthony requested full unattended lifecycle validation before retiring the working Stockholm fallback, then explicitly excluded Cape Town from this work.
+- Scope: Exercise the independent Stockholm ECS trial from running and stopped states, retaining its EIPs and credential identities. Preserve the older Stockholm host; cutover remains separate.
+- Automation correction: Cold ECS rebuilds inherit CDK's interactive IAM approval by default. Make only the explicitly selected ECS deploy/publish command noninteractive, retaining fresh diffs and account/region validation; do not change IAM/network policy or global CDK settings.
+- Result: Both retained-IP cold-rebuild paths and stop/start passed with closed stdin, unchanged credentials/images/IPs and real HTTPS/exit checks for both protocols. No manual repairs were needed. The old Stockholm deployment remains preserved; Cape Town was excluded.
+- Completion: Full gate 96 tests/four offline synths and final live diff pass. The lifecycle prerequisite for cutover is satisfied; cutover itself remains separate. See docs/launch-stockholm-ecs.md.

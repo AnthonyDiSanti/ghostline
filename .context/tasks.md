@@ -24,6 +24,12 @@ Task IDs are ULIDs. Keep active items limited to concrete planned or in-progress
 
 ## Completed
 
+- id: 01M2ARMEF2BXRFSDCGCEWBAE8W — title: Validate unattended Stockholm ECS lifecycle before cutover — owner: Codex — status: complete — last update: 2026-09-12
+  - Passed running-host park/rebuild, stop/start and stopped-host park/rebuild with stdin closed and no manual cleanup, credential import, image publication or runtime installation. Both protocols passed real HTTPS/assigned-IP checks after each restoration.
+  - Preserved both allocations/tags, all six credential values/versions, image digests and the older Stockholm stack/resources. Verified removed hosts/disks/ENIs/clusters. Cape Town was out of scope.
+  - Corrected ECS-only deployment prompts for unattended rebuilds; full gate 96 tests/four offline synths and final live CDK diff pass. Final host and evidence: docs/launch-stockholm-ecs.md.
+  - Next: Explicit Stockholm cutover/old-host retirement. Automatic expiry and full address-release/profile-refresh trials remain separate.
+
 - id: 01M24CJYD6Z8Q29SMM6BH20RNC — title: Validate the Stockholm ECS bridge trial and regional secrets — owner: Codex — status: complete — last update: 2026-09-12
   - Implemented one AL2023 x86_64 ECS host, separate bridge tasks/EIPs, immutable ECR releases, six regional SecureStrings, SSM administration and scoped start/stop/removal.
   - Passed: 2026-09-10 configuration/IMDS/EIP checks, real protocol HTTPS before and after stop/start, fresh-host credential restoration with retained IPs and clean live CDK diff. Initial park needed empty-cluster cleanup; dependency and stopped-host deregistration fixes have regression coverage.

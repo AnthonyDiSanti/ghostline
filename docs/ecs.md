@@ -39,7 +39,7 @@ npm run ecs stockholm-ecs status
 
 `import` validates the preserved Stockholm server/device files, creates missing regional SecureStrings, refuses conflicts and verifies exact round-trip bytes. It never generates identities. See [secret paths and recovery boundaries](secrets.md). Cape Town migration remains separate because its legacy Xray device exports need normalization.
 
-`publish` diffs/deploys only the image stack, builds missing immutable releases and pushes to ECR. `deploy` checks the selected AWS AMI/account/region and server parameters, then runs a fresh diff and deploy. The trial does not use legacy SSH runtime commands.
+`publish` diffs/deploys only the image stack, builds missing immutable releases and pushes to ECR. `deploy` checks the selected AWS AMI/account/region and server parameters, then runs a fresh diff and deploy. Explicit ECS deploy/publish commands run CDK without an interactive approval prompt after their fresh diff, allowing unattended recreation of the selected stack. Review the source and diff before launching; the legacy deployment helper keeps its existing approval behavior. The trial does not use legacy SSH runtime commands.
 
 `verify` uses SSM to compare runtime configuration hashes, separate EIP egress and metadata isolation. `test` requires the native VPN to be disconnected: nesting the AWG probe through Xray can prevent UDP handshakes and is not a valid direct-path comparison. It creates protected profiles and disposable Docker clients that perform real encrypted HTTPS requests through both protocols without changing laptop routes. Local Docker must have the published images (the publishing machine already does). Tests do not establish native macOS/iOS import, practical browsing, DNS-leak or IPv6 behavior.
 
@@ -47,7 +47,7 @@ npm run ecs stockholm-ecs status
 
 `stop` sets both service counts to zero, waits for drain and stops the exact CloudFormation-owned host. `start` starts that host, waits for EC2 health, restores both counts to one and waits for ECS stability. Disk/EIPs remain billable; no autoscaler restarts the host. Temporary desired-count changes are intentional service drift. Automatic idle expiry and a remote UI are not implemented.
 
-`npm run park stockholm-ecs` removes endpoint compute/disk/networking but retains its two tracked EIPs. Redeploy restores from ECR/Parameter Store. `npm run destroy stockholm-ecs` releases its EIPs after deleting the selected endpoint. Images and regional credentials survive either operation; deleting those is separate. Do not destroy the image stack to save endpoint compute costs.
+`npm run park stockholm-ecs` removes endpoint compute/disk/networking but retains its two tracked EIPs. Redeploy restores from ECR/Parameter Store. `npm run destroy stockholm-ecs` releases its EIPs after deleting the selected endpoint. Images and regional credentials survive either operation; deleting those is separate. The 2026-09-12 lifecycle trial passed unattended parking/redeployment from both running and stopped states, plus stop/start with real protocol checks; see the launch evidence above. Do not destroy the image stack to save endpoint compute costs.
 
 ## Follow-up evaluations
 

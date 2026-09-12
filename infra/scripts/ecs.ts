@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { fromIni } from '@aws-sdk/credential-providers';
 import { getDeployment } from '../lib/config.js';
+import { ecsDeploymentCommand } from '../lib/commands.js';
 import { credentialParameters, importParameters } from '../lib/parameters.js';
 import { setEcsPower } from '../lib/ecs-power.js';
 import { testEcsClients } from '../lib/ecs-client-test.js';
@@ -42,10 +43,10 @@ function state(): Record<string, string> {
   return Object.fromEntries(stack.Outputs.map((item: any) => [item.OutputKey, item.OutputValue]));
 }
 
-function cdk(action: 'diff' | 'deploy', stack = config.stackName) {
+function cdk(action: 'diff' | 'deploy', images = false) {
   // Scope every synthesis/deployment explicitly; no wildcard stack selection or SSH launch inputs.
-  run(process.execPath, [resolve(root, 'infra/node_modules/aws-cdk/bin/cdk'), action, stack,
-    '--profile', 'personal', '--region', config.region, '--output', resolve(work, 'cdk.out')], undefined, true);
+  const command = ecsDeploymentCommand(action, config.id, resolve(root, 'infra'), images);
+  run(process.execPath, [resolve(root, 'infra/node_modules/aws-cdk/bin/cdk'), ...command.args], undefined, true);
 }
 
 async function parameter(name: string): Promise<string> {
@@ -55,8 +56,8 @@ async function parameter(name: string): Promise<string> {
 }
 
 async function publish() {
-  cdk('diff', `${config.stackName}Images`);
-  cdk('deploy', `${config.stackName}Images`);
+  cdk('diff', true);
+  cdk('deploy', true);
   // Keep registry authentication in an ignored task-local Docker config, never in process argv.
   const dockerConfig = resolve(work, 'docker');
   mkdirSync(dockerConfig, { recursive: true, mode: 0o700 });

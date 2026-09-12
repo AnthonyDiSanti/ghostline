@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { deploymentIds, getDeployment, validateDeployment } from '../lib/config.js';
-import { deploymentCommand } from '../lib/commands.js';
+import { deploymentCommand, ecsDeploymentCommand } from '../lib/commands.js';
 
 describe('independent deployment targets', () => {
   it('preserves the deployed Frankfurt identity and pinned image', () => {
@@ -32,5 +32,18 @@ describe('independent deployment targets', () => {
   it('does not turn this helper into an implicit deletion or approval bypass', () => {
     expect(() => deploymentCommand('destroy', 'cape-town', '/repo/infra')).toThrow('Unsupported');
     expect(deploymentCommand('deploy', 'cape-town', '/repo/infra').args).not.toContain('--require-approval');
+  });
+  it('permits unattended ECS rebuilds only through an explicitly scoped ECS command', () => {
+    // A missing terminal must not strand a parked endpoint at the IAM recreation prompt.
+    for (const images of [false, true]) {
+      const command = ecsDeploymentCommand('deploy', 'stockholm-ecs', '/repo/infra', images);
+      expect(command.args.slice(0, 2)).toEqual(['deploy', images ? 'GhostlineEcsTrialImages' : 'GhostlineEcsTrial']);
+      expect(command.args).toContain('eu-north-1');
+      expect(command.args.slice(-2)).toEqual(['--require-approval', 'never']);
+      expect(command.args).not.toContain('--all');
+    }
+    expect(ecsDeploymentCommand('diff', 'stockholm-ecs', '/repo/infra').args).not.toContain('--require-approval');
+    expect(() => ecsDeploymentCommand('deploy', 'stockholm', '/repo/infra')).toThrow('ECS deployment');
+    expect(() => ecsDeploymentCommand('deploy', '--all', '/repo/infra')).toThrow('Select a deployment');
   });
 });
