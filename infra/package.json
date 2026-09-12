@@ -21,9 +21,12 @@
     "runtime": "node --import=tsx scripts/runtime.ts",
     "test:runtime": "node --import=tsx scripts/runtime-test.ts",
     "park": "node --import=tsx scripts/deployment.ts park",
-    "destroy": "node --import=tsx scripts/destroy.ts"
+    "destroy": "node --import=tsx scripts/destroy.ts",
+    "ecs": "node --import=tsx scripts/ecs.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-ssm": "3.1129.0",
+    "@aws-sdk/credential-providers": "3.1129.0",
     "aws-cdk-lib": "2.268.0",
     "constructs": "10.8.1",
     "qrcode": "1.5.4"

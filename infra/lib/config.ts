@@ -12,6 +12,7 @@ export interface DeploymentConfig {
   instanceType: string;
   rootVolumeGiB: number;
   globalTags: Record<string, string>;
+  ecs?: { credentialSource: string };
   runtime?: {
     awgEnabled: boolean;
   };
@@ -68,6 +69,9 @@ export function validateDeployment(config: DeploymentConfig): DeploymentConfig {
   if (config.runtime && (typeof config.runtime.awgEnabled !== 'boolean' || Object.hasOwn(config.runtime, 'stage'))) {
     throw new Error('Migration stages are retired; runtime requires an explicit awgEnabled boolean.');
   }
+  if (config.ecs && (!config.runtime?.awgEnabled || typeof config.ecs.credentialSource !== 'string'
+    || !/^[a-z][a-z0-9-]*$/.test(config.ecs.credentialSource)
+    || config.rootVolumeGiB < 30)) throw new Error('ECS requires both protocols, a credential source and the stock image minimum disk.');
   return { ...config, globalTags: validateGlobalTags(config.globalTags) };
 }
 

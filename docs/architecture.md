@@ -2,7 +2,11 @@
 
 Read when changing an endpoint or deciding which layer owns configuration. [Product](product.md) owns scope; [runtime](runtime.md) owns runtime commands and client imports; [Cape Town evidence](launch-cape-town.md) owns live state.
 
-## Selected topology
+## Migration in progress
+
+Anthony authorized the separate [AL2023 ECS bridge trial](ecs.md) on 2026-09-10, with ECR, regional Parameter Store and SSM administration. Anthony accepted protocol connectivity and IP masquerading on 2026-09-12. The topology below describes the existing Ubuntu exits preserved until explicit cutover. The trial preserves protocol identity but uses new EIPs and requires separate trial profiles.
+
+## Existing validated topology
 
 **Per active region: one Ubuntu 24.04 EC2 instance, one ENI, two private IPv4 addresses and two retained EIPs.** Cape Town remains the backup; Stockholm is the authorized primary trial. Cape Town’s device checkpoints passed and its original reference host is retired. There is no second permanent server per regional endpoint and no automatic switching.
 

@@ -2,6 +2,8 @@
 
 Read before changing infrastructure code or deploying. The executable package lives under `infra/`. See [reference reuse](reference-reuse.md) for source-code locations and adaptation rationale.
 
+ECS targets use the [ECS workflow](ecs.md), including ECR publication, automatic secret restoration, SSM verification and host/service start-stop. The SSH launch inputs and manual installation steps below apply to existing Ubuntu targets.
+
 ## Code layout
 
 Use the single npm package under `infra/`, following the reference repository's familiar entrypoint. Avoid a monorepo tool or shared package until there is an actual second consumer.
@@ -12,6 +14,8 @@ Use the single npm package under `infra/`, following the reference repository's 
 | `infra/cdk.json`, `tsconfig.json`, `vitest.config.ts` | CDK invocation, TypeScript settings, test setup |
 | `infra/bin/ghostline.ts` | Thin CLI entrypoint |
 | `infra/lib/app.ts` | Testable app builder receiving explicit configuration |
+| `infra/lib/ecs-stack.ts`, `infra/lib/ecs-power.ts`, `infra/scripts/ecs.ts` | ECS endpoint/image stacks and scoped platform lifecycle |
+| `infra/lib/parameters.ts`, `runtime/ecs/` | Credential import, startup adapters and host bridge policy |
 | `infra/lib/endpoint-stack.ts` | Reusable regional endpoint; active or parked resource graph |
 | `infra/lib/lifecycle.ts`, `infra/scripts/destroy.ts` | Scoped stack deletion and explicit retained-EIP release |
 | `infra/deployment.json`, `infra/lib/config.ts` | Named regional targets, shared defaults and validation |
@@ -89,7 +93,7 @@ Wait for `ENABLED` and a passing preflight. Do not hide account enablement insid
 
 The asset-free stack uses CDK's built-in `LegacyStackSynthesizer` with current CLI credentials and an inline CloudFormation template. No bootstrap roles/bucket/repository are required. Offline synthesis verifies that no deployment role, bootstrap requirement, or file asset has crept in, and that the template remains below the inline size limit. Reconsider the synthesizer when adding managed runtime assets; do not add a custom compatibility layer.
 
-Each target pins its own AMI/AZ. All three targets use Canonical Ubuntu 24.04 server build `20260904`, with distinct regional AMI IDs. CDK portability warnings are expected; preflight verifies availability without silently upgrading an existing host. Resolve future image pins using [Canonical image discovery](https://documentation.ubuntu.com/aws/en/latest/aws-how-to/instances/find-ubuntu-images/) and verify them through AWS before deployment. L1 EC2 resources keep incidental IAM/custom resources out of the topology. See [architecture](architecture.md) for resource lifetime and billing tags.
+Each target pins its own AMI/AZ. The three Ubuntu targets use Canonical Ubuntu 24.04 server build `20260904`, with distinct regional AMI IDs. CDK portability warnings are expected; preflight verifies availability without silently upgrading an existing host. Resolve future image pins using [Canonical image discovery](https://documentation.ubuntu.com/aws/en/latest/aws-how-to/instances/find-ubuntu-images/) and verify them through AWS before deployment. L1 EC2 resources keep incidental IAM/custom resources out of the topology. See [architecture](architecture.md) for resource lifetime and billing tags.
 
 ## Verification principles
 

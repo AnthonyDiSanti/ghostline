@@ -3,6 +3,7 @@
   "context": {
     "@aws-cdk/core:checkSecretUsage": true,
     "@aws-cdk/core:explicitStackTags": true,
+    "@aws-cdk/core:defaultCrossStackReferences": "strong",
     "@aws-cdk/aws-iam:minimizePolicies": true
   }
 }

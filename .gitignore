@@ -26,3 +26,7 @@ secrets/
 .local/
 artifacts/
 *.local.md
+
+# Python host-helper test artifacts
+__pycache__/
+*.pyc

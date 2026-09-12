@@ -1,5 +1,36 @@
 # Decisions
 
+## 2026-09-10 — Compare ECS host images and select a networking candidate
+
+- Requester: Anthony asked about host images and whether both protocols can share a host with separate public identities. Codex recommends an AL2023 ECS-optimized x86_64 trial; Bottlerocket is an alternative with additional host-customization constraints, and arm64 requires different runtime builds.
+- Proposal: two bridge-mode ECS tasks on one host/ENI/two private IPs/two EIPs, with an explicitly owned host filtering/SNAT component reconciled against task identity changes. ECS lacks Compose's per-HostIp/per-network source-IP knobs. Avoid assigning AWG host-network NET_ADMIN merely for convenience or mutating ECS-managed task ENIs.
+- Evidence limit: current Compose topology already proves the physical one-host/two-IP outcome; the proposed ECS network component has not been built or tested. [Expanded assessment](scratch/2026-09-10-on-demand/ecs-ec2.md) records source links, alternatives and acceptance checks. No live changes.
+
+## 2026-09-10 — Prefer stock ECS host and native deployment mechanisms
+
+- Prompt: Anthony questioned why ECS-ready hosts and parameterized ECR loading appeared to require custom infrastructure code.
+- Correction/recommendation by Codex: AWS already provides ECS-optimized AMIs, ECR pulls and Parameter Store secret injection, with standard CDK constructs. Recommend ECS-optimized Amazon Linux 2023 for a new trial; retaining Ubuntu via manual agent installation is unnecessary absent a demonstrated dependency.
+- Remaining custom scope: render file-based protocol configuration and preserve two-IP networking/lifecycle behavior. Distinguish native environment injection from a file initializer; neither requires a new secret-management service. Update the existing ECS assessment rather than creating another platform proposal. No live changes.
+
+## 2026-09-10 — Reconsider lifecycle around SSH-free ECS on EC2
+
+- Requester: Anthony prefers container releases over a custom AMI, questions SSH-key retention, and proposes ECS with one EC2 host. This is a design discussion; no live migration target/cutover was selected.
+- Assessment: SSH is not a protocol or guest-management requirement. Recommend reusable images plus runtime Parameter Store configuration, AWS API-driven deployment and Session Manager diagnostics. Existing keys remain recovery material until replacement workflows pass.
+- Consequence: reconsider standalone start/stop work before implementation. Validate ECS-compatible two-EIP binding/SNAT, explicit one-host capacity and identity-preserving task/host replacement. Do not bake credentials into image layers or equate zero ECS tasks with zero EC2 capacity. [Assessment and primary sources](scratch/2026-09-10-on-demand/ecs-ec2.md).
+
+## 2026-09-10 — Select start/stop before regional secret migration
+
+- Decider: Anthony requested explicit start/stop implementation, followed by consistent per-region Parameter Store extraction, with an inventory before starting.
+- Inventory/proposal: retain existing regional identities; store complete server bundles and separate device profiles as SecureStrings under `/ghostline/prod/server/` and `/ghostline/prod/clients/`. Keep SSH admin keys and legacy application backups in personal recovery; keep host SSH identity host-local. These storage details are recommendations pending the discussion, not migrated state.
+- Evidence: inspected generators and local export structure/counts/sizes without emitting values. Current bundles fit Standard's 4 KB limit. Cape Town Xray needs normalized client exports with verified device mapping. [Secret inventory](../docs/secrets.md) owns details and source links. No infrastructure or secret mutation.
+
+## 2026-09-10 — Explore configurable regional expiration
+
+- Requester: Anthony; proposal by Codex, not an approved implementation or live policy change.
+- Direction to discuss: separate permanent/idle lifetime from stop/park/release cleanup; aggregate authenticated presence across both protocols, with explicit uncertainty for sleeping/quiet clients. Prefer a small shared serverless controller for timers independent of the Mac and disposable exits.
+- Constraints: cloud launches need durable images/credentials and a replacement for the local-only SSH installation path; released IPs need profile refresh or validated DNS re-resolution. Keep existing security boundaries and cost-tag dimensions. No client browsing telemetry is needed.
+- Next: settle interface, idle semantics and address-retention preference. [Discussion draft](scratch/2026-09-10-on-demand/proposal.md) records current-code gaps, primary sources and candidate design. Existing Stockholm/Cape Town resources remain unchanged.
+
 ## 2026-09-09 — Retain Cape Town as backup and reassess a nearer primary
 
 - Decider: Anthony reports unacceptable speed on both AWG and REALITY, confirms Frankfurt was substantially faster, and wants Cape Town preserved for verification problems. He excludes Tel Aviv because he does not want a persistent UAE-to-Israel connection; this is an owner constraint, not a measured surveillance claim.
@@ -155,3 +186,18 @@
 - Anthony explicitly authorized reconnecting AWG to diagnose the Mac outage, with local recovery if connectivity fails. Verify Amnezia's own daemon deactivate API, arm a bounded local watchdog before connecting, run controlled probes and always restore disconnected/direct state after the test. No security controls, runtime credentials or server configuration are relaxed to make the test pass.
 
 - Commit-prep breadcrumb: clarify that the owner-confirmed Apple checkpoint is Cape Town, with Stockholm iOS/practical trials still pending; replace stale AppleScript UI guidance with the verified CUA Raise workflow.
+
+## 2026-09-10 — Begin the ECS bridge migration
+
+Anthony selected stock ECS-optimized Amazon Linux 2023 x86_64 first, with Bottlerocket/Graviton later and Ubuntu only if Amazon Linux fails. Implement a separate Stockholm trial preserving both existing exits and all protocol identities. Use one explicit EC2 host (no autoscaler), two ECS services, two EIPs, ECR content tags and regional server/client SecureStrings. Updated AGENTS scope to reflect this authorization; HA and automatic expiry remain deferred. Validate both protocols, replacement routing and start/stop before considering cutover.
+
+### ECS bridge trial findings
+
+The AWS AL2023 image runs the preserved Xray and userspace AWG images with ECS bridge networking, restricted capabilities and tmpfs config. ECR/Parameter Store restoration and real protocol HTTPS passed after a retained-IP rebuild. ECS cluster deletion must follow host termination; stopped/disconnected hosts require explicit deregistration. Tests add both guards. AWG validation must run outside an already-active Xray tunnel: the nested test failed against both new and old endpoints, then passed directly without server changes. Keep native-device acceptance and cutover separate.
+
+## 2026-09-12 — Accept the ECS bridge checkpoint
+
+- Decider: Anthony reported both protocols working, confirmed IP masquerading and requested commit prep.
+- Outcome: Close the AL2023 x86_64 ECS bridge trial work unit. Record owner-confirmed connectivity and IP masquerading separately from the existing agent-run HTTPS/configuration/lifecycle evidence; devices and other privacy subtests were not enumerated.
+- Follow-up: Cutover and old-host retirement require an explicit instruction. Graviton/Bottlerocket, combined containers/IPs, Cape Town secret normalization and automatic expiry remain separate work.
+- Instruction breadcrumb: Update AGENTS with acceptance, preserve the explicit cutover boundary, and route ECS commands to docs/ecs.md.

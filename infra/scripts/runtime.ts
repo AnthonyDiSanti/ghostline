@@ -13,6 +13,7 @@ import { installationArchive } from '../lib/archive.js';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const [target, action, protocol = 'xray', bundleArg, ...extra] = process.argv.slice(2);
 const config = getDeployment(target);
+if (config.ecs) throw new Error('Use npm run ecs for ECS targets; SSH runtime operations do not apply.');
 const work = resolve(root, '.local/deployments', config.id, 'runtime');
 const bundlePath = bundleArg ? resolve(bundleArg) : resolve(root, '.local/recovery',
   protocol === 'awg' ? `${config.id}-awg/awg0.conf` : `${config.id}-runtime.json`);

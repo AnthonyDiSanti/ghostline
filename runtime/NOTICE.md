@@ -16,11 +16,12 @@ it does not fork the desktop application.
   bundled license is retained in the image at `/usr/bin/LICENSE`.
 - Xray container: upstream Alpine 3.15 family, pinned amd64 base. This preserves
   the reference container environment for migration; it is distinct from the
-  Ubuntu 24.04 EC2 host. This work is not a distribution upgrade.
+  Ubuntu 24.04 legacy or Amazon Linux 2023 ECS host. This work is not a distribution upgrade.
 - AWG: pinned upstream `amneziavpn/amneziawg-go` amd64 image digest, observed
   Alpine 3.19.9 and `amneziawg-tools v3.1.20260812`. The daemon reports the older
   `0.0.20250522` version string; configuration compatibility is tested directly
   instead of inferring protocol generation from that string.
 
-Local builds contain no server credentials. ECR publication and release/rollback
-management are intentionally outside this work unit.
+Local builds contain no server credentials. The ECS trial publishes immutable
+content-tagged variants to ECR and injects configuration at task startup.
+An automated rollback framework remains out of scope.

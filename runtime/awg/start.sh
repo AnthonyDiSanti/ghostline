@@ -11,7 +11,7 @@ for attempt in {1..100}; do
   sleep 0.1
 done
 test -S /var/run/amneziawg/awg0.sock
-awg setconf awg0 <(awg-quick strip /etc/amnezia/amneziawg/awg0.conf)
+awg setconf awg0 <(awg-quick strip "${GHOSTLINE_AWG_CONFIG:-/etc/amnezia/amneziawg/awg0.conf}")
 ip address add 10.78.0.1/24 dev awg0
 ip link set mtu 1280 up dev awg0
 # Masquerade tunnel peers into this container's dedicated, address-specific Docker egress network.

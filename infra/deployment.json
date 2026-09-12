@@ -33,6 +33,20 @@
       "runtime": {
         "awgEnabled": true
       }
+    },
+    "stockholm-ecs": {
+      "region": "eu-north-1",
+      "availabilityZone": "eu-north-1a",
+      "amiId": "ami-0c020a23b5dfdbd1b",
+      "stackName": "GhostlineEcsTrial",
+      "resourceName": "ghostline-ecs-stockholm",
+      "rootVolumeGiB": 30,
+      "runtime": {
+        "awgEnabled": true
+      },
+      "ecs": {
+        "credentialSource": "stockholm"
+      }
     }
   }
 }

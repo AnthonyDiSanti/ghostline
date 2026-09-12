@@ -24,6 +24,12 @@ Task IDs are ULIDs. Keep active items limited to concrete planned or in-progress
 
 ## Completed
 
+- id: 01M24CJYD6Z8Q29SMM6BH20RNC — title: Validate the Stockholm ECS bridge trial and regional secrets — owner: Codex — status: complete — last update: 2026-09-12
+  - Implemented one AL2023 x86_64 ECS host, separate bridge tasks/EIPs, immutable ECR releases, six regional SecureStrings, SSM administration and scoped start/stop/removal.
+  - Passed: 2026-09-10 configuration/IMDS/EIP checks, real protocol HTTPS before and after stop/start, fresh-host credential restoration with retained IPs and clean live CDK diff. Initial park needed empty-cluster cleanup; dependency and stopped-host deregistration fixes have regression coverage.
+  - Acceptance: Anthony confirmed connectivity through both protocols and IP masquerading on 2026-09-12, then requested commit prep. Devices and other privacy subtests were not enumerated. See docs/launch-stockholm-ecs.md.
+  - Separate follow-ups: explicit cutover/old-host retirement, Cape Town export normalization/import, Graviton/Bottlerocket and combined IP/container evaluation. Automatic expiration/controller remains deferred.
+
 - id: 01K4HF000000000000000003 — title: Migrate runtime ownership and add a shared-host AWG alternative — owner: Codex — status: complete — last update: 2026-09-07
   - Done: Implement protected configuration import, pinned container builds, separate Compose/SNAT, migration-stage CDK and tests. Deploy replacement host and move original EIP allocation. Preserve both Xray clients; verify byte equality and actual original-IP egress. Repeat installation retained the same running container.
   - AWG: Install on the managed host, generate independent real device profiles and local QR/link files; pass server config/SNAT/egress, reinstall and reboot checks. Mac AWG exit/HTTPS pass.

@@ -8,6 +8,8 @@ Read by task. These documents are the current project specification, incorporati
 | Choose or change infrastructure/runtime ownership | [Architecture](architecture.md) | EC2 topology, Amnezia reference phase, configuration/secrets boundaries |
 | Scaffold, write, or verify implementation | [Development](development.md) | Code layout, npm command contract, testing, first implementation sequence |
 | Migrate credentials or install owned containers | [Runtime](runtime.md) | Local bundles, pinned builds, client imports, protocol installation and verification |
+| Deploy/test the SSH-free ECS bridge trial | [ECS trial](ecs.md), [Stockholm ECS evidence](launch-stockholm-ecs.md) | AL2023/ECR/SSM ownership, start/stop and later image/network evaluations |
+| Locate credentials and regional Parameter Store paths | [Secrets](secrets.md) | Credential categories, implemented Stockholm paths, server/device access boundaries and recovery exclusions |
 | Park, redeploy or release a regional exit | [Development lifecycle](development.md#on-demand-regional-lifecycle) | Explicit retained-IP versus full-release commands |
 | Compare Fargate, stopped EC2 and cold rebuild costs | [Lifecycle assessment](deployment-lifecycle.md) | Protocol compatibility, Cape Town price model and on-demand management tradeoffs |
 | Reuse personal-assistant code or conventions | [Reference reuse](reference-reuse.md) | Source locations, adaptation decisions, possible shared components |

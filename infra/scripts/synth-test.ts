@@ -18,7 +18,7 @@ try {
     assert.equal(artifact.requiresBootstrapStackVersion, undefined);
     assert.ok(readFileSync(artifact.templateFullPath).byteLength < 51_200);
     assert.ok(!Object.values(artifact.manifest.metadata ?? {}).flat().some((entry) => entry.type === 'aws:cdk:asset'));
-    assert.equal(assembly.stacks.length, 1);
+    assert.equal(assembly.stacks.length, config.ecs ? 2 : 1);
     assert.equal(artifact.environment.region, config.region);
     console.log(`Synthesized ${id} with offline inputs.`);
   }

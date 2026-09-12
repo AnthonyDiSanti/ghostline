@@ -14,7 +14,7 @@ function onlyResource(template: Template, type: string) {
   return entries[0]!;
 }
 
-describe.each(deploymentIds)('single endpoint: %s', (target) => {
+describe.each(deploymentIds.filter(id => !getDeployment(id).ecs))('single endpoint: %s', (target) => {
   const testDeployment = { ...getDeployment(target), account: '000000000000', runtime: undefined };
   const { stack } = buildApp(launch, testDeployment);
   const template = Template.fromStack(stack);
