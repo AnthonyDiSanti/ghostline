@@ -2,7 +2,7 @@
 
 Read before changing infrastructure code or deploying. The executable package lives under `infra/`. See [reference reuse](reference-reuse.md) for source-code locations and adaptation rationale.
 
-ECS targets use the [ECS workflow](ecs.md), including ECR publication, automatic secret restoration, SSM verification and host/service start-stop. The SSH launch inputs and manual installation steps below apply to existing Ubuntu targets.
+The primary `stockholm-ecs` target uses the [ECS workflow](ecs.md), including ECR publication, automatic secret restoration, SSM verification and host/service start-stop. The SSH launch inputs and manual installation steps below apply to existing Ubuntu targets.
 
 ## Code layout
 
@@ -23,7 +23,7 @@ Use the single npm package under `infra/`, following the reference repository's 
 | `infra/test/` | Focused configuration and synthesized-resource assertions |
 | `infra/scripts/` | Only launch/verification helpers that earn their existence |
 
-Keep shared wiring in `EndpointStack`; the named catalog supplies regional inputs without duplicating stacks or introducing a fleet controller.
+Keep shared wiring in `EcsEndpointStack` or legacy `EndpointStack`; the named catalog supplies regional inputs without duplicating stacks or introducing a fleet controller.
 
 ## TypeScript and npm
 
@@ -61,7 +61,7 @@ Start with straightforward npm composition. Do not copy the large parallel phase
 
 ## Deployment inputs
 
-`deployment.json` contains shared account/sizing/cost dimensions and named targets. Each target owns region, AZ, pinned AMI, stack name and resource/key name. `frankfurt` retains the original deployment recipe; `cape-town` is the backup and `stockholm` is the authorized primary trial. The catalog lists available configurations, not live AWS inventory; consult the launch records for lifecycle state. The same stack name in different regions identifies different CloudFormation stacks. Adding a second environment in one region would require distinct stack and resource names. Cape Town and Stockholm select the managed topology with `runtime: { "awgEnabled": true }`; see [Runtime](runtime.md).
+`deployment.json` contains shared account/sizing/cost dimensions and named targets. Each target owns region, AZ, pinned AMI, stack name and resource/key name. `stockholm-ecs` is the primary and `cape-town` is the backup. `frankfurt` and `stockholm` retain retired Ubuntu recipes; do not redeploy them without a new request. The ECS target intentionally retains `GhostlineEcsTrial` / `GhostlineEcsTrialImages` names and `credentialSource: "stockholm"` after cutover, preserving deployed identities and recovery paths. The catalog lists available configurations, not live AWS inventory; consult the launch records for lifecycle state. The same stack name in different regions identifies different CloudFormation stacks. Adding a second environment in one region would require distinct stack and resource names. Legacy Cape Town/Stockholm recipes select the managed topology with `runtime: { "awgEnabled": true }`; see [Runtime](runtime.md).
 
 The target is a positional npm-script argument, so use `npm run deploy cape-town`. The `--` separator is only needed when forwarding options that npm might otherwise interpret (for example `npm run test:vitest -- --reporter=verbose`); our deployment helper accepts only the target.
 
@@ -81,7 +81,7 @@ Frankfurt teardown is complete; do not redeploy it without a new request. Its sa
 
 Each target writes synthesis and outputs under ignored `.local/deployments/<target>/`; deploying Cape Town cannot overwrite Frankfurt artifacts. Historical `.local/outputs.json` remains the original launch record. `SshCommand` assumes the matching private key is stored at `.local/keys/<resourceName>` from the repository root. Local recovery exports also need distinct target names.
 
-Diff and deploy automatically run the read-only preflight. It checks the AWS account, region opt-in, official Canonical Ubuntu 24.04 image metadata, AZ and instance offering. It does not guarantee spare capacity, quotas or client reachability. Synthesis and `npm test` remain offline. Direct `npm run cdk -- ...` is an expert escape hatch; set `GHOSTLINE_DEPLOYMENT` explicitly and prefer the scoped commands for ordinary use.
+Diff and deploy automatically run the read-only preflight. It checks the AWS account, region opt-in, the selected official Ubuntu or ECS AL2023 image metadata, AZ and instance offering. It does not guarantee spare capacity, quotas or client reachability. Synthesis and `npm test` remain offline. Direct `npm run cdk -- ...` is an expert escape hatch; set `GHOSTLINE_DEPLOYMENT` explicitly and prefer the scoped commands for ordinary use.
 
 Cape Town is an opt-in region. Anthony enabled it on 2026-09-07; monitoring observed `ENABLING`, then `ENABLED`, followed by a successful regional preflight. For a new opt-in region, enable it explicitly, then monitor:
 
@@ -119,19 +119,20 @@ Cape Town repeated the same stack workflow and Amnezia Manual → XRay installat
 
 ## On-demand regional lifecycle
 
-`EndpointStack` is reusable across explicit account/region configurations. Active state contains the one-host topology. Parked state contains only its retained EIP resources with unchanged logical IDs, properties and cost tags. CloudFormation still owns the allocations, so the next ordinary `deploy` reuses them. No separate bootstrap, registry, controller, load balancer or NAT gateway is created.
+`EcsEndpointStack` and legacy `EndpointStack` are reusable across explicit account/region configurations. Active state contains the one-host topology. Parked state contains only its retained EIP resources with unchanged logical IDs, properties and cost tags. CloudFormation still owns the allocations, so the next ordinary `deploy` reuses them. ECS images and parameters survive separately; no fleet controller, load balancer or NAT gateway is created.
 
 Choose the intended outcome explicitly:
 
 ```sh
-npm run park stockholm      # Delete host/root disk and networking; keep paying for the same IPs.
-npm run diff stockholm      # Preview recreation with the retained IPs.
-npm run deploy stockholm   # Recreate host/networking; restore runtime using the existing local files.
+npm run park stockholm-ecs        # Delete host/root disk/networking; keep paying for the same IPs.
+npm run ecs stockholm-ecs deploy  # Fresh diff, then recreate and restore from ECR/Parameter Store.
 # Or, when the PoC exit is no longer useful:
-npm run destroy stockholm  # Delete stack, wait, then release its exact retained allocations.
+npm run destroy stockholm-ecs     # Delete endpoint and release its exact retained allocations.
 ```
 
-Parking destroys runtime data on the root disk. Preserve the SSH key, Xray bundle and device JSON files, and all three AWG configurations before parking an installed endpoint. After redeployment, run `trust`, `bootstrap`, `install` and `verify` for both protocols; do not regenerate credentials. Private IPs and host SSH keys may change; installation renders the new bindings. Explicit `trust` verifies the current EC2 instance/ENI/EIP and console keys, archives prior trust when needed, and pins the new host.
+Parking destroys runtime data on the root disk. ECS restores from its durable ECR releases and server parameters; run `ecs stockholm-ecs verify` and `test` afterward. `stop` / `start` retain the disk and host instead; see [ECS commands](ecs.md).
+
+For a legacy Ubuntu target, preserve the SSH key, Xray bundle and device JSON files, and all three AWG configurations before parking an installed endpoint. After redeployment, run `trust`, `bootstrap`, `install` and `verify` for both protocols; do not regenerate credentials. Private IPs and host SSH keys may change; installation renders the new bindings. Explicit `trust` verifies the current EC2 instance/ENI/EIP and console keys, archives prior trust when needed, and pins the new host.
 
 During the PoC, prefer `destroy` when abandoning a region. Catalog entries and local recovery material cost no AWS allocation fees and do not keep hosts or IPs alive. `destroy` needs AWS access but no SSH key/AMI preflight. It captures CloudFormation's address inventory into `.local/deployments/<target>/pending-release.json` before deletion, waits for `DELETE_COMPLETE`, then verifies that each remaining allocation still belongs to that exact stack and is unattached before releasing it. A retry resumes the original stack ARN after partial failure; completion renames the record to `last-release.json`. Inspect any refusal instead of disassociating or releasing unrelated addresses. Do not bypass the helper with plain CDK/CloudFormation deletion unless you intend to track and release retained IPs manually.
 

@@ -15,19 +15,21 @@ The PoC is both a useful connection and a reference experiment. Use Amnezia's ex
 | Owner | Anthony; one administrator and one initial user |
 | Devices | macOS laptop and iOS phone, including concurrent use; exact OS/client versions recorded at launch |
 | Infrastructure | AWS CDK / TypeScript; existing production AWS account; dedicated project resources |
-| Region | Stockholm is the authorized primary trial; retain Cape Town as a slower backup; Frankfurt is retired |
+| Region | Stockholm ECS is the primary; retain Cape Town as a slower backup; Frankfurt is retired |
 | Transport | Preserve Xray / VLESS / REALITY TCP 443; use independently credentialed AmneziaWG UDP 443 as the manual alternative |
-| Runtime ownership | Ghostline-managed containers on one Ubuntu host with two EIPs; preserve upstream product choices |
+| Runtime ownership | One host/two EIPs per exit; Stockholm uses ECS on AL2023, Cape Town retains Ubuntu/Compose; preserve upstream product choices |
 | Routing | Prefer full-device routing; use off-the-shelf clients |
 | IPv6 | Want client-side IPv6 blocking while an IPv4 tunnel is active; record actual client support and limitations without building a custom client |
 | Failure protection | Enable available client controls where practical; best-effort mobile behavior is accepted |
 | Recovery material | Demonstrate restoration of existing Xray credentials on a fresh host; preserve protected local bundles and let Anthony intermediate LastPass |
 | Operations | Manual setup and repair; record activities actually performed during launch, with no separate runbook prerequisite |
-| Secrets | LastPass for personal/admin material; protected local runtime bundles now; Parameter Store integration deferred |
+| Secrets | LastPass for personal/admin recovery; regional Parameter Store for Stockholm server/device secrets; preserve protected local recovery copies |
 
 ## Completed runtime checkpoint
 
 Xray was restored onto a fresh server with its original credentials and EIP; Anthony confirmed unchanged macOS/iOS profiles passed. The original host and migration scaffolding are retired. AWG now shares that one host through its own EIP and independent client credentials. Both server runtimes passed reinstall/reboot and distinct egress checks; Anthony confirmed the final iPhone and Mac AWG tests passed on 2026-09-07. Switching remains manual. See the [Cape Town evidence](launch-cape-town.md) for measured checks and owner reports.
+
+Stockholm subsequently moved to ECS on AL2023. Anthony accepted both protocol connections and IP masquerading; unattended lifecycle checks passed before retiring its Ubuntu predecessor. Current Mac profiles pass native REALITY/AWG checks. See [Stockholm ECS evidence](launch-stockholm-ecs.md) for measured results and device-specific limits.
 
 ## Success evidence
 
@@ -53,7 +55,7 @@ Support explicit named exits with one shared host per region, manual protocol se
 
 - Add Windows and Android; extend router support to OpenWrt/GL.iNet with third-party packages allowed and UI on/off control as a soft goal.
 - Add further exits or another protocol in response to observed need. Keep independent runtime identities for each endpoint.
-- Consider ECR image delivery and ECS only if they help. Fargate requires a separate design; it is not a committed destination.
+- Evaluate Graviton/Bottlerocket and combined IP/container tradeoffs from the proven ECS baseline. Fargate requires a separate design; it is not a committed destination.
 - Add independent friend access or scheduled lifecycle controls if requested.
 - Revisit streaming geographic catalogs if desired; no Netflix/catalog acceptance now.
 

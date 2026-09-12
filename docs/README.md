@@ -8,12 +8,12 @@ Read by task. These documents are the current project specification, incorporati
 | Choose or change infrastructure/runtime ownership | [Architecture](architecture.md) | EC2 topology, Amnezia reference phase, configuration/secrets boundaries |
 | Scaffold, write, or verify implementation | [Development](development.md) | Code layout, npm command contract, testing, first implementation sequence |
 | Migrate credentials or install owned containers | [Runtime](runtime.md) | Local bundles, pinned builds, client imports, protocol installation and verification |
-| Deploy/test the SSH-free ECS bridge trial | [ECS trial](ecs.md), [Stockholm ECS evidence](launch-stockholm-ecs.md) | AL2023/ECR/SSM ownership, start/stop and later image/network evaluations |
+| Operate the primary Stockholm exit | [ECS runtime](ecs.md), [Stockholm ECS evidence](launch-stockholm-ecs.md) | AL2023/ECR/SSM ownership, unattended lifecycle, current profiles and later image/network evaluations |
 | Locate credentials and regional Parameter Store paths | [Secrets](secrets.md) | Credential categories, implemented Stockholm paths, server/device access boundaries and recovery exclusions |
 | Park, redeploy or release a regional exit | [Development lifecycle](development.md#on-demand-regional-lifecycle) | Explicit retained-IP versus full-release commands |
 | Compare Fargate, stopped EC2 and cold rebuild costs | [Lifecycle assessment](deployment-lifecycle.md) | Protocol compatibility, Cape Town price model and on-demand management tradeoffs |
 | Reuse personal-assistant code or conventions | [Reference reuse](reference-reuse.md) | Source locations, adaptation decisions, possible shared components |
-| Inspect deployed resources, launch actions and device evidence | [Frankfurt launch/retirement](launch.md), [Cape Town launch](launch-cape-town.md), [Stockholm launch](launch-stockholm.md) | Per-target lifecycle state, nonsecret observations and remaining trial work |
+| Inspect deployed resources, launch actions and device evidence | [Stockholm ECS](launch-stockholm-ecs.md), [Cape Town](launch-cape-town.md), [retired Stockholm Ubuntu](launch-stockholm.md), [retired Frankfurt](launch.md) | Per-target lifecycle state and nonsecret observations |
 | Select an endpoint country against performance/privacy requirements | [Region assessment](region-selection.md) | Conditional Frankfurt/Stockholm recommendations, Cape Town backup intent, privacy evidence and comparison limits |
 | Understand the provenance of earlier requirements | [Historical inputs](archive/README.md) | Original upstream documents; not implementation requirements |
 

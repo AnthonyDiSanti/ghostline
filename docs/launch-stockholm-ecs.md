@@ -1,6 +1,6 @@
-# Stockholm ECS trial — 2026-09-10
+# Stockholm ECS launch and primary cutover
 
-Status: ECS bridge checkpoint accepted. Anthony confirmed connectivity through both protocols and IP masquerading on 2026-09-12, then requested commit prep. Unattended retained-IP lifecycle validation also passed on 2026-09-12. Cutover remains separate. This independent target does not replace the existing Stockholm or Cape Town host yet. [Architecture and commands](ecs.md).
+Status: **Primary exit; cutover completed 2026-09-12.** Owner acceptance and unattended retained-IP lifecycle validation preceded retirement of the old Ubuntu Stockholm stack and EIPs. Cape Town is unchanged. The trial began on 2026-09-10; the sections below preserve chronological evidence. [Architecture and commands](ecs.md).
 
 - Target `stockholm-ecs`, profile `personal`, account `757999402784`, region `eu-north-1`, AZ `eu-north-1a`.
 - Endpoint stack `GhostlineEcsTrial`; durable image stack `GhostlineEcsTrialImages`.
@@ -55,3 +55,20 @@ Final live state: host `i-0ccd265f182b32daf`, ENI `eni-07b6ab15aaa75d982`, encry
 Final CDK diff: no changes in endpoint or image stack. Full local gate: typecheck, four offline target synths and 96 tests pass. Task-local nonsecret snapshots, credential hashes and command logs are under `.local/diagnostics/stockholm-ecs-lifecycle-2026-09-12/`; plaintext credentials are excluded from those artifacts.
 
 This closes the explicit stop/start and retained-IP cold-rebuild checkpoint. Full address release/new-profile behavior, idle expiration and a remote controller were not exercised or introduced. Existing native profiles retain the same endpoint/credential identities. Cutover/old-host retirement remains a separate instruction.
+
+## Primary cutover and Mac profiles — 2026-09-12
+
+Anthony explicitly authorized cutover and checking the previously installed Stockholm profiles. The Mac initially had the old Ubuntu endpoints only. Protected backups of both Amnezia preference domains were saved before changing profiles. Imported the generated ECS Mac profiles with preserved device credentials, then verified both through native Amnezia 5.0.1.5:
+
+| Mac profile | Endpoint | Observed native result |
+| --- | --- | --- |
+| Ghostline Stockholm REALITY | `51.20.163.146:443` TCP | Connected; exact public exit and Wikipedia HTTPS 200 passed |
+| Ghostline Stockholm AWG | `16.16.73.146:443` UDP | Version 3.1; three rounds passed all nine pings, direct DNS, Wikipedia HTTPS 200 and exact public exit |
+
+The AWG test used the verified local daemon watchdog and unconditional disconnect cleanup. Direct egress returned to `5.195.76.221`; the timer ended. Both replacement profiles retain their familiar names; removed only the obsolete Stockholm entries from the application. Both Cape Town profiles remain intact. Final selection is Stockholm REALITY, **disconnected**. No persistent logging or client privacy-setting changes were made. These short tests do not establish sustained performance, IPv6 protection or iOS import.
+
+`npm run destroy stockholm` completed unattended and released only the old stack's captured allocations. Verified `GhostlinePoc` is `DELETE_COMPLETE`, old host `i-033493f9d064f8b00` terminated, root disk `vol-00624392e421f4f1a` and ENI `eni-037352399599d6cc9` absent, and allocations `eipalloc-0849e55ead905822b` / `eipalloc-0c6fc191dc53dd019` released. The release record is `.local/deployments/stockholm/last-release.json`. No Cape Town AWS operations were targeted.
+
+The active ECS stack outputs/resource identities, EIP associations/tags, ECR image digests and all six SecureString versions matched the pre-cutover baseline. The final secret audit read metadata only. Both services remain desired/running one, pending zero, on `i-0ccd265f182b32daf`; the ECS EIPs were kept rather than reassociating the old addresses. Post-retirement runtime configuration/isolation/egress verification and disposable encrypted HTTPS tests passed for both protocols. Final endpoint/image CDK diff: no changes. Full local gate: typecheck, four offline synths and 96 tests passed.
+
+Evidence and protected local preference backups are under `.local/diagnostics/stockholm-cutover-2026-09-12/`. Local credentials/recovery copies remain; Anthony intermediates LastPass saves. Current iOS exports are `.local/recovery/stockholm-ecs-clients/ios-{xray,awg}.vpn` and `ios-{xray,awg}-qr.png`. Any phone profile still using `16.170.38.152` or `13.50.178.121` must be replaced with these exports; no iOS profile change was performed during this cutover.

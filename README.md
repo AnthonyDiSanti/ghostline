@@ -2,15 +2,15 @@
 
 A personal connectivity experiment: find out whether a privately hosted tunnel provides stable browsing and video from Dubai under Anthony's current internet filtering.
 
-The deployed setup has **Stockholm and Cape Town exits, each with one Ubuntu 24.04 EC2 instance and two Elastic IPs**, with Ghostline-managed Xray / VLESS / REALITY and an AmneziaWG alternative. Switch protocols manually in off-the-shelf clients. CDK owns AWS resources; Docker Compose and npm helpers own runtime installation and preserved credentials.
+The deployed setup has **Stockholm as the primary exit and Cape Town as a slower backup, each with one EC2 instance and two Elastic IPs**. Both run Ghostline-managed Xray / VLESS / REALITY and AmneziaWG, with manual protocol selection in off-the-shelf clients.
 
-A separate [AL2023 ECS bridge trial](docs/ecs.md) passed agent checks, and Anthony confirmed connectivity through both protocols and IP masquerading on 2026-09-12. It uses ECR releases, regional Parameter Store credentials and SSH-free administration. Cutover remains separate. The existing exits remain available; see [trial evidence](docs/launch-stockholm-ecs.md).
+Stockholm runs [ECS on AL2023](docs/ecs.md), using ECR releases, regional Parameter Store credentials and SSH-free administration. Cape Town retains the Ubuntu 24.04 / Docker Compose runtime. CDK owns both regional deployments.
 
 ## Current status
 
-The earlier Ubuntu Stockholm exit remains deployed; Cape Town remains a slower backup. The Ubuntu Stockholm park/redeploy test preserved both EIPs and rebuilt its host. Both server runtimes pass configuration/SNAT/egress checks. Mac Xray passed exit/HTTPS. After an initially interrupted AWG trial, two guarded native reconnects passed expected-exit/HTTPS checks, including session renewal; one brief ping/DNS loss was observed. The original outage was not reproduced. Those earlier guarded tests restored direct internet afterward. iOS and owner practical speed trials remain pending. See [Stockholm evidence](docs/launch-stockholm.md), [runtime workflow](docs/runtime.md) and [Cape Town evidence](docs/launch-cape-town.md). Frankfurt is retired.
+Stockholm cutover completed on 2026-09-12 after owner acceptance of both ECS protocols/IP masquerading and unattended stop/start/park/rebuild validation. The old Ubuntu Stockholm host, disk, networking and both EIPs are removed. Native Mac REALITY and guarded AWG tests pass through the ECS addresses; the familiar Stockholm profile names now point there. REALITY is selected and the VPN was left disconnected. See [current Stockholm evidence](docs/launch-stockholm-ecs.md) and [Cape Town evidence](docs/launch-cape-town.md). Frankfurt is also retired.
 
-Use `park <target>` to remove host/disk/networking and retain the same billable IPs; use `destroy <target>` to release a disposable PoC deployment completely. `deploy <target>` restores infrastructure; runtime installation restores saved credentials. Adding a catalog entry allocates nothing.
+Use `npm run ecs stockholm-ecs <action>` for the primary, including `start`, `stop`, `deploy`, `verify` and `profiles`. `park <target>` removes host/disk/networking while retaining billable IPs; `destroy <target>` also releases those IPs. ECS redeployment restores credentials automatically from Parameter Store and images from ECR; both durable stores survive endpoint removal. The catalog's `stockholm` entry is the retired Ubuntu recipe. Adding a catalog entry allocates nothing.
 
 With Node 24 selected, run `cd infra && npm ci && npm test`. Deployment inputs and commands are in [development](docs/development.md).
 
@@ -30,4 +30,4 @@ With Node 24 selected, run `cd infra && npm ci && npm test`. Deployment inputs a
 - `infra/`: executable CDK project and offline tests.
 - `runtime/`: container recipes and host installation inputs; credentials stay under ignored `.local/`.
 
-Anthony is the sole administrator. Use explicit named deployment targets in the existing account. The ECS migration has a temporary independent trial host; there is no permanent second host per endpoint, automatic protocol switching, custom client or rollback framework.
+Anthony is the sole administrator. Use explicit named deployment targets in the existing account. There is no second host per endpoint, automatic protocol switching, custom client or rollback framework.

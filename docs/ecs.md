@@ -1,6 +1,6 @@
-# ECS on EC2 trial
+# ECS on EC2 runtime
 
-Selected by Anthony on 2026-09-10. The trial is implemented; both protocol HTTPS checks and fresh-host credential restoration passed. Anthony confirmed connectivity through both protocols and IP masquerading on 2026-09-12; cutover remains separate. The independent `stockholm-ecs` target preserves existing Stockholm and Cape Town exits. Read [trial evidence](launch-stockholm-ecs.md) before changing it.
+Stockholm's primary runtime since the 2026-09-12 cutover. Anthony accepted both protocols and IP masquerading; unattended stop/start and retained-IP cold rebuilds passed before retiring the old Ubuntu Stockholm host and EIPs. Cape Town remains unchanged. Read [current deployment evidence](launch-stockholm-ecs.md) before changes. Keep target `stockholm-ecs` and stack names `GhostlineEcsTrial` / `GhostlineEcsTrialImages`: promotion does not require replacing AWS resource identities.
 
 ## Platform and ownership
 
@@ -39,11 +39,11 @@ npm run ecs stockholm-ecs status
 
 `import` validates the preserved Stockholm server/device files, creates missing regional SecureStrings, refuses conflicts and verifies exact round-trip bytes. It never generates identities. See [secret paths and recovery boundaries](secrets.md). Cape Town migration remains separate because its legacy Xray device exports need normalization.
 
-`publish` diffs/deploys only the image stack, builds missing immutable releases and pushes to ECR. `deploy` checks the selected AWS AMI/account/region and server parameters, then runs a fresh diff and deploy. Explicit ECS deploy/publish commands run CDK without an interactive approval prompt after their fresh diff, allowing unattended recreation of the selected stack. Review the source and diff before launching; the legacy deployment helper keeps its existing approval behavior. The trial does not use legacy SSH runtime commands.
+`publish` diffs/deploys only the image stack, builds missing immutable releases and pushes to ECR. `deploy` checks the selected AWS AMI/account/region and server parameters, then runs a fresh diff and deploy. Explicit ECS deploy/publish commands run CDK without an interactive approval prompt after their fresh diff, allowing unattended recreation of the selected stack. Review the source and diff before launching; the legacy deployment helper keeps its existing approval behavior. ECS does not use legacy SSH runtime commands.
 
 `verify` uses SSM to compare runtime configuration hashes, separate EIP egress and metadata isolation. `test` requires the native VPN to be disconnected: nesting the AWG probe through Xray can prevent UDP handshakes and is not a valid direct-path comparison. It creates protected profiles and disposable Docker clients that perform real encrypted HTTPS requests through both protocols without changing laptop routes. Local Docker must have the published images (the publishing machine already does). Tests do not establish native macOS/iOS import, practical browsing, DNS-leak or IPv6 behavior.
 
-`profiles` writes native configs, links and QR files under `.local/recovery/stockholm-ecs-clients/`. It changes only endpoint addresses, preserving existing device identities. Keep these files private.
+`profiles` writes native configs, links and QR files under `.local/recovery/stockholm-ecs-clients/`. It renders live endpoint addresses over the preserved device identities; imported Parameter Store source profiles can still contain historical addresses. Use these generated exports for clients instead of importing raw parameter values. Keep the catalog's retired `stockholm` recipe and protected source files because `credentialSource` still uses that identity. Keep all derived files private.
 
 `stop` sets both service counts to zero, waits for drain and stops the exact CloudFormation-owned host. `start` starts that host, waits for EC2 health, restores both counts to one and waits for ECS stability. Disk/EIPs remain billable; no autoscaler restarts the host. Temporary desired-count changes are intentional service drift. Automatic idle expiry and a remote UI are not implemented.
 

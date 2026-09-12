@@ -59,3 +59,9 @@ Consult before retrying client/server installation. Sources: official [requireme
 ## Recovery API scope (2026-09-10)
 
 Do not generalize the verified AWG daemon watchdog to Xray. During ECS testing, the native app showed Connected to Stockholm Xray and real HTTPS exited through 16.170.38.152, while `/var/run/amneziavpn/daemon.socket` status still reported connected=false and no serverIpv4Gateway. Its deactivate did not remove that Xray connection. Treat the inspected local API as AWG-specific until the Xray control path is separately verified. The unsuccessful generic watchdog script was removed; actual native Xray restoration was verified through UI and HTTPS.
+
+## Endpoint replacement in the Mac client (2026-09-12)
+
+- In inspected 5.0.1.5 source, `PageProtocolRaw.qml` displays `rawConfig` without a persistence handler. An apparently editable Connection options field is not a reliable endpoint update. Import a generated native profile with the same credentials and current endpoint, verify it, then remove only the obsolete local entry through Management → Remove server from application. Do not select server uninstall.
+- Before local profile changes, export both preference domains to protected files. For file-picker Go to Folder, set the observed path field directly; if a selected file will not open, raise the observed Open sheet and refresh state before confirming. After navigation, reacquire full AX/screenshot rather than reusing stale numeric indices.
+- Config text can contain Unicode paragraph separators (`U+2029`), which ordinary dot-based regexes do not span. Omit raw configuration from tool output; any redaction must handle the entire multiline value. Current Stockholm imports and checks are in the ECS launch record.

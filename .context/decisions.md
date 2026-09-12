@@ -209,3 +209,12 @@ The AWS AL2023 image runs the preserved Xray and userspace AWG images with ECS b
 - Automation correction: Cold ECS rebuilds inherit CDK's interactive IAM approval by default. Make only the explicitly selected ECS deploy/publish command noninteractive, retaining fresh diffs and account/region validation; do not change IAM/network policy or global CDK settings.
 - Result: Both retained-IP cold-rebuild paths and stop/start passed with closed stdin, unchanged credentials/images/IPs and real HTTPS/exit checks for both protocols. No manual repairs were needed. The old Stockholm deployment remains preserved; Cape Town was excluded.
 - Completion: Full gate 96 tests/four offline synths and final live diff pass. The lifecycle prerequisite for cutover is satisfied; cutover itself remains separate. See docs/launch-stockholm-ecs.md.
+
+## 2026-09-12 — Promote Stockholm ECS and retire the Ubuntu predecessor
+
+- Decider: Anthony explicitly authorized cutover after unattended lifecycle validation and asked to check the existing local Stockholm profiles.
+- Outcome: Keep ECS host, image/credential identities and its two existing EIPs. Delete only the old Stockholm `GhostlinePoc` endpoint and explicitly release both captured old allocations; Cape Town is unchanged and was not targeted.
+- Client handling: Import current ECS exports with preserved Mac credentials, verify native REALITY and guarded AWG, retain familiar profile names and remove obsolete local entries. Leave REALITY selected and the VPN disconnected. Current iOS exports are ready for owner-mediated replacement if the phone still uses old addresses.
+- Identity choice: Retain target `stockholm-ecs`, stack names `GhostlineEcsTrial` / `GhostlineEcsTrialImages` and `credentialSource: stockholm`; renaming these for presentation would add resource/recovery churn. Document `stockholm` as a retired recipe. Render current client endpoints from live outputs without rewriting imported parameter identities/versions.
+- Evidence: Old host/disk/ENI/EIPs gone; active ECS resources/images/IPs and six parameter versions unchanged. Native Mac checks, post-retirement server/disposable-client checks, full local gate and final diff pass. No new iOS, sustained performance or IPv6 acceptance is inferred.
+- Instruction breadcrumb: Update AGENTS and topic routing to the completed cutover and active ECS target; preserve the separate Cape Town boundary.

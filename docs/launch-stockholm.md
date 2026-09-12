@@ -1,8 +1,10 @@
-# Stockholm launch evidence
+# Retired Stockholm Ubuntu launch evidence
+
+Status: **Retired 2026-09-12.** The [Stockholm ECS primary](launch-stockholm-ecs.md) replaces this deployment. The host, root disk, networking and both old EIPs are gone; identifiers and tests below are historical.
 
 Observed 2026-09-09. Anthony authorized Stockholm as the next primary-exit trial while preserving Cape Town as backup, and requested repeatable regional teardown/redeploy with explicit EIP retention or release. No Cape Town resources or credentials were changed.
 
-## Live deployment
+## Retired deployment
 
 | Item | Value |
 | --- | --- |
@@ -59,4 +61,10 @@ Task-local protected diagnostics and the guarded test script are under `.local/d
 
 Anthony intermediates LastPass saves. Suggested item names: `Ghostline Stockholm — SSH admin key`, `Ghostline Stockholm — Xray recovery and clients`, and `Ghostline Stockholm — AWG recovery and clients`. Local protected plaintext files are not an encrypted vault backup; saves remain unconfirmed.
 
-For iOS, open the Xray and AWG `ios-qr.png` files locally and scan with Amnezia's importer; alternatively transfer each `ios.vpn` file. Keep device peers separate and retain Cape Town profiles. [Runtime workflow](runtime.md), [park/redeploy/destroy commands](development.md#on-demand-regional-lifecycle).
+These historical exports contain retired addresses. For current iOS imports use the ECS exports linked in the [cutover record](launch-stockholm-ecs.md#primary-cutover-and-mac-profiles--2026-09-12), preserving separate device peers and Cape Town profiles.
+
+## Retirement — 2026-09-12
+
+Anthony authorized cutover after accepted ECS protocol/lifecycle checkpoints. Fresh native Mac checks passed before retirement. `npm run destroy stockholm` deleted `GhostlinePoc` and explicitly released both captured EIPs. Verified host termination and absence of the old root disk, ENI and allocations listed above. Active ECS resource identities, images, credential versions and EIPs remained unchanged; Cape Town was not targeted. The local release record is `.local/deployments/stockholm/last-release.json`.
+
+The Mac's two familiar Stockholm profile names now point to ECS; obsolete local entries were removed. Local admin/recovery files remain protected, and the catalog keeps `stockholm` as the historical recipe and ECS credential-source identity. Use `stockholm-ecs` for the live exit; do not redeploy this recipe without a new request. Pending Ubuntu-specific owner/iOS trial work is superseded by ECS acceptance and cutover, not recorded as a new device pass.
