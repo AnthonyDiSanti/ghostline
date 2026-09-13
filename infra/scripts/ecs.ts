@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
@@ -10,7 +10,8 @@ import { ecsDeploymentCommand } from '../lib/commands.js';
 import { credentialParameters, importParameters } from '../lib/parameters.js';
 import { setEcsPower } from '../lib/ecs-power.js';
 import { testEcsClients } from '../lib/ecs-client-test.js';
-import { releaseFiles, releaseTag, type Protocol } from '../lib/ecs-release.js';
+import { imageArtifacts, imagePlatform, releaseTag } from '../lib/ecs-release.js';
+import { assertOfficialXray, prepareImage } from '../lib/ecs-images.js';
 import { parseJson } from '../lib/runtime.js';
 import { xrayLink } from '../lib/xray.js';
 import { profileQr, vpnLink } from '../lib/profile-share.js';
@@ -66,25 +67,23 @@ async function publish() {
   run('docker', ['--config', dockerConfig, 'login', '--username', 'AWS', '--password-stdin', registry], password);
   chmodSync(resolve(dockerConfig, 'config.json'), 0o600);
   try {
-  for (const protocol of ['xray', 'awg'] as const) {
-    const repository = `${config.resourceName}/${protocol}`;
-    const tag = releaseTag(protocol);
-    const existing = aws(['ecr', 'list-images', '--repository-name', repository]).imageIds;
-    if (existing.some((image: { imageTag?: string }) => image.imageTag === tag)) {
-      console.log(`${protocol}: immutable release already published.`); continue;
+    for (const protocol of imageArtifacts) {
+      const repository = `${config.resourceName}/${protocol}`;
+      const tag = releaseTag(protocol);
+      const existing = aws(['ecr', 'list-images', '--repository-name', repository]).imageIds;
+      if (existing.some((image: { imageTag?: string }) => image.imageTag === tag)) {
+        console.log(`${protocol}: immutable release already published.`); continue;
+      }
+      const docker = (args: string[]) => run('docker', args);
+      const local = prepareImage(protocol, resolve(work, 'build'), docker);
+      const image = `${registry}/${repository}:${tag}`;
+      docker(['tag', local, image]);
+      run('docker', ['--config', dockerConfig, 'push', image], undefined, true);
+      if (protocol === 'xray') {
+        run('docker', ['--config', dockerConfig, 'pull', '--platform', imagePlatform, image]);
+        assertOfficialXray(image, docker);
+      }
     }
-    const folder = resolve(work, 'build', protocol);
-    mkdirSync(folder, { recursive: true, mode: 0o700 });
-    for (const [name, content] of Object.entries(releaseFiles(protocol))) writeFileSync(resolve(folder, name), content);
-    if (protocol === 'xray') {
-      const path = resolve(folder, 'Xray-linux-64.zip');
-      if (!existsSync(path)) run('curl', ['-fsSL', '--retry', '3', 'https://github.com/XTLS/Xray-core/releases/download/v26.7.28/Xray-linux-64.zip', '-o', path]);
-      if (createHash('sha256').update(readFileSync(path)).digest('hex') !== '8195d909f1109b8f3d99eefe401a3c451d7bf4af71f24d3815420f77e5dd2a40') throw new Error('Xray checksum mismatch.');
-    }
-    const image = `${registry}/${repository}:${tag}`;
-    run('docker', ['buildx', 'build', '--progress', 'plain', '--platform', 'linux/amd64', '--load', '-t', image, folder], undefined, true);
-    run('docker', ['--config', dockerConfig, 'push', image], undefined, true);
-  }
   } finally {
     run('docker', ['--config', dockerConfig, 'logout', registry]);
   }
@@ -152,7 +151,7 @@ try {
     case 'deploy':
       run(process.execPath, ['--import=tsx', 'scripts/deployment.ts', 'preflight', config.id], undefined, true);
       await parameter('server/xray'); await parameter('server/awg');
-      for (const protocol of ['xray', 'awg'] as const) {
+      for (const protocol of imageArtifacts) {
         // Missing releases should fail here, not leave CloudFormation waiting on unstartable tasks.
         aws(['ecr', 'describe-images', '--repository-name', `${config.resourceName}/${protocol}`, '--image-ids', `imageTag=${releaseTag(protocol)}`]);
       }

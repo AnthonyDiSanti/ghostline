@@ -4,8 +4,7 @@ import { CloudAssembly } from 'aws-cdk-lib/cx-api';
 import { buildApp } from '../lib/app.js';
 import { getDeployment, validateDeployment, type DeploymentConfig } from '../lib/config.js';
 import { ecsUserData } from '../lib/ecs-stack.js';
-import { releaseFiles, releaseTag } from '../lib/ecs-release.js';
-import { launch } from './fixture.js';
+import { imageArtifacts, officialXrayImage, releaseFiles, releaseTag } from '../lib/ecs-release.js';
 
 afterAll(() => CloudAssembly.cleanupTemporaryDirectories());
 const config = { ...getDeployment('stockholm-ecs'), account: '000000000000' };
@@ -41,7 +40,8 @@ it('runs two isolated bridge tasks with only server-secret references and bounde
     const c = task.Properties.ContainerDefinitions[0];
     expect(c.ReadonlyRootFilesystem).toBe(true);
     expect(c.Privileged).toBeUndefined();
-    expect(c.Secrets[0].ValueFrom).toBe(`arn:aws:ssm:eu-north-1:000000000000:parameter/ghostline/prod/server/${c.Name}`);
+    const recipient = c.Name === 'xray' ? task.Properties.ContainerDefinitions.find((container: any) => container.Name === 'xray-config') : c;
+    expect(recipient.Secrets[0].ValueFrom).toBe(`arn:aws:ssm:eu-north-1:000000000000:parameter/ghostline/prod/server/${c.Name}`);
     expect(c.LinuxParameters.Capabilities.Drop).toEqual(['ALL']);
     if (c.Name === 'awg') expect(c.LinuxParameters.Devices[0].HostPath).toBe('/dev/net/tun');
   }
@@ -55,17 +55,34 @@ it('runs two isolated bridge tasks with only server-secret references and bounde
   expect(reads.every(s => s.Resource.includes(':parameter/ghostline/prod/server/'))).toBe(true);
 });
 
+it('gates unmodified non-root Xray on an offline initializer with a private task volume', () => {
+  const task = Object.values(resources).find(r => r.Type === 'AWS::ECS::TaskDefinition' && r.Properties.Family.endsWith('-xray')).Properties;
+  const [engine, initializer] = task.ContainerDefinitions;
+  expect(engine).toMatchObject({ User: '65532:65532', DependsOn: [{ ContainerName: 'xray-config', Condition: 'SUCCESS' }],
+    Command: ['run', '-config', '/usr/local/etc/xray/server.json'],
+    MountPoints: [{ SourceVolume: 'xray-config', ContainerPath: '/usr/local/etc/xray', ReadOnly: true }] });
+  expect(engine.Secrets).toBeUndefined();
+  expect(engine.EntryPoint).toBeUndefined();
+  expect(initializer).toMatchObject({ Essential: false, DisableNetworking: true, ReadonlyRootFilesystem: true,
+    Memory: 64, LinuxParameters: { Capabilities: { Drop: ['ALL'], Add: ['CHOWN'] } },
+    MountPoints: [{ SourceVolume: 'xray-config', ContainerPath: '/config', ReadOnly: false }] });
+  expect(initializer.PortMappings).toBeUndefined();
+  expect(task.Volumes).toEqual([{ Name: 'xray-config', DockerVolumeConfiguration: { Driver: 'local', Scope: 'task' } }]);
+  expect(releaseFiles('xray')).toEqual({});
+  expect(officialXrayImage).toMatch(/^ghcr.io\/xtls\/xray-core@sha256:[a-f0-9]{64}$/);
+});
+
 it('keeps immutable ECR repositories in a durable separate stack', () => {
   const images = app.node.findChild(`${config.stackName}Images`) as any;
   const imageResources = Template.fromStack(images).findResources('AWS::ECR::Repository');
-  expect(Object.keys(imageResources)).toHaveLength(2);
+  expect(Object.keys(imageResources)).toHaveLength(3);
   for (const repository of Object.values(imageResources)) {
     expect(repository.DeletionPolicy).toBe('Retain');
     expect(repository.Properties.ImageTagMutability).toBe('IMMUTABLE');
   }
   expect(ecsUserData(config, 'cluster').length).toBeLessThan(16_384);
   expect(ecsUserData(config, 'cluster')).not.toContain('PrivateKey');
-  for (const protocol of ['xray', 'awg'] as const) {
+  for (const protocol of imageArtifacts) {
     expect(releaseTag(protocol)).toMatch(/^sha-[a-f0-9]{64}$/);
     expect(Object.keys(releaseFiles(protocol))).not.toContain('server.json');
   }

@@ -218,3 +218,50 @@ The AWS AL2023 image runs the preserved Xray and userspace AWG images with ECS b
 - Identity choice: Retain target `stockholm-ecs`, stack names `GhostlineEcsTrial` / `GhostlineEcsTrialImages` and `credentialSource: stockholm`; renaming these for presentation would add resource/recovery churn. Document `stockholm` as a retired recipe. Render current client endpoints from live outputs without rewriting imported parameter identities/versions.
 - Evidence: Old host/disk/ENI/EIPs gone; active ECS resources/images/IPs and six parameter versions unchanged. Native Mac checks, post-retirement server/disposable-client checks, full local gate and final diff pass. No new iOS, sustained performance or IPv6 acceptance is inferred.
 - Instruction breadcrumb: Update AGENTS and topic routing to the completed cutover and active ECS target; preserve the separate Cape Town boundary.
+
+## 2026-09-12 — Hold Cape Town stable during primary architecture refinement
+
+- Decider: Anthony explicitly requested leaving Cape Town as the stable backup while refining the primary deployment architecture, then upgrading it when that work is finished.
+- Boundary: Keep the existing Cape Town Ubuntu/Compose host, two EIPs, credentials and client profiles in place. Defer its client-export normalization/Parameter Store migration to the later upgrade; use Stockholm for primary architecture work.
+- Planning: Record remaining host/CPU and network/container evaluations, full ECS address-release/relaunch validation, and optional lifetime/remote-launch scope separately from the completed ECS/lifecycle/cutover checkpoints. Listing them does not initiate infrastructure changes.
+- Instruction breadcrumb: Clarify the Cape Town preservation/upgrade sequence in AGENTS; make the task list current and separate owner recovery/profile follow-ups from completed implementation.
+
+## 2026-09-12 — Accept iPhone connectivity, defer vault backup and assess packaging
+
+- Decider: Anthony confirmed both Stockholm protocols work on the iPhone and explicitly deferred LastPass backup until architecture refinement is finished because the material is changing. Close the iOS profile follow-up; preserve local copies and regional parameters without repeated interim vault reminders.
+- Scope: Anthony requested packaging evaluation, retaining external port 443 for both protocols and the existing separate addresses. Clarify that TCP 443 and UDP 443 can share an IP; separate public addresses provide protocol address separation. No address release or runtime change was made.
+- Code/source assessment: Stockholm already uses one EC2, one ENI, two services/tasks/containers and two EIPs. Recommend retaining separate containers/services; a shared task couples task releases, and a single container adds supervision plus new per-engine egress classification. ECS also documents a per-container same-port/multiple-protocol restriction, so a combined bridge container would require distinct internal ports mapped to external TCP/UDP 443 and validation.
+- Follow-up: This is an initial packaging recommendation, not owner selection of a new deployment. Keep Cape Town stable; host/CPU and optional consolidation trials remain separate. Sources and implementation consequences are captured in docs/ecs.md.
+
+## 2026-09-13 — Distinguish packaging overhead from instance sizing
+
+- Requester: Anthony; assessment/recommendation by Codex, not an accepted resize or resource-limit change.
+- Finding: Merging containers preserves the two engine processes and shared host services. Boundary overhead may shrink, but no benchmark shows a meaningful capacity gain. Current memory limits account for 768 MiB at ECS placement; actual usage is unmeasured, and container CPU settings are shares rather than dedicated cores.
+- Recommendation: Measure representative and simultaneous loads plus restart peaks, tune reservations/limits separately from packaging, then validate any smaller instance. Near a capacity threshold a small saving could matter; do not claim zero savings or invent a percentage. Sources and sizing rationale are in docs/ecs.md.
+
+## 2026-09-13 — Research maintained Xray containers
+
+- Requester: Anthony; recommendation by Codex, not an accepted image migration or engine upgrade.
+- Finding: Official XTLS and third-party Teddysun images both publish current 26.7.28 and newer 26.9.9 with amd64/arm64 variants. Live registry metadata resolves stale overview pages; the release API labels both engine versions prereleases. Our current container packages the official ZIP on Alpine 3.15 rather than inheriting either image.
+- Recommendation: Evaluate official `ghcr.io/xtls/xray-core` at the existing 26.7.28 version, pinned by digest and retained in ECR. Its upstream-owned distroless/non-root packaging requires adapting secret-file preparation, permissions and diagnostics; Teddysun is easier for the existing shell wrapper but adds another binary publisher. Preserve protocol/credential/address identity and validate runtime behavior separately from a later version or CPU change.
+- Follow-up: Sources, resolved digests and implementation consequences live in docs/xray-images.md. No images were executed or published and no deployment/client state changed.
+
+## 2026-09-13 — Use encrypted task storage first and retain the RAM follow-up
+
+- Decider: Anthony selected a one-shot initializer and encrypted task storage while planning migration to the unmodified official XTLS image, then explicitly requested a recorded follow-up for RAM-backed configuration.
+- Rationale: Keep the first integration straightforward using ECS-managed storage on the existing encrypted EBS disk. Preserve regional Parameter Store identities; revisit RAM-backed rendered files after the initial migration rather than making shared-memory mount handling a prerequisite.
+- Follow-up: Task `01M2DA6YG0BA1GD47ZCMKBEWRX` covers RAM-backed handoff, permissions, cleanup and unattended lifecycle validation. This records the selected design and backlog; no runtime or infrastructure implementation occurred.
+
+
+## 2026-09-13 — Deploy official XTLS with initializer-only secret delivery
+
+- Decider: Anthony authorized the selected migration and expressly approved Parameter Store decryption when plaintext stays outside the context window. Values stayed in verification processes; diagnostic artifacts contain hashes/metadata only.
+- Outcome: Mirror unmodified official Xray 26.7.28 amd64 to retained ECR; add a pinned Alpine/jq one-shot initializer with no networking, a private encrypted task volume and non-root read-only engine access. Keep two services/EIPs and existing protocol/credential identities. Cape Town remains untouched.
+- Evidence: Official mirror identity, initializer handoff/permissions/secret recipient, server isolation/egress and real protocol tests pass. Unattended stop/start and retained-IP rebuild preserve all six secret values/versions, allocations/tags and images without repairs. Both existing iPhone profiles and native Mac protocol probes pass; final CDK diff is clean. Exact host and evidence: docs/launch-stockholm-ecs.md.
+- Learning: Distroless diagnostics use host Python in the engine's network namespace. AL2023 Python 3.9 raises its distinct `socket.timeout`; test it explicitly so blocked IMDS is not misclassified. RAM-backed files remain deferred; deleted-host disk cleanup does not establish instant task cleanup or secure erasure.
+
+## 2026-09-13 — Prioritize recurring Mac sleep/VPN instability after migration handoff
+
+- Decider: Anthony reported recurring configd crash/beach ball/hard restart and suspects sleep while Amnezia is connected. Treat this as a hypothesis until crash reports and sleep/wake evidence support it; a passing short tunnel test cannot establish client stability.
+- Boundary: Finish and record the server migration, then pause to touch base before investigating. Anthony subsequently authorized remaining awake connect/disconnect checks and kept the Mac active; guarded AWG passed and final VPN state is disconnected. No sleep reproduction or client reinstall/reset was performed.
+- Next: Task `01M2D00GJ5HE1591CYW6KSFVV1` starts with crash/panic/configd reports, sleep/wake timing and exact versions; evaluate replacement clients if evidence implicates Amnezia without a reliable fix. Keep this separate from RAM/host/CPU/Cape Town architecture work.

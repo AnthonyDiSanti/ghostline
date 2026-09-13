@@ -7,14 +7,14 @@ import { Construct } from 'constructs';
 import { readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import type { DeploymentConfig } from './config.js';
-import { releaseTag } from './ecs-release.js';
+import { imageArtifacts, releaseTag, type ImageArtifact } from './ecs-release.js';
 
 export class EcsImagesStack extends Stack {
-  readonly repositories: Record<'xray' | 'awg', ecr.Repository>;
+  readonly repositories: Record<ImageArtifact, ecr.Repository>;
   constructor(scope: Construct, id: string, props: StackProps & { deployment: DeploymentConfig }) {
     super(scope, id, props);
     // Images outlive the disposable endpoint; immutable content tags cannot silently change a release.
-    this.repositories = Object.fromEntries((['xray', 'awg'] as const).map(protocol => {
+    this.repositories = Object.fromEntries(imageArtifacts.map(protocol => {
       const repository = new ecr.Repository(this, protocol, {
         repositoryName: `${props.deployment.resourceName}/${protocol}`, imageTagMutability: ecr.TagMutability.IMMUTABLE,
         removalPolicy: RemovalPolicy.RETAIN, emptyOnDelete: false,
@@ -22,7 +22,7 @@ export class EcsImagesStack extends Stack {
       Tags.of(repository).add('System', protocol === 'awg' ? 'amneziawg' : 'xray');
       new CfnOutput(this, `${protocol}Repository`, { value: repository.repositoryUri });
       return [protocol, repository];
-    })) as Record<'xray' | 'awg', ecr.Repository>;
+    })) as Record<ImageArtifact, ecr.Repository>;
   }
 }
 
@@ -143,18 +143,24 @@ export class EcsEndpointStack extends Stack {
     for (const protocol of ['xray', 'awg'] as const) {
       const execution = new iam.Role(this, `${protocol}ExecutionRole`, { assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com') });
       props.repositories[protocol].grantPull(execution);
+      if (protocol === 'xray') props.repositories['xray-config'].grantPull(execution);
       execution.addToPolicy(new iam.PolicyStatement({ actions: ['ssm:GetParameters'],
         resources: [`arn:aws:ssm:${config.region}:${config.account}:parameter/ghostline/prod/server/${protocol}`] }));
       const definition = new ecs.CfnTaskDefinition(this, `${protocol}Task`, {
         family: `${config.resourceName}-${protocol}`, networkMode: 'bridge', requiresCompatibilities: ['EC2'],
         executionRoleArn: execution.roleArn,
+        ...(protocol === 'xray' ? { volumes: [{ name: 'xray-config', dockerVolumeConfiguration: { scope: 'task', driver: 'local' } }] } : {}),
         containerDefinitions: [{ name: protocol, essential: true,
           image: `${props.repositories[protocol].repositoryUri}:${releaseTag(protocol)}`,
           memory: protocol === 'xray' ? 256 : 512, cpu: 256, readonlyRootFilesystem: true,
           dnsServers: ['1.1.1.1', '1.0.0.1'],
           dockerSecurityOptions: ['no-new-privileges'],
           portMappings: [{ containerPort: 443, hostPort: 443, protocol: protocol === 'xray' ? 'tcp' : 'udp' }],
-          secrets: [{ name: 'GHOSTLINE_CONFIG', valueFrom: `arn:aws:ssm:${config.region}:${config.account}:parameter/ghostline/prod/server/${protocol}` }],
+          ...(protocol === 'xray' ? {
+            user: '65532:65532', command: ['run', '-config', '/usr/local/etc/xray/server.json'],
+            dependsOn: [{ containerName: 'xray-config', condition: 'SUCCESS' }], startTimeout: 60,
+            mountPoints: [{ sourceVolume: 'xray-config', containerPath: '/usr/local/etc/xray', readOnly: true }],
+          } : { secrets: [{ name: 'GHOSTLINE_CONFIG', valueFrom: `arn:aws:ssm:${config.region}:${config.account}:parameter/ghostline/prod/server/${protocol}` }] }),
           linuxParameters: { initProcessEnabled: true, capabilities: { drop: ['ALL'], add: protocol === 'xray' ? ['NET_BIND_SERVICE'] : ['NET_ADMIN'] },
             tmpfs: [{ containerPath: '/run', size: 16, mountOptions: ['rw', 'nosuid', 'nodev', 'noexec', 'mode=0700'] },
               { containerPath: '/tmp', size: 16, mountOptions: ['rw', 'nosuid', 'nodev', 'noexec'] }],
@@ -162,7 +168,16 @@ export class EcsEndpointStack extends Stack {
           ...(protocol === 'awg' ? { systemControls: [{ namespace: 'net.ipv4.ip_forward', value: '1' },
             { namespace: 'net.ipv4.conf.all.src_valid_mark', value: '1' }] } : {}),
           logConfiguration: { logDriver: 'json-file', options: { 'max-size': '1m', 'max-file': '1' } },
-        }],
+        }, ...(protocol === 'xray' ? [{
+          // Only the short-lived writer receives the bundle; the unmodified engine reads a private file.
+          name: 'xray-config', essential: false, image: `${props.repositories['xray-config'].repositoryUri}:${releaseTag('xray-config')}`,
+          memory: 64, cpu: 16, user: '0:0', readonlyRootFilesystem: true, disableNetworking: true,
+          dockerSecurityOptions: ['no-new-privileges'],
+          secrets: [{ name: 'GHOSTLINE_CONFIG', valueFrom: `arn:aws:ssm:${config.region}:${config.account}:parameter/ghostline/prod/server/xray` }],
+          mountPoints: [{ sourceVolume: 'xray-config', containerPath: '/config', readOnly: false }],
+          linuxParameters: { initProcessEnabled: true, capabilities: { drop: ['ALL'], add: ['CHOWN'] } },
+          logConfiguration: { logDriver: 'json-file', options: { 'max-size': '1m', 'max-file': '1' } },
+        }] : [])],
       });
       Tags.of(definition).add('System', protocol === 'awg' ? 'amneziawg' : 'xray');
       // Stop-first replacement allows a single host and fixed ports without hidden surge capacity.

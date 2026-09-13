@@ -65,3 +65,10 @@ Do not generalize the verified AWG daemon watchdog to Xray. During ECS testing, 
 - In inspected 5.0.1.5 source, `PageProtocolRaw.qml` displays `rawConfig` without a persistence handler. An apparently editable Connection options field is not a reliable endpoint update. Import a generated native profile with the same credentials and current endpoint, verify it, then remove only the obsolete local entry through Management → Remove server from application. Do not select server uninstall.
 - Before local profile changes, export both preference domains to protected files. For file-picker Go to Folder, set the observed path field directly; if a selected file will not open, raise the observed Open sheet and refresh state before confirming. After navigation, reacquire full AX/screenshot rather than reusing stale numeric indices.
 - Config text can contain Unicode paragraph separators (`U+2029`), which ordinary dot-based regexes do not span. Omit raw configuration from tool output; any redaction must handle the entire multiline value. Current Stockholm imports and checks are in the ECS launch record.
+
+
+## Mac configd/sleep instability report (2026-09-13)
+
+Anthony reports recurring configd crash, prolonged beach ball and hard restart, possibly when the Mac sleeps while Amnezia is connected. This is an owner hypothesis; no crash-report analysis or controlled sleep reproduction has established the cause. During XTLS migration validation, native REALITY passed before automation lost the app window; a later owner-authorized awake-only guarded AWG check also passed. Neither proves sleep/wake stability. Prioritize task `01M2D00GJ5HE1591CYW6KSFVV1` in [tasks](../tasks.md) after the requested handoff/touch-base. Preserve crash evidence and profiles before considering client replacement or another reset.
+
+The Qt server drawer can display changed AX radio state without applying the profile. Verify the top protocol/address after selecting a visible row; `Escape` dismisses the drawer. Do not connect based on the radio state alone.

@@ -2,11 +2,12 @@
 
 Start here before vendor/infrastructure integration work. Stable Ghostline behavior lives in `docs/`; these notes help future agents retrieve or interpret evidence.
 
-- [Amnezia/runtime notes](amnezia.md) — installer pitfalls, credential migration, cloud-init addressing and userspace AWG startup.
+- [Amnezia/runtime notes](amnezia.md) — installer pitfalls, credential migration, native recovery limits, reported configd/sleep instability, cloud-init addressing and userspace AWG startup.
 - [Secret inventory and regional storage](../../docs/secrets.md) — current credential sources, implemented Stockholm Parameter Store paths, Standard-tier payload sizes, legacy Cape Town client-export gap and separation from admin recovery.
 - [On-demand platform/cost assessment](../../docs/deployment-lifecycle.md) — Fargate TUN/NET_ADMIN limitation, idle EIP costs, stopped EC2 versus cold rebuild, and public AWS rate provenance.
 - [Regional expiration discussion draft](../scratch/2026-09-10-on-demand/proposal.md) — 2026-09-10 proposal, not implementation: idle versus permanent lifetime, stop/park/release cleanup, protocol presence limits, shared controller and unattended restoration dependencies.
-- [Primary ECS bridge runtime](../../docs/ecs.md) — stock AL2023 x86_64, exact secret injection, custom bridge identity guard, explicit host/service start-stop and follow-up image/network evaluations.
+- [Primary ECS bridge runtime](../../docs/ecs.md) — stock AL2023 x86_64, exact secret injection, custom bridge identity guard, explicit host/service start-stop, packaging assessment (ECS per-container port constraint and egress classification), and follow-up host/CPU evaluations.
+- [Maintained Xray images](../../docs/xray-images.md) — official GHCR versus Teddysun, pinned 26.7.28 mirror, private initializer-to-engine volume handoff, non-root/distroless verification and deferred RAM storage. Consult before changing Xray packaging or starting Graviton work.
 - [SSH-free ECS/EC2 assessment](../scratch/2026-09-10-on-demand/ecs-ec2.md) — current SSH dependencies, guest management without image rebuilds, one-host capacity semantics and two-EIP networking limitations. Historical design discussion; the implemented ECS runtime above owns current behavior.
 - [Fallback protocol selection](protocol-selection.md) — stealth-first comparison of AmneziaWG, NaïveProxy and Hysteria 2; evidence limits and Apple client availability.
 - [Reference repository notes](reference-repository.md) — location, provenance, stale-note pitfalls, and safe reuse boundaries for personal-assistant.

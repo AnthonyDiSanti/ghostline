@@ -10,6 +10,7 @@
     "build": "tsc --noEmit",
     "watch": "tsc --noEmit --watch",
     "test:vitest": "vitest run",
+    "test:ecs-images": "node --import=tsx scripts/ecs-image-test.ts",
     "test:cdk": "node --import=tsx scripts/synth-test.ts",
     "test": "npm run build && npm run test:cdk && npm run test:vitest",
     "synth": "node --import=tsx scripts/deployment.ts synth",

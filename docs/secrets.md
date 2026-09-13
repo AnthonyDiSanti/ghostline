@@ -1,6 +1,6 @@
 # Secret inventory and regional storage
 
-Updated 2026-09-12. The six Stockholm server/device values are now imported into eu-north-1 Standard SecureStrings and verified byte-for-byte for the [ECS primary](ecs.md). The old Ubuntu Stockholm host is retired; local recovery copies and device identities remain unchanged. Cape Town normalization/import remains separate. VPN guest access uses protocol credentials, not SSH accounts or keys; the ECS host requires no administrator SSH key.
+Updated 2026-09-13. The six Stockholm server/device values are imported into eu-north-1 Standard SecureStrings and verified byte-for-byte for the [ECS primary](ecs.md). The XTLS migration preserves their paths/values and changes only delivery: ECS injects the Xray bundle into a one-shot initializer, which writes a private task volume on existing encrypted EBS for the non-root engine to mount read-only. AWG retains tmpfs configuration. RAM-backed rendered Xray configuration remains a follow-up. The old Ubuntu Stockholm host is retired; local recovery copies and device identities remain unchanged. Cape Town normalization/import remains separate. VPN guest access uses protocol credentials, not SSH accounts or keys; the ECS host requires no administrator SSH key.
 
 ## Current secrets
 
@@ -52,6 +52,6 @@ Client parameter values preserve the imported source configurations, including h
 - Migrate existing regional identities without overwriting a conflicting parameter. Verify round-trip equality and runtime/client identity before considering removal of local copies.
 - Keep recovery parameters outside disposable endpoint-stack deletion. `park` and `destroy` should preserve them; a deliberate credential-purge operation would be separate from releasing billable IPs.
 - Parameter Store is the durable source, but the runtime still needs protected mounted configuration files while running. Fetch securely at installation/startup rather than per VPN connection. Values must not pass through command-line arguments, userdata, CloudFormation templates, images or logs.
-- Preserve LastPass as Anthony-mediated independent recovery. No vault access or deletion of existing exports is included in this inventory.
+- Preserve LastPass as Anthony-mediated independent recovery. On 2026-09-12 Anthony explicitly deferred the vault backup until architecture refinement is finished because the material is changing. Keep local exports and regional parameters in the meantime; do not repeatedly request interim LastPass updates.
 
 See [runtime workflow](runtime.md) for current implementation and [architecture](architecture.md) for ownership. Automatic idle shutdown and a remote management UI remain proposals, not part of the selected start/stop work.

@@ -9,6 +9,7 @@ Read by task. These documents are the current project specification, incorporati
 | Scaffold, write, or verify implementation | [Development](development.md) | Code layout, npm command contract, testing, first implementation sequence |
 | Migrate credentials or install owned containers | [Runtime](runtime.md) | Local bundles, pinned builds, client imports, protocol installation and verification |
 | Operate the primary Stockholm exit | [ECS runtime](ecs.md), [Stockholm ECS evidence](launch-stockholm-ecs.md) | AL2023/ECR/SSM ownership, unattended lifecycle, current profiles and later image/network evaluations |
+| Select a maintained Xray container image | [Xray image assessment](xray-images.md) | Official and third-party maintenance evidence, pinned official mirror, initializer handoff and deferred RAM configuration |
 | Locate credentials and regional Parameter Store paths | [Secrets](secrets.md) | Credential categories, implemented Stockholm paths, server/device access boundaries and recovery exclusions |
 | Park, redeploy or release a regional exit | [Development lifecycle](development.md#on-demand-regional-lifecycle) | Explicit retained-IP versus full-release commands |
 | Compare Fargate, stopped EC2 and cold rebuild costs | [Lifecycle assessment](deployment-lifecycle.md) | Protocol compatibility, Cape Town price model and on-demand management tradeoffs |

@@ -1,6 +1,6 @@
 # Stockholm ECS launch and primary cutover
 
-Status: **Primary exit; cutover completed 2026-09-12.** Owner acceptance and unattended retained-IP lifecycle validation preceded retirement of the old Ubuntu Stockholm stack and EIPs. Cape Town is unchanged. The trial began on 2026-09-10; the sections below preserve chronological evidence. [Architecture and commands](ecs.md).
+Status: **Primary exit; official XTLS migration and retained-IP rebuild completed 2026-09-13.** Original ECS cutover completed 2026-09-12. Owner acceptance and unattended retained-IP lifecycle validation preceded retirement of the old Ubuntu Stockholm stack and EIPs. Cape Town is unchanged. The trial began on 2026-09-10; the sections below preserve chronological evidence. [Architecture and commands](ecs.md).
 
 - Target `stockholm-ecs`, profile `personal`, account `757999402784`, region `eu-north-1`, AZ `eu-north-1a`.
 - Endpoint stack `GhostlineEcsTrial`; durable image stack `GhostlineEcsTrialImages`.
@@ -72,3 +72,42 @@ The AWG test used the verified local daemon watchdog and unconditional disconnec
 The active ECS stack outputs/resource identities, EIP associations/tags, ECR image digests and all six SecureString versions matched the pre-cutover baseline. The final secret audit read metadata only. Both services remain desired/running one, pending zero, on `i-0ccd265f182b32daf`; the ECS EIPs were kept rather than reassociating the old addresses. Post-retirement runtime configuration/isolation/egress verification and disposable encrypted HTTPS tests passed for both protocols. Final endpoint/image CDK diff: no changes. Full local gate: typecheck, four offline synths and 96 tests passed.
 
 Evidence and protected local preference backups are under `.local/diagnostics/stockholm-cutover-2026-09-12/`. Local credentials/recovery copies remain; Anthony intermediates LastPass saves. Current iOS exports are `.local/recovery/stockholm-ecs-clients/ios-{xray,awg}.vpn` and `ios-{xray,awg}-qr.png`. Any phone profile still using `16.170.38.152` or `13.50.178.121` must be replaced with these exports; no iOS profile change was performed during this cutover.
+
+## iPhone acceptance and recovery timing — 2026-09-12
+
+Anthony confirmed the iPhone works through both Stockholm protocols after cutover. This closes the current iOS profile/connectivity follow-up; it does not add separately measured DNS, IPv6, concurrency or throughput results. Anthony will save LastPass recovery material at the end of architecture refinement because the material is still changing. Keep the existing local copies and regional parameters; vault updates are deliberately deferred, not an immediate reminder or implementation blocker.
+
+## Official XTLS migration — 2026-09-13
+
+Anthony authorized the selected official-image/initializer design and permitted decrypting regional parameters only when plaintext remains outside tool output and the conversation. All six original parameter values/versions were compared locally by hash; no credential rotation or parameter writes were performed.
+
+Published the unmodified official Xray 26.7.28 amd64 image to the existing Xray ECR repository. The ECR manifest matches upstream exactly: `sha256:d7911c19a283acdc57e171ae0e3bd49ab4c29db14e2ab9274aa97132dd3ca3b9`. The new immutable `xray-config` repository has System=xray cost tagging; its pinned Alpine 3.24.1/jq initializer is separate from the engine. The image migration itself did not change AWG's image or task definition; the subsequent cold rebuild recreated both tasks from their retained images.
+
+The initial deployment replaced only the Xray task/service after adding scoped initializer-image pull permissions. It kept host `i-0ccd265f182b32daf`, its disk/ENI and both EIPs. Xray task revision 5 starts the official non-root engine after the network-disabled initializer exits successfully. The engine mounts its private configuration read-only from task-scoped Docker storage on encrypted EBS; it receives no Parameter Store environment variable.
+
+Initial live checks passed preserved configuration hashes, private file ownership/modes, read-only bridge isolation, blocked IMDS and distinct EIP egress. Both disposable clients completed real encrypted HTTPS through the expected addresses. The first new server verifier misclassified an AL2023 Python 3.9 `socket.timeout`; correcting the exception type fixed the diagnostic without runtime changes or network relaxation, and regression coverage reproduces the older Python behavior.
+
+Local validation passes 102 tests, four offline synths and six Docker image cases: exact private handoff after initializer exit, official configuration validation/non-root port 443, and five invalid-input cases rejected without credential output or partial files. Lifecycle and native-client results follow below. Evidence lives under `.local/diagnostics/xtls-migration-2026-09-13/`; raw parameter values are excluded from diagnostic artifacts.
+
+### Unattended restoration and final state
+
+| Sequence | Result |
+| --- | --- |
+| Stop → start | Passed with stdin closed. Stop took 38.6 seconds; start took 99.7 seconds. The same host/disk/ENI returned, both services stabilized and both server/real-client checks passed. |
+| Running host → park → deploy | Passed with stdin closed. Park took 154.1 seconds; deploy took 310.7 seconds. Only the two tracked EIPs and CDK metadata remained while parked. The new host restored both protocols from retained ECR/Parameter Store state; server and real-client checks passed. |
+
+Both EIPs/allocation IDs and tags, all six credential values/versions and all published image tags/digests matched the post-publication baseline throughout. No image republish, credential import, SSH, manual installation or repair occurred during the sequence. Removed host `i-0ccd265f182b32daf`, disk `vol-05348498adf9b9730` and ENI `eni-07b6ab15aaa75d982` were verified gone, including the old task storage on that disk. Normal delayed ECS task-volume cleanup on a retained host was not separately timed; this is not a secure-erasure claim.
+
+Final host: `i-0f0dc651c312542c2`; ENI: `eni-0c03f6d8ff213a20c`; root disk: `vol-0aaf612e214bd4b9d`, verified encrypted 30 GiB gp3. Both services are desired/running one, pending zero. Public addresses remain Xray `51.20.163.146` and AWG `16.16.73.146`.
+
+A separate redacted live audit verified initializer exit zero, disabled networking, CHOWN-only added capability, secret injection only into the initializer, and the same Docker local volume mounted writable by the initializer/read-only by Xray. Final endpoint and image CDK diff: **no differences**. Cape Town was not targeted.
+
+### Existing device profiles and separate Mac stability issue
+
+Anthony confirmed both existing iPhone profiles work after this migration. No new profile imports were needed.
+
+The native Mac REALITY test returned `51.20.163.146` and Wikipedia HTTPS 200. Automation later lost the Amnezia window; Anthony reported a configd crash, prolonged spinning beach ball and hard system restart. He reports recurrence and suspects sleeping while Amnezia is connected, possibly intermittently. No crash-report or sleep/wake correlation has yet established causality. This is tracked separately from server migration acceptance.
+
+Anthony then authorized remaining connect/disconnect checks while keeping the Mac awake. The guarded native AWG test passed three rounds of direct DNS, HTTPS 200 and exact exit `16.16.73.146`, plus all nine pings. Its independent local watchdog/cleanup disconnected the tunnel; direct egress returned to `5.195.76.221`. Final UI: Stockholm REALITY selected at `51.20.163.146`, **disconnected**. Cape Town profiles are intact. No sleep reproduction, client reset or persistent settings change was performed.
+
+The server migration work unit is complete. Task `01M2D00GJ5HE1591CYW6KSFVV1` in the [backlog](../.context/tasks.md) prioritizes crash/sleep diagnosis and, if warranted by evidence, alternative clients. Anthony requested recording this handoff and pausing to touch base before that investigation. RAM-backed rendered configuration remains an explicit later task; LastPass updates remain deferred until architecture refinement is complete.
