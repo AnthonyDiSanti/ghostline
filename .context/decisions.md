@@ -265,3 +265,85 @@ The AWS AL2023 image runs the preserved Xray and userspace AWG images with ECS b
 - Decider: Anthony reported recurring configd crash/beach ball/hard restart and suspects sleep while Amnezia is connected. Treat this as a hypothesis until crash reports and sleep/wake evidence support it; a passing short tunnel test cannot establish client stability.
 - Boundary: Finish and record the server migration, then pause to touch base before investigating. Anthony subsequently authorized remaining awake connect/disconnect checks and kept the Mac active; guarded AWG passed and final VPN state is disconnected. No sleep reproduction or client reinstall/reset was performed.
 - Next: Task `01M2D00GJ5HE1591CYW6KSFVV1` starts with crash/panic/configd reports, sleep/wake timing and exact versions; evaluate replacement clients if evidence implicates Amnezia without a reliable fix. Keep this separate from RAM/host/CPU/Cape Town architecture work.
+
+
+## 2026-09-13 — Diagnose recurring Mac network watchdog panics and retire socket recovery
+
+- Requester: Anthony authorized investigating three to five crashes after committing the server migration and clarified that startup cleanup followed the latest reboot. Read-only report/log analysis confirms three sleep/wake-related configd watchdog/panic pairs. In two, a blocked Amnezia service thread owns the mutex configd needs; upstream #2933 corroborates the failure class. Record a strongly implicated Amnezia/macOS interaction, not a fully proven lock cycle or sole-vendor defect.
+- Diagnostic correction: a separate service SIGSEGV at 13:05 coincides with our previous raw-socket AWG cleanup. Retire that watchdog; route/HTTPS success did not prove daemon stability. Added a small AGENTS guard and revised the historical recovery note to prevent repeated use. This is independent of the preceding 12:55 system panic.
+- Recommendation by Codex: trial an Apple NetworkExtension-based Mac REALITY client, with SFM as a concrete candidate, preserving the server and credentials. Actual installation and owner-coordinated sleep/wake validation remain open; do not treat the incident as resolved. No system settings, runtime or cloud changes were made. Evidence and sources: docs/mac-client-stability.md.
+- Follow-up by Anthony: select SFM for the trial. Use the official standalone macOS distribution through Homebrew; prepare a private sing-box profile from the existing Stockholm REALITY credentials after installation. Selection is recorded; no successful replacement-client or sleep test is claimed yet.
+
+## 2026-09-13 — Scope the replacement to REALITY and establish SFM incompatibility
+
+- Decider: Anthony keeps AWG in Amnezia and considers Shadowrocket only if comparable AWG instability occurs. Rechecking all three preserved system crashes finds the Xray-specific tun2socks path each time; this strongly supports REALITY involvement, but does not directly establish selected-profile state. The AWG cleanup service crash is separate from sleep/watchdog panics.
+- Evidence: private profile conversion/schema validation succeeded. Official sing-box 1.14.0 fails live REALITY authentication while official Xray 26.7.28 with the original credentials passes expected-exit validation. A temporary localhost-only server comparison reproduces the failure and resolves it by changing only its client-version floor. Pinned code establishes a 26.3.27 server default versus sing-box's 1.8.1 REALITY marker.
+- Boundary: installation remains incomplete (owner sudo authentication needed), and live version policy, server image, credentials and native VPN settings are unchanged. No silent floor reduction, server downgrade, client version spoof or Shadowrocket installation. The upstream warning makes a deployed compatibility-policy change a censorship tradeoff requiring discussion under the existing project contract.
+- Recommendation by Codex: assess an Apple client using current Xray while preserving server settings; alternative is explicit evaluation of the server-policy tradeoff for SFM. The earlier SFM recommendation overgeneralized protocol support and must not be treated as exact-version compatibility evidence. Task and diagnosis document hold the current blocker.
+
+## 2026-09-13 — Remove SFM and preserve the deployed server for client trials
+
+- Decider: Anthony explicitly rejects modifying the image to accommodate SFM, requests removal and focuses on alternative clients. Keep the deployed server/version policy intact. Revisit official Amnezia when a relevant fix can be validated, ideally before a later compatibility change forces another switch.
+- Outcome: SFM installation had never completed; verified app/cask/receipt absence and removed its cached package, private trial profile and headless sing-box tools. Preserved private diagnostic evidence/provenance; no native VPN settings or cloud deployment changed.
+- Recommendation by Codex: trial Happ’s Apple App Store build next because its release history includes the same Xray 26.7.28 used in the successful live control; Streisand is another current-engine candidate. This is not owner selection or a native connectivity/stability pass. Verify actual engine and Apple tunnel integration; the standalone Happ desktop daemon is a different packaging choice. Keep AWG in Amnezia and Shadowrocket conditional on comparable AWG instability.
+
+## 2026-09-13 — Compare replacement clients by source availability and adoption
+
+- Criteria from Anthony: prefer open source when it differs between Happ and Streisand; otherwise favor mass adoption.
+- Findings by Codex: Happ explicitly retains private app source, while no published Streisand app source/license was found. Both use open-source Xray, which is a separate layer. US App Store ratings favor Happ (~15k at 4.6/5 versus ~2.1k at 4.4/5); these are platform-combined reputation/adoption proxies, not active-user counts or Mac sleep evidence.
+- Recommendation: retain Happ’s Apple App Store build as the next REALITY experiment. Its developer has documented a provider-oriented push backend; review optional controls with our local profile during setup. Source availability/adoption findings and evidence limits are captured in docs/mac-client-stability.md. No owner selection, installation, client connection or server change occurred in this comparison.
+
+## 2026-09-13 — Reject provider-driven remote client configuration
+
+- Requirement from Anthony: a client should not expose third-party remote control. Codex withdraws the Happ recommendation; source/adoption criteria apply only after suitability for owner-controlled use.
+- Evidence: Happ’s developer describes push-driven subscription URL/app-setting changes without user action; official docs describe subscription management controls and Provider ID backend reporting. This is remote configuration, not evidence of arbitrary command execution. Current iOS policy describes notification consent, but Mac/local-profile behavior and complete disablement remain unverified; describing the whole feature as optional was too confident.
+- Follow-up: screen Streisand/other candidates for the same unwanted management dependency before selection. Happ was never installed and received no Ghostline credentials. Preserve deployed image/settings, AWG scope and existing identities. Sources and distinctions are in docs/mac-client-stability.md.
+
+## 2026-09-13 — Review Streisand without assuming it resolves Happ’s trust mismatch
+
+- Requester: Anthony asks for a Streisand review and the origin of its name. No installation is implied by this document review.
+- Findings: the official store’s no-data label conflicts with its linked policy describing analytics/crash collection, 90-day retention and AdMob advertising. No comparable provider-management API was documented, but app source and exact runtime behavior remain unavailable/unverified. The advertised current Xray version exceeds the server floor; it is not a native compatibility or sleep pass.
+- Recommendation by Codex: do not select Streisand for adoption yet; broaden toward inspectable Mac client code and documented owner-controlled local operation. No app installed, credentials imported or deployed settings changed. The likely Streisand-effect naming reference is explicitly an inference; developer intent is unconfirmed. Evidence and limitations are in docs/mac-client-stability.md.
+
+## 2026-09-13 — Accept Streisand tracking and complete one final client search
+
+- Decider: Anthony retains Streisand as a strong stopgap candidate and explicitly accepts ads/tracking. Practical requirements are reliable connectivity, no system crashes and no attack surface from proprietary provider remote administration. Open source remains preferred; request one final search, not an extended audit or server refactor.
+- Findings: OneXray publishes GPL app source and an Apple Packet Tunnel implementation. Reviewed store-tag notification code generates local alerts; no provider push channel was identified in the bounded review. Apple adoption is much smaller (55 ratings versus Streisand’s ~2.1k). v2rayN has broad overall adoption but uses elevated desktop TUN processes, making it a less direct Apple-networking comparison.
+- Recommendation by Codex: short OneXray Apple App Store trial first, Streisand immediately next if unsuitable. This is not owner selection or a stability claim. Distinguish store 26.9.1 from GitHub 26.9.2; confirm installed engine, local profile behavior and full-tunnel DNS/routing, then awake and coordinated sleep/wake tests. Source/links are in docs/mac-client-stability.md. No app installed, source script run, credentials imported or deployment changed.
+
+## 2026-09-13 — Complete requested v2rayN due diligence before client selection
+
+- Requester: Anthony asks for focused research before deciding. Reviewed stable 7.24.9 source/releases and Mihomo 1.19.30. No client installation or broader AWG migration was inferred.
+- Findings: Xray can retain the REALITY handshake while Mihomo supplies AWG 3.1; Mihomo alone sends marker 1.8.2, incompatible with our preserved 26.3.27 floor by source analysis. Mac TUN uses privileged engine processes; its GUI holds the sudo password in memory and configures the local Mihomo controller without authentication. No Happ-like provider push dependency was identified in the scoped review. Current release addresses an older downloader MITM vulnerability; native sleep behavior remains untested.
+- Recommendation by Codex: retain OneXray first for the selected REALITY-only stopgap; consider v2rayN when consolidating both protocols justifies its control/packaging tradeoffs. Apple NetworkExtension alone is not evidence of immunity to network-lock failures. Sources, scope and trial requirements are in docs/v2rayn-assessment.md. Owner selection remains open; no credentials, network settings or cloud resources changed.
+
+## 2026-09-13 — Close out the three-client comparison in the notebook
+
+- Requester: Anthony asks to capture final thoughts on OneXray, Streisand and v2rayN. This records the research conclusions, not an app selection or installation.
+- Synthesis by Codex: OneXray first for the current REALITY-only/open-source preference; Streisand is an immediate alternative and a reasonable first choice if Apple adoption takes priority. Its accepted tracking tradeoff is resolved. v2rayN is strongest when consolidating both protocols justifies separate Xray/Mihomo engines and its local privilege/control model. No candidate is proven more stable on this Mac.
+- Handoff: the final comparison in docs/mac-client-stability.md owns decision triggers and the next trial checks; compact status/task notes link to it rather than restating the research. Choose and test a distributed client using existing credentials/server settings. No further broad research is needed absent a concrete failure or changed requirement; no staging or commit performed.
+
+## 2026-09-13 — Triage patching Amnezia without starting implementation
+
+- Requester: Anthony asks whether the OSS client is worth patching, a GitHub issue to review personally and a difficulty score out of five; explicitly excludes a code deep dive.
+- Findings: GPL-3.0 client; #2933 remains open/unassigned with community analysis but no maintainer response or matching fix identified. Newer comments reproduce without sleep and propose bounded firewall cleanup, tunnel shutdown ordering/lifecycle changes and dependency isolation. Treat those as candidate approaches, not established prevention of the kernel deadlock.
+- Assessment by Codex: 4/5 for a reliable fix; diagnosis, Mac build/helper packaging and repeated reproduction dominate a potentially modest code change. Recommend a replacement-client trial first, or a one-engineering-day feasibility cap if keeping Amnezia becomes the priority. No owner commitment to a fork, implementation, forced sleep or upstream message; detailed rationale is in docs/mac-client-stability.md.
+
+## 2026-09-13 — Defer Amnezia repair to upstream and advance to replacement installation
+
+- Decider: Anthony rejects local patching and requests a check between major work units, including To Do reviews, for #2933 resolution and inclusion in a released Mac client. Keep dated status in the recurring task; closure/merge alone is insufficient, and any macOS OS prerequisite must be distinguished from the client release. Added one AGENTS reminder so this survives completion of the immediate crash task. No background monitor requested.
+- Scope: pause routine REALITY use in the affected Mac Amnezia build because upstream also reports awake triggers. Continue AWG under the existing decision. Reconsider the official client after an applicable released fix and local validation; potential wider benefits are unproven.
+- Installation recommendation by Codex: free OneXray Mac App Store edition, preserving the existing Stockholm identity/server; confirm packaged core and routing/DNS before awake and coordinated sleep tests. Anthony requests which app/how to install; exact app acceptance, installation and native results are not yet recorded. Official listing/install route rechecked; no app, credential, network or cloud changes made in this guidance turn.
+
+## 2026-09-13 — Install OneXraySE and preserve both regional Mac identities
+
+- Decider: Anthony rejects an expensive/disruptive Mac restart, proceeds with Homebrew and authorizes configuring Stockholm and Cape Town. Use OneXraySE despite its different extension/file-logging packaging; App Store authentication repair is no longer a prerequisite. Keep AWG in Amnezia and server/iPhone configuration unchanged.
+- Observed: app 26.9.2/444, Xray-core 26.9.9, network extension enabled. Imported both local REALITY nodes as standard VLESS links. Compared current stored UUID/key/short ID/SNI/fingerprint/flow/endpoint to preserved exports without printing credentials. Cape Town's Mac identity is established by historical last_config plus server/iPhone cross-check, not arbitrary client array order.
+- Pending: automatic approval review rejected saving full-device capture/encrypted DNS as beyond profile-only authorization. Requested explicit approval for settings and native connect/disconnect tests; no saved routing change, native connection or reboot is claimed. The approved device credential import is complete; validation remains open.
+
+## 2026-09-13 — Validate both regional REALITY nodes in OneXraySE
+
+- Decider: Anthony explicitly approves full-device routing, encrypted DNS and connection/disconnection tests, retaining automatic connection off. Saved All via VPN, fixed Stockholm selection, full capture with documented system exceptions and DoT to `8.8.8.8` / `dns.google`. An accidental macOS Don't Allow caused registration failure; retry/Allow resolved it without restarting or resetting preferences.
+- Evidence: Stockholm, Cape Town and Stockholm reconnect pass native HTTPS/exact-exit checks; both regions pass fresh OS DNS resolution, tunnel routes and certificate-verified TLS 1.3 resolver connectivity. Supported `scutil --nc stop` reliably restores direct internet/en0. Final UI: Stockholm selected/disconnected. No new relevant crash reports during the awake trial; repeated sleep/wake remains pending. IPv6 lacks a working disconnected baseline; do not claim prevention or an exhaustive DNS leak audit.
+- Audit scope: automatic review rejected an optional final reread of recovery credentials and navigation for a redundant settings check. Completed a narrower network/status/crash-filename audit and confirmed the final UI instead; rely on the earlier import comparison, not a claimed second credential comparison. No unresolved approval is needed for the completed configuration/connectivity work.
+- Follow-up: owner-coordinated practical use and repeated battery/AC sleep/wake checks, then review new reports. Preserve server/iPhone settings and AWG in Amnezia. Evidence and bounded native-probe details are in docs/mac-client-stability.md; no deployment or Mac reboot occurred.

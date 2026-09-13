@@ -49,7 +49,9 @@ Consult before retrying client/server installation. Sources: official [requireme
 - EIP CloudFormation `PhysicalResourceId` is its public IPv4, not allocation ID. Match live stack resource addresses to the explicit allocation outputs before capturing a teardown record. Parked allocations keep CloudFormation and project/protocol tags; no orphan import is needed.
 - Xray's image ENTRYPOINT includes the server config. A disposable client validation must override the entrypoint to `/usr/bin/xray` before selecting its client config, otherwise Xray tries to load both files.
 
-## Guarded native Mac AWG tests (2026-09-09)
+## Historical guarded native Mac AWG tests (2026-09-09)
+
+**Retired 2026-09-13:** the raw daemon-socket cleanup coincides with an Amnezia service SIGSEGV despite passing network checks. Do not reuse these scripts as trusted recovery. See [crash evidence](../../docs/mac-client-stability.md#separate-service-crash-during-prior-test-cleanup). The following records earlier observations, not current instructions to probe the socket.
 
 - Anthony authorized reconnecting AWG with automatic recovery after a reported loss of internet. Source `client/mozilla/localsocketcontroller.cpp` and `client/daemon/daemonlocalserverconnection.cpp` define newline-delimited JSON over `/var/run/amneziavpn/daemon.socket`: `{"type":"status"}` reports connection/endpoint/counters and `{"type":"deactivate"}` follows the app's normal disconnect path. A separate local watchdog can invoke it without internet or GUI access. This is an inspected internal API tied to Amnezia 5.0.1.5, not a stable public CLI.
 - Verify the target is disconnected and the local disconnect action works before arming a test; use a separate unconditional timer as well as early failure detection. Always verify daemon disconnection and restored direct egress afterward. Avoid a toggle action that could accidentally reconnect after an owner disconnect.
@@ -67,8 +69,10 @@ Do not generalize the verified AWG daemon watchdog to Xray. During ECS testing, 
 - Config text can contain Unicode paragraph separators (`U+2029`), which ordinary dot-based regexes do not span. Omit raw configuration from tool output; any redaction must handle the entire multiline value. Current Stockholm imports and checks are in the ECS launch record.
 
 
-## Mac configd/sleep instability report (2026-09-13)
+## Mac configd/sleep investigation (2026-09-13)
 
-Anthony reports recurring configd crash, prolonged beach ball and hard restart, possibly when the Mac sleeps while Amnezia is connected. This is an owner hypothesis; no crash-report analysis or controlled sleep reproduction has established the cause. During XTLS migration validation, native REALITY passed before automation lost the app window; a later owner-authorized awake-only guarded AWG check also passed. Neither proves sleep/wake stability. Prioritize task `01M2D00GJ5HE1591CYW6KSFVV1` in [tasks](../tasks.md) after the requested handoff/touch-base. Preserve crash evidence and profiles before considering client replacement or another reset.
+[The investigation](../../docs/mac-client-stability.md) now confirms three configd watchdog/panic pairs after sleep/wake. In two snapshots, configd waits for a kernel mutex owned by an Amnezia service thread, itself blocked on a kernel rwlock. This directly implicates the Amnezia/macOS network interaction; the complete lock cycle and exact faulty operation remain unknown. Upstream #2933 reports a close match. Post-restart startup cleanup cannot explain the earlier panic.
+
+A separate 13:05 service SIGSEGV coincides with the previous custom AWG watchdog's raw `deactivate`; its final probes had passed. Retire that socket control path, preserve the evidence, and do not conflate successful egress recovery with daemon stability. Task `01M2D00GJ5HE1591CYW6KSFVV1` now tracks replacement-client and sleep/wake validation. No forced reproduction or client reset occurred during analysis.
 
 The Qt server drawer can display changed AX radio state without applying the profile. Verify the top protocol/address after selecting a visible row; `Escape` dismisses the drawer. Do not connect based on the radio state alone.

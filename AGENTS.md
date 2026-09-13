@@ -27,6 +27,8 @@ ECS commands are `npm run ecs <target> <action>`; see `docs/ecs.md`. Legacy runt
 
 Use npm under `infra/`, strict TypeScript, a thin CDK CLI and shared testable app builder. Prefer one straightforward endpoint stack per explicitly selected deployment. Preserve existing targets unless their modification or removal is authorized; see the named catalog and scoped commands in `docs/development.md`. Use `park <target>` to retain tracked EIPs and `destroy <target>` to release disposable exits; preserve runtime credentials before removing an installed host. Keep nonsecret configuration separate from runtime secret values; LastPass is the personal/admin store and Parameter Store is the application-secret store.
 
+Before native Mac recovery or sleep testing, read `docs/mac-client-stability.md`. The custom Amnezia 5.0.1.5 raw daemon-socket watchdog is retired after a correlated service crash; do not reuse the ignored polling/deactivation scripts as trusted recovery.
+
 For non-trivial code changes:
 - Add short intent comments to non-obvious functions/blocks.
 - Run the smallest relevant checks first, then the full available verification gate.
@@ -40,6 +42,7 @@ For non-trivial code changes:
 - `.context/` owns live status, decisions, compact supplemental knowledge, and task-scoped drafts.
 - Update relevant docs and working memory after every substantial turn. Capture decisions with date, decision-maker, rationale, and follow-up.
 - Consult `.context/knowledge/index.md` before vendor/API/infrastructure work; follow existing relevant notes before adding new ones.
+- At major work-unit transitions and To Do reviews, perform the Amnezia issue/release check in `.context/tasks.md` until a fixed Mac client has been validated; record the date and outcome.
 - Distinguish intended behavior, observed evidence, and later possibilities. Do not copy versioned product questionnaires into multiple authoritative locations.
 - Keep docs small and retrieval-oriented; add directories/topics when needed, not to fill a preset taxonomy.
 - Promote useful draft content and remove superseded scratch artifacts. Preserve historical sources only with explicit archive status.
