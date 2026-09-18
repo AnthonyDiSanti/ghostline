@@ -1,18 +1,15 @@
-# Supplemental agent knowledge
+# Supplemental knowledge
 
-Start here before vendor/infrastructure integration work. Stable Ghostline behavior lives in `docs/`; these notes help future agents retrieve or interpret evidence.
+Consult before infrastructure/vendor work. Current behavior belongs in `docs/`; git history owns superseded implementations.
 
-- [Amnezia/runtime notes](amnezia.md) — installer pitfalls, credential migration, native recovery limits, reported configd/sleep instability, cloud-init addressing and userspace AWG startup.
-- [Final Mac client comparison and crash evidence](../../docs/mac-client-stability.md#final-client-selection-notes) — OneXraySE regional REALITY routing/awake tests pass; repeated sleep/wake remains pending. Streisand is the immediate alternative, v2rayN if consolidating both protocols becomes the priority. Includes standard-link import/current Xray schema, permission retry, supported macOS disconnect, native-vs-sandbox DNS checks and IPv6 evidence limits. Incident history retains three watchdog panics, retired socket recovery, SFM incompatibility/removal, Happ withdrawal and upstream release-watch criteria.
-- [v2rayN due diligence](../../docs/v2rayn-assessment.md) — use Xray for REALITY and Mihomo for AWG; Mihomo's REALITY marker misses our floor. Mac TUN retains sudo password in app memory; local Mihomo API has no token. No provider push channel identified; current release/security and sleep evidence limits.
-- [Secret inventory and regional storage](../../docs/secrets.md) — current credential sources, implemented Stockholm Parameter Store paths, Standard-tier payload sizes, legacy Cape Town client-export gap and separation from admin recovery.
-- [On-demand platform/cost assessment](../../docs/deployment-lifecycle.md) — Fargate TUN/NET_ADMIN limitation, idle EIP costs, stopped EC2 versus cold rebuild, and public AWS rate provenance.
-- [Regional expiration discussion draft](../scratch/2026-09-10-on-demand/proposal.md) — 2026-09-10 proposal, not implementation: idle versus permanent lifetime, stop/park/release cleanup, protocol presence limits, shared controller and unattended restoration dependencies.
-- [Primary ECS bridge runtime](../../docs/ecs.md) — stock AL2023 x86_64, exact secret injection, custom bridge identity guard, explicit host/service start-stop, packaging assessment (ECS per-container port constraint and egress classification), and follow-up host/CPU evaluations.
-- [Maintained Xray images](../../docs/xray-images.md) — official GHCR versus Teddysun, pinned 26.7.28 mirror, private initializer-to-engine volume handoff, non-root/distroless verification and deferred RAM storage. Consult before changing Xray packaging or starting Graviton work.
-- [SSH-free ECS/EC2 assessment](../scratch/2026-09-10-on-demand/ecs-ec2.md) — current SSH dependencies, guest management without image rebuilds, one-host capacity semantics and two-EIP networking limitations. Historical design discussion; the implemented ECS runtime above owns current behavior.
-- [Fallback protocol selection](protocol-selection.md) — stealth-first comparison of AmneziaWG, NaïveProxy and Hysteria 2; evidence limits and Apple client availability.
-- [Reference repository notes](reference-repository.md) — location, provenance, stale-note pitfalls, and safe reuse boundaries for personal-assistant.
-- [Region/privacy research](../../docs/region-selection.md) — Stockholm intended trial and Milan comparison (Piracy Shield); Frankfurt is the owner-proven performance baseline. Owner exclusion of Tel Aviv, European comparison and 2026 policy watch. Cape Town remains live and should be retained as backup: prior device trials passed, but Anthony reports both protocols too slow as of 2026-09-09. Stockholm ECS is now the primary; [current evidence](../../docs/launch-stockholm-ecs.md) records accepted protocols/IP masquerading, unattended lifecycle and native Mac cutover checks. Its Ubuntu predecessor is retired; device-specific privacy/performance evidence remains limited.
-
-Add a topic only when it prevents repeated investigation. Link useful external documentation from the canonical topic that depends on it; do not build a parallel vendor-doc encyclopedia here.
+- [ECS gateway](../../docs/ecs.md) — shared task/initializer, per-engine restarts, private RAM, common memory budget, bridge identity and lifecycle constraints.
+- [Regional lifecycle](../../docs/deployment-lifecycle.md) — retention/release ownership, EIP adoption, publisher aliases across regions and optional expiration questions.
+- [Image provenance and policy](../../docs/images.md) — official Xray mirror, native AWG source build, three immutable artifacts and stable-channel follow-up.
+- [Secret boundary](../../docs/secrets.md) — six regional parameters, portable import directory, exact execution-role scope, read-only mounts and residual environment metadata.
+- [Development fixtures](../../docs/development.md#typescript-and-npm) — native scripts, explicit rendering, recursive syntax/lint checks and real-file tests.
+- [Stockholm evidence](../../docs/launch-stockholm-ecs.md), [Cape Town evidence](../../docs/launch-cape-town.md) — actual resource identities and tested behavior; read before cloud changes.
+- [Mac client stability](../../docs/mac-client-stability.md) — OneXraySE routing/awake tests, crash evidence, unsafe retired watchdog and release-watch criteria.
+- [v2rayN assessment](../../docs/v2rayn-assessment.md) — conditional alternative client, REALITY/AWG compatibility and security tradeoffs.
+- [Protocol selection](protocol-selection.md) — reasons for AWG as the manual stealth alternative.
+- [Reference repository](reference-repository.md) — personal-assistant source map, cost tags and fixture patterns.
+- [Region assessment](../../docs/region-selection.md) — performance/privacy research and evidence limits, separate from deployment implementation.

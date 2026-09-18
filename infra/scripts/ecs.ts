@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
@@ -9,16 +9,21 @@ import { getDeployment } from '../lib/config.js';
 import { ecsDeploymentCommand } from '../lib/commands.js';
 import { credentialParameters, importParameters } from '../lib/parameters.js';
 import { setEcsPower } from '../lib/ecs-power.js';
-import { testEcsClients } from '../lib/ecs-client-test.js';
-import { imageArtifacts, imagePlatform, releaseTag } from '../lib/ecs-release.js';
+import { deployedClientImages, testEcsClients } from '../lib/ecs-client-test.js';
+import { imageArchitecture, imageArtifacts, imagePlatform, releaseTag } from '../lib/ecs-release.js';
 import { assertOfficialXray, prepareImage } from '../lib/ecs-images.js';
-import { parseJson } from '../lib/runtime.js';
+import { ecsMemoryBudget } from '../lib/ecs-memory.js';
+import { ecsVerificationCommand } from '../lib/ecs-verification.js';
+import { parseJson } from '../lib/xray-config.js';
 import { xrayLink } from '../lib/xray.js';
 import { profileQr, vpnLink } from '../lib/profile-share.js';
 
 const [target, action, ...extra] = process.argv.slice(2);
 const config = getDeployment(target);
-if (!config.ecs || extra.length) throw new Error('Usage: npm run ecs <ecs-target> <import|publish|deploy|start|stop|status|verify|profiles|test>');
+if (action === 'import' ? extra.length !== 1 : extra.length !== 0) {
+  throw new Error('Usage: npm run ecs <target> <action>; import requires a credential directory.');
+}
+const platform = imagePlatform;
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const work = resolve(root, '.local/deployments', config.id, 'ecs');
 mkdirSync(work, { recursive: true, mode: 0o700 });
@@ -80,7 +85,7 @@ async function publish() {
       docker(['tag', local, image]);
       run('docker', ['--config', dockerConfig, 'push', image], undefined, true);
       if (protocol === 'xray') {
-        run('docker', ['--config', dockerConfig, 'pull', '--platform', imagePlatform, image]);
+        run('docker', ['--config', dockerConfig, 'pull', '--platform', platform, image]);
         assertOfficialXray(image, docker);
       }
     }
@@ -91,14 +96,13 @@ async function publish() {
 
 function power(action: 'start' | 'stop') {
   setEcsPower(action, config.stackName, state(), aws);
-  console.log(`${config.id}: ${action === 'start' ? 'host running; both services stable' : 'host stopped; disk and EIPs retained'}.`);
+  console.log(`${config.id}: ${action === 'start' ? 'host running; gateway service stable' : 'host stopped; disk and EIPs retained'}.`);
 }
 
 async function verify() {
   const outputs = state();
-  const script = readFileSync(resolve(root, 'runtime/ecs/verify.py')).toString('base64');
   const parametersFile = resolve(work, 'verify-command.json');
-  writeFileSync(parametersFile, JSON.stringify({ commands: [`echo '${script}' | base64 -d | python3`], executionTimeout: ['120'] }));
+  writeFileSync(parametersFile, JSON.stringify({ commands: [ecsVerificationCommand()], executionTimeout: ['120'] }));
   const id = aws(['ssm', 'send-command', '--instance-ids', outputs.InstanceId!, '--document-name', 'AWS-RunShellScript',
     '--parameters', `file://${parametersFile}`]).Command.CommandId;
   // Poll bounded SSM invocations; errors contain only nonsecret diagnostics from the verification script.
@@ -113,13 +117,22 @@ async function verify() {
     throw new Error('Remote verification failed.');
   }
   const evidence = parseJson(invocation.StandardOutputContent);
+  const budget = ecsMemoryBudget(config.instanceType);
+  if (evidence.gatewayMemory.taskLimitMiB !== budget.task || evidence.gatewayMemory.agentReservedMiB !== budget.reserved) {
+    throw new Error('Live task memory policy differs from IaC.');
+  }
+  // The verifier returns only hashes and selected metadata, never configuration or injected values.
+  writeFileSync(resolve(work, 'verification.json'), JSON.stringify(evidence, null, 2) + '\n', { mode: 0o600 });
   for (const protocol of ['xray', 'awg'] as const) {
     const secret = await parameter(`server/${protocol}`);
     const bytes = protocol === 'xray' ? Buffer.from(parseJson(secret).files['server.json'], 'base64') : Buffer.from(secret);
-    if (evidence[protocol].configSha256 !== createHash('sha256').update(bytes).digest('hex')
+    if (evidence[protocol].architecture !== imageArchitecture
+      || evidence[protocol].configSha256 !== createHash('sha256').update(bytes).digest('hex')
       || evidence[protocol].publicIp !== outputs[protocol === 'xray' ? 'EndpointIp' : 'AwgEndpointIp']) throw new Error('Runtime identity or egress mismatch.');
     console.log(`${protocol}: preserved configuration, bridge isolation and EIP egress passed (${evidence[protocol].publicIp}).`);
+    console.log(`${protocol}: private read-only tmpfs, absent engine secret environment and disabled host swap verified.`);
   }
+  console.log(`Gateway memory: ${budget.task} MiB enforced task limit; ${budget.reserved} MiB ECS reserve; no task OOM events.`);
 }
 
 async function profiles() {
@@ -128,7 +141,7 @@ async function profiles() {
   mkdirSync(folder, { recursive: true, mode: 0o700 });
   for (const device of ['macos', 'ios']) for (const protocol of ['xray', 'awg'] as const) {
     let value = await parameter(`clients/${device}/${protocol}`);
-    // Change only the endpoint for this parallel trial; preserve the device's protocol identity.
+    // Apply the currently allocated endpoint; preserve the device's protocol identity.
     if (protocol === 'xray') {
       const profile = parseJson(value);
       profile.outbounds[0].settings.vnext[0].address = outputs.EndpointIp;
@@ -136,17 +149,17 @@ async function profiles() {
     } else value = value.replace(/^Endpoint\s*=.*$/m, `Endpoint = ${outputs.AwgEndpointIp}:443`);
     const basename = resolve(folder, `${device}-${protocol}`);
     writeFileSync(`${basename}.${protocol === 'xray' ? 'json' : 'conf'}`, value, { mode: 0o600 });
-    const link = protocol === 'xray' ? xrayLink(parseJson(value), `Ghostline ECS ${device}`) : vpnLink(value);
+    const link = protocol === 'xray' ? xrayLink(parseJson(value), `Ghostline ${config.id} ${device}`) : vpnLink(value);
     writeFileSync(`${basename}.vpn`, link, { mode: 0o600 });
     writeFileSync(`${basename}-qr.png`, await profileQr(protocol === 'xray' ? link : value), { mode: 0o600 });
   }
-  console.log(`Saved protected trial profiles: ${folder}`);
+  console.log(`Saved protected profiles: ${folder}`);
 }
 
 try {
   if (aws(['sts', 'get-caller-identity']).Account !== config.account) throw new Error('AWS account mismatch.');
   switch (action) {
-    case 'import': console.log(await importParameters(parameters, config, credentialParameters(resolve(root, '.local/recovery'), config.ecs.credentialSource))); break;
+    case 'import': console.log(await importParameters(parameters, config, credentialParameters(resolve(extra[0]!)))); break;
     case 'publish': await publish(); break;
     case 'deploy':
       run(process.execPath, ['--import=tsx', 'scripts/deployment.ts', 'preflight', config.id], undefined, true);
@@ -164,7 +177,13 @@ try {
     }
     case 'verify': await verify(); break;
     case 'profiles': await profiles(); break;
-    case 'test': await profiles(); await testEcsClients(config, root, work, state()); break;
+    case 'test': {
+      const outputs = state();
+      const images = deployedClientImages(config, outputs, aws);
+      await profiles();
+      await testEcsClients(config, root, work, outputs, images);
+      break;
+    }
     default: throw new Error('Select import, publish, deploy, start, stop, status, verify, profiles or test.');
   }
 } catch (error) {

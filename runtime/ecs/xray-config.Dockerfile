@@ -1,4 +1,0 @@
-FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
-RUN apk add --no-cache jq=1.8.2-r0
-COPY --chmod=755 xray-config-start.sh /usr/local/bin/ghostline-xray-config
-ENTRYPOINT ["/usr/local/bin/ghostline-xray-config"]

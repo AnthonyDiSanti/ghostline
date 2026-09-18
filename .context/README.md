@@ -5,7 +5,7 @@ Live state and compact agent notes. Stable project specifications belong in `doc
 | File/directory | Purpose |
 | --- | --- |
 | [handoff.md](handoff.md) | Current state, next steps, verification evidence |
-| [tasks.md](tasks.md) | Active/planned/paused/completed work; ULID task IDs |
+| [tasks.md](tasks.md) | Active work and selected follow-ups |
 | [decisions.md](decisions.md) | Dated decisions, decision-maker, rationale, consequences |
 | [knowledge/index.md](knowledge/index.md) | Supplemental retrieval notes and debugging leads |
 | [scratch/README.md](scratch/README.md) | Task-scoped drafts awaiting promotion or removal |

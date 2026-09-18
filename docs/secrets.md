@@ -1,57 +1,49 @@
-# Secret inventory and regional storage
+# Regional secrets
 
-Updated 2026-09-13. The six Stockholm server/device values are imported into eu-north-1 Standard SecureStrings and verified byte-for-byte for the [ECS primary](ecs.md). The XTLS migration preserves their paths/values and changes only delivery: ECS injects the Xray bundle into a one-shot initializer, which writes a private task volume on existing encrypted EBS for the non-root engine to mount read-only. AWG retains tmpfs configuration. RAM-backed rendered Xray configuration remains a follow-up. The old Ubuntu Stockholm host is retired; local recovery copies and device identities remain unchanged. Cape Town normalization/import remains separate. VPN guest access uses protocol credentials, not SSH accounts or keys; the ECS host requires no administrator SSH key.
+Each region stores six independent `SecureString` values at identical paths. Region belongs to the AWS client/ARN, not the path. Parameter Store is the application source; LastPass is owner-mediated recovery. Endpoint removal never deletes parameters.
 
-## Current secrets
+| Parameter suffix under `/ghostline/prod/` | Value |
+| --- | --- |
+| `server/xray` | JSON envelope containing base64 `files["server.json"]`; preserve any existing companion metadata |
+| `server/awg` | Native AWG server configuration |
+| `clients/macos/xray`, `clients/ios/xray` | Native Xray client JSON, with separate device UUIDs |
+| `clients/macos/awg`, `clients/ios/awg` | Native AWG device configs with independent private keys |
 
-Each active region has independent credentials for both protocols and two devices:
+REALITY server private keys, VLESS UUIDs, short IDs, AWG private/preshared keys and HeaderProtectionKey remain protected within these values. Public keys, addresses and tuning values are not independently secrets, but complete configs, links and QR images are credential copies. The engines do not need AWG client private keys.
 
-| Material | Purpose and current location | Destination |
-| --- | --- | --- |
-| Xray REALITY private key | Server identity; six-file `.local/recovery/<target>-runtime.json` bundle and host Xray config | Regional SecureString server bundle |
-| Two VLESS client UUIDs | Bearer credentials for the Mac and iPhone; server bundle and client profiles | Same server bundle; corresponding restricted device exports |
-| REALITY short ID | Shared access/configuration material, preserved with the key and client identities | Same bundle/profile, protected with credentials |
-| AWG server private key | Server identity in `.local/recovery/<target>-awg/awg0.conf` and host AWG config | Regional SecureString server config |
-| Two AWG client private keys | Independent Mac/iPhone identities in `macos.conf` and `ios.conf`; not needed on the server | Restricted regional SecureString device profiles |
-| Two AWG preshared keys | One per device, shared with the server | Respective server and device configurations |
-| AWG HeaderProtectionKey | Shared obfuscation key in the server and both device configs | Preserve inside those configurations |
-| Operator SSH private key per legacy Ubuntu deployment | Administrator access from `.local/keys/<resourceName>` | Protected operator machine and owner-mediated LastPass recovery; not fetched by the host |
-| Host SSH private keys | Host-specific SSH identity, generated on the EC2 filesystem | Remain host-local; stop retains them, a rebuild generates new keys and uses authenticated trust pinning |
-| Legacy Amnezia application backups | Historical saved-server/admin material; may span active and retired regions | LastPass recovery archives, not runtime parameters |
+## ECS delivery and threat boundary
 
-VLESS UUIDs are credentials despite looking like ordinary identifiers. Public keys, endpoints, ports, DNS servers, MTU and protocol tuning numbers are not independently secrets. The complete configuration files remain confidential because they combine these settings with credentials. VPN links and QR images are derived credential copies, not additional identities; regenerate them locally from authorized profiles.
+Only `gateway-config` receives `GHOSTLINE_XRAY_BUNDLE` and `GHOSTLINE_AWG_BUNDLE`. The task execution role gives the ECS agent exact `ssm:GetParameters` access to the two regional server ARNs. Engines receive neither secret environment variables nor AWS task-role credentials. The host role has no parameter-read permission. Use the regional default SSM key; do not grant recursive parent-path access merely for convenience.
 
-The runtime has no application passwords or separate TLS certificate private keys. ECR uses temporary IAM-based registry tokens; there is no long-lived registry password to store. REALITY uses the key described above. Operator AWS credentials remain with the AWS credential provider; any future host AWS access should use temporary instance-role credentials rather than copying operator credentials into Parameter Store. Amnezia's device-local encrypted preferences/Keychain state is not a server runtime dependency.
+The initializer writes protocol-private RAM directories and exits successfully before engines start. It has no network, extra capabilities or writable root. Each engine mounts only its own directory read-only; AWG's writable network sockets/scratch remain separate. [Runtime permissions and lifetime](ecs.md#ram-configuration), [ECS execution roles](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_execution_IAM_role.html).
 
-## Consistent regional hierarchy
+Read-only mounts prevent source-file changes through the engine mount; they do not hide usable keys from that engine or freeze its live protocol state. Both containers share the host kernel. Root/Docker/ECS administrators remain trusted, and original initializer environment values can persist in privileged container metadata on encrypted EBS. RAM storage reduces durable rendered files, not every disk trace or the impact of host compromise.
 
-Use identical parameter names in each deployment region, with independent values. Region belongs to the AWS client/ARN, not a duplicate path segment. The current one-exit-per-region model needs no regional target name in the path; multiple exits in one region would require an explicit additional namespace.
+The host exposes only TCP/UDP 443. SSM administration requires AWS authority and no public management port. IMDSv2 and bridge rules block protocol-container metadata access. Host attack paths also include the kernel, supply chain and AWS administration; container compromise is not the only possible route.
+
+## Portable credential import
+
+`npm run ecs <target> import <directory>` reads this protected directory:
 
 ```text
-/ghostline/prod/server/xray
-/ghostline/prod/server/awg
-/ghostline/prod/clients/macos/xray
-/ghostline/prod/clients/macos/awg
-/ghostline/prod/clients/ios/xray
-/ghostline/prod/clients/ios/awg
+server/xray.json
+server/awg.conf
+clients/macos/xray.json
+clients/macos/awg.conf
+clients/ios/xray.json
+clients/ios/awg.conf
 ```
 
-Store complete validated bundles/configurations as `SecureString`. Preserve the six-file Xray bundle, including legacy companion identity files and clientsTable; do not reconstruct or rotate it merely to move storage. Device exports remain separate so a host role can fetch the server parameters without retrieving AWG client private keys. A privileged administrator can retrieve device exports for import/recovery. Use explicit parameter ARNs, not recursive access to the shared parent: [GetParametersByPath](https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_GetParametersByPath.html) has recursive-access implications.
+The Xray server file is the envelope described above, not a bare engine config. Files must exclude group/other permissions. Keep the parent directory private. The importer validates native server/device identities and payload size before writing. It preserves original bytes, checks every existing value for conflicts, refuses overwrite, and verifies round-trip equality. All six payloads must fit the Standard-tier 4096-byte limit. [Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html).
 
-Measured current Xray bundles: Cape Town 2,746 bytes and Stockholm 2,150 bytes. AWG server configs are 773/772 bytes; device configs are 688/687 bytes. Stockholm Xray device JSON is 973 bytes each. These existing payloads fit the 4 KB Standard tier; enforce encoded byte-size limits before writes. [Parameter Store tiers and encryption](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html). ECS uses the regional default `alias/aws/ssm` key with exact SSM read permissions per protocol execution role; the host instance role cannot read parameters. SecureString alone does not define who can read a value. [Parameter Store setup](https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-setting-up.html).
+Nonsecret deployment configuration contains no credential-source target alias. Recovery and region initialization use an explicit directory. Existing envelope metadata is preserved without requiring an installer version or source instance. Deployment/restart must never generate replacement credentials as a side effect.
 
-Cape Town Xray is a legacy export: no `<target>-runtime.json.clients/*.json` files currently exist. Its iPhone connection is `.local/recovery/ghostline-cape-town-iphone.vpn`, and its Mac connection lives in Amnezia. Preserve and validate both identities when normalizing client exports; do not infer a device mapping from arbitrary array order. Both client UUIDs are in the preserved server bundle. Duplicate `cape-town-owned-runtime.json` is a prior owned-runtime export, not a new set of keys.
+Client parameters may retain prior endpoint fields. `profiles` substitutes the currently allocated EIPs and writes private native profiles, VPN links and QR images under `.local/recovery/<target>-clients/`. Use those exports when addresses change. Device names are currently `macos` and `ios`; independent guest provisioning remains future work.
 
-Historical `.local/recovery/ghostline-poc.backup` and `ghostline-two-exits.backup` are recovery archives rather than regional runtime inputs; the latter contains admin material. Do not upload them wholesale under a server-readable prefix. Retired Frankfurt credentials remain historical and do not justify creating regional parameters there.
+## Recovery and changes
 
-Client parameter values preserve the imported source configurations, including historical endpoint fields. `npm run ecs stockholm-ecs profiles` renders current live addresses into native files, links and QR images; import those exports instead of raw parameter values. Cutover did not rotate credentials or update parameter versions. The old Stockholm addresses are released.
+Stop/start, park/rebuild and image deployment preserve identities. A parameter update alone does not refresh running containers; replace the task to reinitialize. Images, user data, CloudFormation templates, process argv, diagnostic output and git must never contain credential values. Authorized decryption stays inside verification/import processes; emit only hashes, equality results and selected metadata.
 
-## Migration/lifecycle boundaries
+Keep protected local recovery material until owner-mediated LastPass closeout. Anthony deferred vault updates until architecture work settles; do not repeatedly request interim updates. AWS operator credentials remain in the credential provider, and temporary ECR authentication is not a long-lived application secret. Existing admin archives stay private recovery material, not server-readable parameters.
 
-- ECS-aware explicit start/stop is implemented; neither action regenerates, uploads or relocates secrets. Stop retains EBS, credentials, ENI and both EIPs.
-- Migrate existing regional identities without overwriting a conflicting parameter. Verify round-trip equality and runtime/client identity before considering removal of local copies.
-- Keep recovery parameters outside disposable endpoint-stack deletion. `park` and `destroy` should preserve them; a deliberate credential-purge operation would be separate from releasing billable IPs.
-- Parameter Store is the durable source, but the runtime still needs protected mounted configuration files while running. Fetch securely at installation/startup rather than per VPN connection. Values must not pass through command-line arguments, userdata, CloudFormation templates, images or logs.
-- Preserve LastPass as Anthony-mediated independent recovery. On 2026-09-12 Anthony explicitly deferred the vault backup until architecture refinement is finished because the material is changing. Keep local exports and regional parameters in the meantime; do not repeatedly request interim LastPass updates.
-
-See [runtime workflow](runtime.md) for current implementation and [architecture](architecture.md) for ownership. Automatic idle shutdown and a remote management UI remain proposals, not part of the selected start/stop work.
+Follow-up hardening remains separate: explicit core-dump controls, release vulnerability coverage, stronger host confinement and a design that avoids environment-metadata persistence. None justifies adding an engine task role or weakening current isolation during routine work.

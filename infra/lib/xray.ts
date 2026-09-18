@@ -1,8 +1,8 @@
 import { generateKeyPairSync, randomBytes, randomUUID } from 'node:crypto';
 import { isIP } from 'node:net';
-import { validateBundle } from './runtime.js';
+import { validateXrayBundle } from './xray-config.js';
 
-export function generateXrayProfiles(deployment: string, sourceInstanceId: string, endpoint: string) {
+export function generateXrayProfiles(endpoint: string) {
   // Match the inspected Amnezia 5.0.1.5 REALITY/Vision settings; each region and device gets fresh identity.
   if (isIP(endpoint) !== 4) throw new Error('Xray generation requires an IPv4 endpoint.');
   const pair = generateKeyPairSync('x25519');
@@ -19,15 +19,9 @@ export function generateXrayProfiles(deployment: string, sourceInstanceId: strin
       } } }],
     log: { loglevel: 'error' }, outbounds: [{ protocol: 'freedom' }],
   };
-  const files = {
-    'server.json': JSON.stringify(server, null, 2) + '\n',
-    'xray_private.key': privateKey, 'xray_public.key': publicKey,
-    'xray_uuid.key': peers[0]!.id, 'xray_short_id.key': shortId,
-    clientsTable: JSON.stringify(peers.map(({ name, id }) => ({ clientId: id,
-      userData: { clientName: `Ghostline ${deployment} ${name}`, creationDate: new Date().toISOString() } }))),
-  };
-  const bundle = validateBundle({ version: 1, deployment, sourceInstanceId, xrayVersion: '26.7.28',
-    files: Object.fromEntries(Object.entries(files).map(([name, value]) => [name, Buffer.from(value).toString('base64')])) }, deployment);
+  const bundle = validateXrayBundle({
+    files: { 'server.json': Buffer.from(JSON.stringify(server, null, 2) + '\n').toString('base64') },
+  });
   const profiles = Object.fromEntries(peers.map(({ name, id }) => [name, {
     log: { loglevel: 'error' },
     inbounds: [{ listen: '127.0.0.1', port: 10808, protocol: 'socks', settings: { udp: true } }],

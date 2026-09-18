@@ -1,10 +1,10 @@
 # Endpoint region and destination privacy
 
-Assessment updated: 2026-09-09. **Stockholm (`eu-north-1`) is the intended next trial; prefer it over Milan on content-blocking risk even when age verification is excluded.** Frankfurt remains the owner-proven faster alternative to Cape Town. Retain Cape Town as backup. Anthony excludes Tel Aviv because he does not want a persistent UAE-to-Israel connection. Respect that endpoint-selection constraint without treating his prediction of surveillance attention as an independently established fact. Anthony subsequently authorized Stockholm; it is deployed alongside Cape Town. See [launch evidence](launch-stockholm.md) for tests and remaining client validation.
+Assessment updated: 2026-09-09. **Stockholm (`eu-north-1`) is the selected primary; prefer it over Milan on content-blocking risk even when age verification is excluded.** Frankfurt remains the owner-proven faster alternative to Cape Town. Retain Cape Town as backup. Anthony excludes Tel Aviv because he does not want a persistent UAE-to-Israel connection. Respect that endpoint-selection constraint without treating his prediction of surveillance attention as an independently established fact. Anthony subsequently authorized Stockholm; it is deployed alongside Cape Town. See [launch evidence](launch-stockholm-ecs.md) for current inventory and validation.
 
 Latest direction: Anthony agrees Stockholm is worth testing as the intended primary. Retain Cape Town as backup and validate actual performance before promotion. Geographic proximity alone does not establish that Stockholm is faster than Frankfurt; deployment is complete, but practical performance validation remains pending.
 
-Anthony reports Cape Town is too slow on **both AWG and REALITY**, while Frankfurt was substantially faster. Earlier macOS/iOS practical passes establish connectivity, not satisfactory ongoing performance. Frankfurt remains retired; see [lifecycle evidence](launch.md). Cape Town should remain available for destinations that cause verification friction on a nearer primary.
+Anthony reports Cape Town is too slow on **both AWG and REALITY**, while Frankfurt was substantially faster. Earlier macOS/iOS practical passes establish connectivity, not satisfactory ongoing performance. Frankfurt remains retired. Cape Town should remain available for destinations that cause verification friction on a nearer primary.
 
 ## Milan versus Stockholm, excluding age verification
 
@@ -96,4 +96,4 @@ Canada is farther from Dubai than Frankfurt; higher latency is an engineering ex
 
 ## Independent deployment implications
 
-Cape Town has independent regional AWS resources, an AMI/EIP, dedicated SSH key and fresh Amnezia runtime/profile identity. Frankfurt has been fully retired, including retained-EIP release. There is one host per live target; no automatic failover or lifecycle controller is needed. Future selectable/on-demand exits should reuse these boundaries. Deletion and retained-EIP cleanup require an explicit lifecycle decision, not an implicit consequence of changing the preferred region.
+Stockholm and Cape Town use independent regional instances of the [same ECS gateway](architecture.md), each with two EIPs and region-local image repositories and credential parameters. Frankfurt is retired. A preference change does not implicitly destroy the backup or release its addresses; choose stop, park or destroy explicitly through the [lifecycle commands](deployment-lifecycle.md).

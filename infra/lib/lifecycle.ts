@@ -17,7 +17,7 @@ export function captureRelease(config: DeploymentConfig, stack: any, resources: 
   const addresses = resources.filter(r => r.ResourceType === 'AWS::EC2::EIP').map(r => r.PhysicalResourceId);
   const outputs = Object.fromEntries((stack.Outputs ?? []).map((item: any) => [item.OutputKey, item.OutputValue]));
   // EIP PhysicalResourceId is the public IPv4, not the allocation ID; cross-check the two live views.
-  const pairs = [['EndpointIp', 'EipAllocationId'], ...(config.runtime ? [['AwgEndpointIp', 'AwgEipAllocationId']] : [])];
+  const pairs = [['EndpointIp', 'EipAllocationId'], ['AwgEndpointIp', 'AwgEipAllocationId']];
   const allocations = pairs.map(([, allocation]) => outputs[allocation!]);
   if (addresses.length !== pairs.length || pairs.some(([ip]) => !addresses.includes(outputs[ip!]))
     || new Set(addresses).size !== addresses.length || new Set(allocations).size !== allocations.length

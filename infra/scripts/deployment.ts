@@ -5,6 +5,8 @@ import { resolve } from 'node:path';
 import { deploymentIds, getDeployment, type DeploymentConfig } from '../lib/config.js';
 import { deploymentCommand } from '../lib/commands.js';
 import { prepareEcsRemoval } from '../lib/ecs-power.js';
+import { assertDeploymentAmi } from '../lib/deployment-ami.js';
+import { assertInstanceMemory } from '../lib/ecs-memory.js';
 
 const infraDir = fileURLToPath(new URL('../', import.meta.url));
 
@@ -23,18 +25,10 @@ function preflight(config: DeploymentConfig) {
   if (!['opted-in', 'opt-in-not-required'].includes(status)) {
     throw new Error(`${config.region} is not enabled yet (${status}). Enable it explicitly and wait before retrying.`);
   }
-  const image = aws(config, ['ec2', 'describe-images', '--image-ids', config.amiId]).Images[0];
-  if (config.ecs) {
-    if (!image || image.State !== 'available' || image.OwnerId !== '591542846629' || image.Architecture !== 'x86_64'
-      || image.RootDeviceName !== '/dev/xvda' || !image.Name.startsWith('al2023-ami-ecs-hvm-')) {
-      throw new Error('Pinned AMI is not the selected AWS AL2023 x86_64 ECS image.');
-    }
-  } else if (!image || image.State !== 'available' || image.OwnerId !== '099720109477'
-    || image.Architecture !== 'x86_64' || image.RootDeviceType !== 'ebs'
-    || image.RootDeviceName !== '/dev/sda1' || image.VirtualizationType !== 'hvm'
-    || !image.Name.startsWith('ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-')) {
-    throw new Error('Pinned AMI is not an available Canonical Ubuntu 24.04 x86_64 server image.');
-  }
+  const image = aws(config, ['ec2', 'describe-images', '--owners', 'amazon', '--image-ids', config.amiId]).Images[0];
+  assertDeploymentAmi(image);
+  const type = aws(config, ['ec2', 'describe-instance-types', '--instance-types', config.instanceType]).InstanceTypes[0];
+  assertInstanceMemory(config.instanceType, type?.MemoryInfo?.SizeInMiB);
   const zones = aws(config, ['ec2', 'describe-availability-zones', '--zone-names', config.availabilityZone]);
   if (zones.AvailabilityZones[0]?.State !== 'available') throw new Error('Selected availability zone is unavailable.');
   const offerings = aws(config, ['ec2', 'describe-instance-type-offerings', '--location-type', 'availability-zone',
@@ -67,7 +61,7 @@ if (action === 'list') {
     const diff = spawnSync(process.execPath, [resolve(infraDir, 'node_modules/aws-cdk/bin/cdk'),
       ...deploymentCommand('diff', target, infraDir).args], { cwd: infraDir, stdio: 'inherit', env: environment });
     if (diff.error || diff.status !== 0) throw new Error('Park diff failed.');
-    if (command.config.ecs) prepareEcsRemoval(Object.fromEntries(stack.Outputs.map((item: any) => [item.OutputKey, item.OutputValue])), args => aws(command.config, args));
+    prepareEcsRemoval(Object.fromEntries(stack.Outputs.map((item: any) => [item.OutputKey, item.OutputValue])), args => aws(command.config, args));
   }
   const child = spawnSync(process.execPath, [resolve(infraDir, 'node_modules/aws-cdk/bin/cdk'), ...command.args], {
     cwd: infraDir, stdio: 'inherit', env: environment,

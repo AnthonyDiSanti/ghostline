@@ -1,65 +1,52 @@
 # AGENTS.md — Ghostline project contract
 
-## Scope and operating stance
+## Scope
 
-Ghostline is a personal connectivity PoC. Stockholm is the primary exit on ECS-optimized Amazon Linux 2023 x86_64; Cape Town remains the Ubuntu 24.04 backup. Both use Ghostline-managed Xray and AmneziaWG with separate EIPs. Anthony accepted ECS connectivity and IP masquerading, and unattended lifecycle validation passed before the 2026-09-12 cutover. The old Ubuntu Stockholm host and EIPs are retired. See `docs/ecs.md` and the regional launch records.
+Ghostline is a personal connectivity PoC with one regional architecture: ECS-optimized AL2023 ARM64, one Graviton host, one shared gateway task/service, separate Xray/AWG engines, one initializer and two EIPs. Stockholm is primary and Cape Town is backup. Read each launch record for observed deployment state before cloud changes.
 
-Preserve observed protocol choices and credential identity during runtime changes. Each active exit has one host, two protocols and two EIPs, with manual client switching. Use target `stockholm-ecs` for the primary; its historical stack name `GhostlineEcsTrial` remains intentional. The catalog's `stockholm` entry is a retired Ubuntu recipe and credential-source identity, not the live primary. Read the launch record before changes. Keep Cape Town running on its validated runtime as a stable backup while refining Stockholm; its upgrade follows completion of the primary architecture work as a separate unit. Do not introduce HA, a rollback framework or an installer audit as prerequisites.
+Preserve protocol choices, device credentials and existing endpoints during runtime work. Clients switch manually; no HA, automatic protocol failover, rollback framework or custom client is required. Product scope and evidence limits live in `docs/product.md`. Keep secrets out of git and preserve production-account controls. Anthony intermediates LastPass activity and has deferred vault closeout.
 
-Keep secrets out of git and preserve existing production-account controls. Product scope is defined in `docs/product.md`; do not silently promote deferred work into acceptance gates.
+Use the common ECS recipe for every region. Do not retain retired targets, alternative provisioners, installer-specific modes, compatibility branches or superseded architectural proposals. Git history owns removed approaches. Keep stable AWS resource names where renaming would replace live resources; a historical name is not a deployment mode.
 
 ## Start here
 
 1. Read `README.md` and `docs/README.md`.
-2. Open the relevant topic: `docs/product.md`, `docs/architecture.md`, `docs/development.md`, or `docs/reference-reuse.md`.
-3. Read `.context/handoff.md`, `.context/tasks.md`, and `.context/decisions.md` for live state.
-4. Inspect actual code/git state; reconcile stale notes with evidence.
+2. Open the relevant topic: architecture, ECS runtime, development, images or secrets.
+3. Read `.context/handoff.md`, `.context/tasks.md` and `.context/decisions.md`.
+4. Inspect actual code/git state and reconcile stale notes with evidence.
 
-If root `AGENTS.local.md` exists, read it for machine-specific command/environment overrides only. It is gitignored and must not hold shared project truth. Record material command deviations in the handoff.
+Read root `AGENTS.local.md`, when present, only for machine-specific execution overrides. Shared truth belongs in committed files. Before vendor/API/infrastructure work, consult `.context/knowledge/index.md`.
 
-`docs/archive/` contains historical upstream inputs, not current requirements. The reference repository is `../personal-assistant`; its working memory lives in `context/`. Review its relevant files before reuse. Its HA/governance requirements do not apply to Ghostline, and changes to that repository require their own task scope.
+The reference repo is `../personal-assistant`, with working memory under `context/`. Review relevant files before reuse. Its HA/governance requirements do not apply here; changes to that repo require separate scope.
 
-## Code and commands
+## Code and verification
 
-The executable CDK package is under `infra/`. Use Node 24 and `npm ci`; `npm test` runs typechecking, fresh offline synth, and Vitest assertions. `npm run synth <target>`, `npm run diff <target>`, and `npm run deploy <target>` require the launch inputs documented in `docs/development.md`. Read the target's launch record linked from `docs/README.md` before touching a deployed endpoint.
+The executable package is `infra/`; use Node 24 and `npm ci`. `npm test` runs typecheck, asset syntax/ShellCheck/Hadolint, fresh offline CDK synthesis and Vitest. Native linters or Docker are required. `npm run test:ecs-images` tests the three ARM64 artifacts with disposable synthetic credentials.
 
-ECS commands are `npm run ecs <target> <action>`; see `docs/ecs.md`. Legacy runtime commands are `npm run runtime <target> <action> [xray|awg] [bundle-path]`; see `docs/runtime.md`. Tests with disposable containers use `npm run test:runtime <target> <protocol>` after building that image. Runtime helpers require pinned SSH trust and keep source secrets out of output. Anthony intermediates LastPass activity.
+Use `npm run ecs <target> <action>` for deployment, images, regional secret import, start/stop, profiles and real-client verification. Read `docs/development.md` for argument contracts. `park <target>` retains tracked billable EIPs; `destroy <target>` releases only owned allocations. Images and Parameter Store credentials survive both.
 
-Use npm under `infra/`, strict TypeScript, a thin CDK CLI and shared testable app builder. Prefer one straightforward endpoint stack per explicitly selected deployment. Preserve existing targets unless their modification or removal is authorized; see the named catalog and scoped commands in `docs/development.md`. Use `park <target>` to retain tracked EIPs and `destroy <target>` to release disposable exits; preserve runtime credentials before removing an installed host. Keep nonsecret configuration separate from runtime secret values; LastPass is the personal/admin store and Parameter Store is the application-secret store.
+Use strict TypeScript, a thin CLI and the shared testable app builder. The catalog contains maintained endpoints only. Test regional reuse with synthetic configurations instead of creating deployable abandoned recipes. Keep account/region/AMI/resource inputs explicit and reject unknown configuration fields. Preserve exact Project/Environment/System cost-tag conventions.
 
-Before native Mac recovery or sleep testing, read `docs/mac-client-stability.md`. The custom Amnezia 5.0.1.5 raw daemon-socket watchdog is retired after a correlated service crash; do not reuse the ignored polling/deactivation scripts as trusted recovery.
+Keep initializer and engines in one ECS task. Only the initializer receives server secrets through the execution role; engines have no task role and mount protocol-private RAM configuration read-only. Host fixtures supply generic storage/networking, not application secret retrieval. A changed bootstrap fixture needs a retained-IP cold rebuild; ordinary reboot does not replay cloud-init.
 
-For non-trivial code changes:
-- Add short intent comments to non-obvious functions/blocks.
-- Run the smallest relevant checks first, then the full available verification gate.
-- Add meaningful regression/property tests for changed behavior.
-- Run a fresh CDK diff before an authorized deployment.
-- Do not stage, unstage, commit, or amend unless requested.
+For nontrivial changes:
+- Add short intent comments around non-obvious logic.
+- Keep shell/Python bodies in standalone `runtime/ecs/` or `infra/test/fixtures/` files, including nested programs. Use explicit argument arrays for simple subprocess calls.
+- Run targeted checks first, then the full available gate. Add meaningful behavioral regression tests.
+- Run a fresh CDK diff before deployment. For source-only cleanup, compare synthesized active/parked resources, user-data bytes and release identities to a pre-change baseline.
+- Never print decrypted parameters, client profiles, private keys or injected environment values. Emit selected metadata, hashes and equality results only.
+- Do not stage, unstage, commit or amend unless explicitly requested.
 
-## Documentation and working memory
+For new protocol releases, resolve official stable channels, verify downloads and record resolved identities. Exclude prereleases/drafts/nightly/main; `latest` alone is not evidence of stability. `docs/images.md` distinguishes this selected policy from the current fixed-input publisher.
 
-- `docs/` owns stable specifications, code navigation, and workflow. Keep `docs/README.md` current when topics move or change.
-- `.context/` owns live status, decisions, compact supplemental knowledge, and task-scoped drafts.
-- Update relevant docs and working memory after every substantial turn. Capture decisions with date, decision-maker, rationale, and follow-up.
-- Consult `.context/knowledge/index.md` before vendor/API/infrastructure work; follow existing relevant notes before adding new ones.
-- At major work-unit transitions and To Do reviews, perform the Amnezia issue/release check in `.context/tasks.md` until a fixed Mac client has been validated; record the date and outcome.
-- Distinguish intended behavior, observed evidence, and later possibilities. Do not copy versioned product questionnaires into multiple authoritative locations.
-- Keep docs small and retrieval-oriented; add directories/topics when needed, not to fill a preset taxonomy.
-- Promote useful draft content and remove superseded scratch artifacts. Preserve historical sources only with explicit archive status.
+Before native Mac recovery/sleep testing, read `docs/mac-client-stability.md`. The Amnezia raw daemon-socket watchdog is retired after a correlated service crash; do not reuse its ignored scripts as recovery.
 
-## Completion and commits
+## Documentation and completion
 
-Inspect the complete dirty state, including staged and untracked files, at the end of a work unit. Preserve the user's index. State what changed, what verification ran, and any remaining inputs.
+`docs/` owns current specifications and workflows; `.context/` owns live state, decisions and compact supplemental knowledge. Keep both current after substantial work. Remove superseded architectural instructions rather than retaining competing versions. Preserve source provenance, licenses, current resource inventory and observed evidence.
 
-Recommend a commit message covering all current uncommitted work unless Anthony narrows scope:
-1. Imperative title in sentence-style capitalization.
-2. Blank line.
-3. Capitalized imperative bullets for key changes.
+At major work-unit transitions or To Do reviews, perform the Amnezia issue/release check in `.context/tasks.md` until a fixed Mac release has been locally validated. Record date and result; issue closure alone is insufficient.
 
-Mention when the message includes pre-existing changes. Do not claim connectivity from a passing infrastructure test.
+Inspect the full dirty state, including staged/untracked files, at work-unit close. Preserve the user's index. State what changed, verification and remaining inputs. Propose a commit message for all uncommitted work unless scope is explicitly narrowed: imperative sentence-case title, blank line, capitalized imperative bullets. Mention pre-existing changes; do not imply synth success proves connectivity.
 
-## Instruction maintenance and risk
-
-Keep instruction improvements small, specific, and testable; leave a breadcrumb in `.context/decisions.md` or handoff when changing workflow guidance.
-
-If considering an unapproved workaround, pause to explain the alternative, tradeoffs, and cleanup. The explicitly accepted Amnezia reference phase is current scope, not a workaround requiring renewed permission. Do not degrade security posture for convenience.
+Keep instruction improvements small and specific and record their reason in working memory. Do not weaken security to bypass friction. Escalate a material unapproved workaround with concrete alternatives rather than silently introducing one.

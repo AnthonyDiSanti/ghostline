@@ -15,7 +15,6 @@ export function deploymentCommand(action: string, target: string | undefined, in
 export function ecsDeploymentCommand(action: 'diff' | 'deploy', target: string, infraDir: string, images = false) {
   // Keep cold rebuilds noninteractive and restrict them to a named ECS target.
   const config = getDeployment(target);
-  if (!config.ecs) throw new Error('Select an ECS deployment.');
   const artifactDir = resolve(infraDir, '../.local/deployments', config.id, 'ecs');
   const args = [action, `${config.stackName}${images ? 'Images' : ''}`, '--profile', 'personal',
     '--region', config.region, '--output', resolve(artifactDir, 'cdk.out')];

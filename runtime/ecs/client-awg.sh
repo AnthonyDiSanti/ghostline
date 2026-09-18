@@ -4,7 +4,7 @@ set -euo pipefail
 amneziawg-go -f client0 >/tmp/awg.log 2>&1 &
 daemon=$!
 trap 'kill "$daemon" 2>/dev/null || true' EXIT
-for attempt in {1..100}; do
+for _ in {1..100}; do
   test -S /run/amneziawg/client0.sock && break
   sleep 0.1
 done

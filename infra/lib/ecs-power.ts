@@ -1,12 +1,12 @@
 export function setEcsPower(action: 'start' | 'stop', stackName: string, outputs: Record<string, string>, aws: (args: string[]) => any) {
   // Select one CloudFormation-owned host and its exact services; never operate on a regional fleet.
-  const { InstanceId: id, ClusterName: cluster, xrayServiceName: xray, awgServiceName: awg } = outputs;
-  if (!id || !cluster || !xray || !awg) throw new Error('Active ECS stack outputs are required.');
+  const { InstanceId: id, ClusterName: cluster, GatewayServiceName: gateway } = outputs;
+  if (!id || !cluster || !gateway) throw new Error('Active ECS stack outputs are required.');
   const instance = aws(['ec2', 'describe-instances', '--instance-ids', id]).Reservations[0].Instances[0];
   if (!instance.Tags?.some((tag: any) => tag.Key === 'aws:cloudformation:stack-name' && tag.Value === stackName)) throw new Error('Instance ownership mismatch.');
   let state = instance.State.Name;
   if (!['running', 'pending', 'stopping', 'stopped'].includes(state)) throw new Error('Host is not startable/stoppable.');
-  const services = [xray, awg];
+  const services = [gateway];
   const waitServices = () => aws(['ecs', 'wait', 'services-stable', '--cluster', cluster, '--services', ...services]);
   const scale = (count: string) => {
     for (const service of services) aws(['ecs', 'update-service', '--cluster', cluster, '--service', service, '--desired-count', count]);
@@ -15,7 +15,11 @@ export function setEcsPower(action: 'start' | 'stop', stackName: string, outputs
   if (state === 'pending') { aws(['ec2', 'wait', 'instance-running', '--instance-ids', id]); state = 'running'; }
   if (state === 'stopping') { aws(['ec2', 'wait', 'instance-stopped', '--instance-ids', id]); state = 'stopped'; }
   if (action === 'stop') {
+    // Desired/running service counts can reach zero before the agent reports actual task termination.
+    const tasks: string[] = state === 'stopped' ? []
+      : aws(['ecs', 'list-tasks', '--cluster', cluster, '--service-name', gateway]).taskArns;
     scale('0'); waitServices();
+    if (tasks.length) aws(['ecs', 'wait', 'tasks-stopped', '--cluster', cluster, '--tasks', ...tasks]);
     if (state !== 'stopped') aws(['ec2', 'stop-instances', '--instance-ids', id]);
     aws(['ec2', 'wait', 'instance-stopped', '--instance-ids', id]);
   } else {

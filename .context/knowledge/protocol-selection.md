@@ -1,6 +1,6 @@
 # Protocol selection research
 
-Research checked 2026-09-07. The comparison below preserves the earlier evaluation; Anthony subsequently selected AmneziaWG on the same host with a separate EIP. Current scope and implementation are in [architecture](../../docs/architecture.md) and [runtime](../../docs/runtime.md). Xray migration has passed the owner checkpoint; AWG has only local disposable-peer test evidence so far.
+Research checked 2026-09-07. The comparison below preserves the earlier evaluation; Anthony subsequently selected AmneziaWG on the same host with a separate EIP. Current scope and implementation are in [architecture](../../docs/architecture.md) and [ECS runtime](../../docs/ecs.md). Both protocols have passed real client tests and native device acceptance; launch records distinguish current validation from this original selection research.
 
 ## Selection priority
 

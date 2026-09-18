@@ -49,20 +49,30 @@ def policy(config, peers):
 
 
 def discover(config):
-    # Exact task families and container names keep platform/foreign containers out of the rules.
+    # Exact gateway family and container names keep platform/foreign containers out of the rules.
     peers = {}
     for name in ['xray', 'awg']:
-        ids = command(['docker', 'ps', '--filter', f'label=com.amazonaws.ecs.task-definition-family={config["family"]}-{name}',
+        ids = command(['docker', 'ps', '--filter', f'label=com.amazonaws.ecs.task-definition-family={config["family"]}-gateway',
                        '--filter', f'label=com.amazonaws.ecs.container-name={name}', '--format', '{{.ID}}']).split()
         if len(ids) > 1:
             raise RuntimeError('Multiple containers for a single protocol; refuse ambiguous routing')
         if ids:
-            networks = json.loads(command(['docker', 'inspect', '--format', '{{json .NetworkSettings.Networks}}', ids[0]]))
+            # One inspection avoids mixing network and process generations across an in-place restart.
+            metadata = json.loads(command(['docker', 'inspect', '--format',
+                                           '{"state":{{json .State}},"networks":{{json .NetworkSettings.Networks}}}', ids[0]]))
+            state, networks = metadata['state'], metadata['networks']
             address = networks.get('bridge', {}).get('IPAddress', '')
+            if networks and set(networks) != {'bridge'}:
+                raise RuntimeError('Unexpected container network')
+            if not state['Running'] or state['Pid'] <= 0 or not address:
+                continue  # Restart in progress: quarantine this peer without withdrawing its healthy sibling.
             import ipaddress
             if not ipaddress.ip_address(address).is_private or set(networks) != {'bridge'}:
                 raise RuntimeError('Unexpected container network')
-            peers[name] = {'ip': address, 'id': ids[0]}
+            # A native restart may reuse the container ID/IP; StartedAt distinguishes its network generation.
+            peers[name] = {'ip': address, 'id': ids[0], 'started': state['StartedAt']}
+    if len({peer['ip'] for peer in peers.values()}) != len(peers):
+        raise RuntimeError('Duplicate protocol addresses')
     return peers
 
 
@@ -81,14 +91,21 @@ def initialize(config):
     ensure_jump('nat', 'POSTROUTING', ['-j', 'GHOSTLINE_SNAT'])
 
 
-def reconcile(config, peers):
-    # Withdraw forwarding first, install source identity, then reopen. Clear stale flows on IP reuse.
-    replace_chain('filter', 'GHOSTLINE', policy(config, {})[0])
+def reconcile(config, peers, previous=None):
+    # Keep the unchanged sibling forwarding while quarantining changed/removed identities.
+    previous = previous or {}
+    stable = {name: peer for name, peer in peers.items() if previous.get(name) == peer}
+    changed = {peer['ip'] for name, peer in previous.items() if stable.get(name) != peer}
+    changed.update(peer['ip'] for name, peer in peers.items() if stable.get(name) != peer)
+    replace_chain('filter', 'GHOSTLINE', policy(config, stable)[0])
     replace_chain('nat', 'GHOSTLINE_SNAT', policy(config, peers)[1])
-    subprocess.run(['conntrack', '-D', '-s', '172.17.0.0/16'], capture_output=True)
-    # Reposition SNAT only while forwarding is closed; never detach the filtering guard.
-    command(['iptables', '-w', '-t', 'nat', '-D', 'POSTROUTING', '-j', 'GHOSTLINE_SNAT'])
-    command(['iptables', '-w', '-t', 'nat', '-I', 'POSTROUTING', '1', '-j', 'GHOSTLINE_SNAT'])
+    for address in sorted(changed):
+        # Flush both outbound and DNAT-to-container tuples; never clear the whole Docker bridge.
+        for selector in ['--orig-src', '--reply-src']:
+            result = subprocess.run(['conntrack', '-D', selector, address], capture_output=True)
+            if result.returncode not in (0, 1):  # conntrack returns 1 when no matching flows exist.
+                raise RuntimeError('Connection cleanup failed')
+    # Jump ownership/order is established at startup; ordinary restarts must not detach global policy.
     replace_chain('filter', 'GHOSTLINE', policy(config, peers)[0])
     Path('/run/ghostline-network-state.json').write_text(json.dumps(peers))
     print('Reconciled protocol network identities: ' + ','.join(sorted(peers)), flush=True)
@@ -105,7 +122,7 @@ def main():
         try:
             peers = discover(config)
             if peers != previous:
-                reconcile(config, peers)
+                reconcile(config, peers, previous)
                 previous = peers
         except Exception:
             # Keep a missing/ambiguous metadata view closed, with a redacted retryable diagnostic.

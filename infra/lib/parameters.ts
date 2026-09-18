@@ -2,7 +2,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { createPrivateKey, createPublicKey } from 'node:crypto';
 import { resolve } from 'node:path';
 import { GetParameterCommand, PutParameterCommand, type SSMClient } from '@aws-sdk/client-ssm';
-import { validateBundle, parseJson } from './runtime.js';
+import { validateXrayBundle, parseJson } from './xray-config.js';
 import type { DeploymentConfig } from './config.js';
 
 export interface CredentialParameter { name: string; value: string; system: string }
@@ -35,22 +35,22 @@ export function validateAwgIdentity(server: string, client: string): void {
   }
 }
 
-export function credentialParameters(root: string, source: string): CredentialParameter[] {
+export function credentialParameters(root: string): CredentialParameter[] {
   // Import complete preserved identities, never regenerate credentials as a side effect of deployment.
-  const bundlePath = resolve(root, `${source}-runtime.json`);
+  const bundlePath = resolve(root, 'server/xray.json');
   const bundleText = protectedFile(bundlePath);
-  const bundle = validateBundle(parseJson(bundleText), source);
+  const bundle = validateXrayBundle(parseJson(bundleText));
   const server = parseJson(Buffer.from(bundle.files['server.json']!, 'base64').toString());
   const ids = server.inbounds[0].settings.clients.map((client: { id: string }) => client.id);
   const result: CredentialParameter[] = [{ name: '/ghostline/prod/server/xray', value: bundleText, system: 'xray' },
-    { name: '/ghostline/prod/server/awg', value: protectedFile(resolve(root, `${source}-awg/awg0.conf`)), system: 'amneziawg' }];
+    { name: '/ghostline/prod/server/awg', value: protectedFile(resolve(root, 'server/awg.conf')), system: 'amneziawg' }];
   for (const device of ['macos', 'ios']) {
-    const value = protectedFile(`${bundlePath}.clients/${device}.json`);
+    const value = protectedFile(resolve(root, `clients/${device}/xray.json`));
     const profile = parseJson(value);
     if (!ids.includes(profile.outbounds?.[0]?.settings?.vnext?.[0]?.users?.[0]?.id)) {
       throw new Error('Xray device identity is absent from the preserved server.');
     }
-    const awg = protectedFile(resolve(root, `${source}-awg/${device}.conf`));
+    const awg = protectedFile(resolve(root, `clients/${device}/awg.conf`));
     validateAwgIdentity(result[1]!.value, awg);
     result.push({ name: `/ghostline/prod/clients/${device}/xray`, value, system: 'xray' },
       { name: `/ghostline/prod/clients/${device}/awg`, value: awg, system: 'amneziawg' });

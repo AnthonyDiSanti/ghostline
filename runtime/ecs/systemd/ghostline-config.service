@@ -1,0 +1,13 @@
+[Unit]
+Description=Ghostline RAM-backed protocol configurations
+Before=docker.service ecs.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=/etc/ecs/ecs.config
+EnvironmentFile=/etc/ghostline-memory.env
+ExecStartPre=/usr/local/lib/ghostline/check-memory.sh
+ExecStart=/usr/local/lib/ghostline/config-storage.sh start
+ExecStop=/usr/local/lib/ghostline/config-storage.sh stop
+[Install]
+WantedBy=multi-user.target

@@ -1,62 +1,35 @@
 # Product scope
 
-Read before prioritizing work, choosing acceptance checks, or expanding the PoC. Deployment details live in [architecture](architecture.md); code workflow lives in [development](development.md).
+Ghostline gives Anthony a usable private connection from Dubai for ordinary browsing and video under the filtering on his actual Wi-Fi/mobile networks. It is a personal PoC, with accepted downtime and manual debugging rather than an SLA.
 
-## Objective
-
-Give Anthony a usable, stable private connection from Dubai for browsing blocked sites and ordinary video use. The first question is whether this setup works under the filtering encountered on his actual hotel Wi-Fi and mobile networks.
-
-The PoC is both a useful connection and a reference experiment. Use Amnezia's existing implementation and product choices to discover a good working baseline. If successful, capture those choices in deterministic infrastructure and our own containerized runtime, eventually replacing Amnezia's server installation/management role. Existing community clients can remain useful independently.
-
-## Current scope
+## Selected scope
 
 | Concern | Decision |
 | --- | --- |
-| Owner | Anthony; one administrator and one initial user |
-| Devices | macOS laptop and iOS phone, including concurrent use; exact OS/client versions recorded at launch |
-| Infrastructure | AWS CDK / TypeScript; existing production AWS account; dedicated project resources |
-| Region | Stockholm ECS is the primary; retain Cape Town as a slower backup; Frankfurt is retired |
-| Transport | Preserve Xray / VLESS / REALITY TCP 443; use independently credentialed AmneziaWG UDP 443 as the manual alternative |
-| Runtime ownership | One host/two EIPs per exit; Stockholm uses ECS on AL2023, Cape Town retains Ubuntu/Compose; preserve upstream product choices |
-| Routing | Prefer full-device routing; use off-the-shelf clients |
-| IPv6 | Want client-side IPv6 blocking while an IPv4 tunnel is active; record actual client support and limitations without building a custom client |
-| Failure protection | Enable available client controls where practical; best-effort mobile behavior is accepted |
-| Recovery material | Demonstrate restoration of existing Xray credentials on a fresh host; preserve protected local bundles and let Anthony intermediate LastPass |
-| Operations | Manual setup and repair; record activities actually performed during launch, with no separate runbook prerequisite |
-| Secrets | LastPass for personal/admin recovery; regional Parameter Store for Stockholm server/device secrets; preserve protected local recovery copies |
+| Owner/devices | Anthony, macOS and iOS, including concurrent use |
+| Exits | Stockholm primary; Cape Town backup |
+| Deployment | AWS CDK/TypeScript; one AL2023 ARM64 host/shared ECS gateway task/two EIPs per region |
+| Protocols | Xray / VLESS / REALITY TCP 443 and independently credentialed AmneziaWG UDP 443 |
+| Clients | Off-the-shelf apps; manual protocol/exit selection |
+| Credentials | Regional Parameter Store; separate server/device values; identity-preserving rebuilds |
+| Recovery | Protected local copies and owner-mediated LastPass, with vault closeout deferred by Anthony |
+| IPv6 | Block client IPv6 while using an IPv4 tunnel; validate actual client/network behavior |
+| Cost | Explicit start/stop, retained-IP park and full endpoint release; keep IPs only when useful |
 
-## Completed runtime checkpoint
+Use the adopted protocol behavior through Ghostline-owned deployment infrastructure. Amnezia remains an off-the-shelf client and source of protocol choices, not a server provisioning dependency. [Architecture](architecture.md) defines runtime ownership.
 
-Xray was restored onto a fresh server with its original credentials and EIP; Anthony confirmed unchanged macOS/iOS profiles passed. The original host and migration scaffolding are retired. AWG now shares that one host through its own EIP and independent client credentials. Both server runtimes passed reinstall/reboot and distinct egress checks; Anthony confirmed the final iPhone and Mac AWG tests passed on 2026-09-07. Switching remains manual. See the [Cape Town evidence](launch-cape-town.md) for measured checks and owner reports.
+## Acceptance and privacy
 
-Stockholm subsequently moved to ECS on AL2023. Anthony accepted both protocol connections and IP masquerading; unattended lifecycle checks passed before retiring its Ubuntu predecessor. Current Mac profiles pass native REALITY/AWG checks. See [Stockholm ECS evidence](launch-stockholm-ecs.md) for measured results and device-specific limits.
+Successful use means both devices connect, browse intended sites and use video normally on the networks available for testing. Record actual exit/HTTPS, reconnect, DNS/IPv6 and sleep/wake evidence separately. A running ECS task or passing synth does not prove these outcomes. Regional launch records own observed protocol/device checks; [Mac stability](mac-client-stability.md) owns the unresolved intermittent client problem.
 
-## Success evidence
+Prefer full-device routing and available client failure protection. Best-effort mobile behavior is accepted. 4K is a desired workload, not a separate release gate. No sensitive browsing history, destination collection, DNS-query logs or traffic captures are required for acceptance.
 
-Anthony can connect both devices, browse the intended sites, and use video normally through the saved connection on the networks available for testing. Observe concurrent use and ordinary reconnects after sleep/wake or network changes. Check the exit address and note DNS/IPv6 and disconnect behavior supported by the selected clients.
+Anthony prefers browsing without compulsory signup or disclosure of identity documents, biometrics or identity-linked verification credentials. He accepts testing nearer open-internet exits despite potential site-specific age checks; Cape Town is the slower fallback. [Region assessment](region-selection.md) owns that decision and its limits. A VPN does not guarantee exemption from destination policies.
 
-Keep a short, redacted record of versions, settings needed to connect, necessary launch steps, and results. Capture failures well enough to decide what to try next. This is not a certification matrix, quantified SLA, timed recovery test, or requirement to retain sensitive browsing history. 4K is a desired workload, not a resolution-specific acceptance gate.
+Keep production-account controls intact. One host per exit, ordinary project separation and existing security controls are sufficient; no HA, rollback framework, custom client or elaborate segmentation is required. Do not silently make deferred hardening a launch prerequisite.
 
-Infrastructure and runtime observations are in the [Frankfurt](launch.md) and [Cape Town](launch-cape-town.md) launch records. Anthony reported practical macOS and iOS tests passed for both exits; native Mac switching between them also passed. Cape Town was selected after the Frankfurt age-verification issue. The latest report did not enumerate individual privacy, video, concurrency or IPv6 checks; do not infer those results or a universal exemption from destination-site policies.
+## Later work
 
-## Privacy and accepted limitations
+Representative throughput/CPU-credit sizing, stable-release automation, optional Bottlerocket evaluation, stronger diagnostic controls and a performance-oriented protocol remain possible follow-ups. Add Windows/Android, independent guest access or phone-accessible launch/expiration only when selected. A third protocol needs explicit port/IP and resource design; shared task budgeting does not promise unlimited capacity.
 
-Intended browsing, including adult content, must not require compulsory signup for age verification or disclosure of identity documents, selfies/biometrics or identity-linked verification credentials to destination sites or verification vendors. Anthony made this an explicit requirement after encountering an age check requiring signup through the initial setup. Region choice must account for it; see [region assessment](region-selection.md). A working tunnel alone does not satisfy this requirement.
-
-Privacy remains a product intent: do not add routine browsing, destination, DNS-query, payload, or traffic-capture collection. Use Amnezia's defaults as the reference baseline; a comprehensive audit or custom hardening pass is not a prerequisite to trying the connection. Record relevant settings encountered during launch and avoid stronger no-logging or protection claims than the evidence supports.
-
-Keep production-account controls intact and credentials out of the repository. Separate project resources are sufficient for this phase; high availability and elaborate network segmentation are unnecessary. Runtime hardening belongs with the later deployment architecture, informed by the reference setup.
-
-Loss of the endpoint and AWS management access can leave the PoC unavailable. Manual profile changes, downtime, installer-managed state, changing requirements, and the possibility that the experiment fails are accepted. There is no required disaster-recovery service, monitoring platform, or formal cost-approval framework.
-
-## Later, only when useful
-
-Support explicit named exits with one shared host per region, manual protocol selection and park/redeploy/destroy commands. Retain EIPs only when useful; release disposable PoC exits to avoid idle charges. Automatic switching is neither implemented nor an assumed future capability.
-
-- Add Windows and Android; extend router support to OpenWrt/GL.iNet with third-party packages allowed and UI on/off control as a soft goal.
-- Add further exits or another protocol in response to observed need. Keep independent runtime identities for each endpoint.
-- Evaluate Graviton/Bottlerocket and combined IP/container tradeoffs from the proven ECS baseline. Fargate requires a separate design; it is not a committed destination.
-- Add independent friend access or scheduled lifecycle controls if requested.
-- Revisit streaming geographic catalogs if desired; no Netflix/catalog acceptance now.
-
-No public service, custom client, user portal, HA deployment, multi-region test program, automatic rotation, or elaborate operational framework is part of the initial experiment.
+There is no automatic protocol failover, public service, user portal, automatic credential rotation or expiration controller in the current scope.

@@ -4,7 +4,7 @@ import { generateXrayProfiles, xrayLink } from '../lib/xray.js';
 
 describe('independent Xray identity', () => {
   it('creates matching REALITY keys and independent authorized device identities without sharing server secrets', () => {
-    const generated = generateXrayProfiles('stockholm', 'i-test', '203.0.113.1');
+    const generated = generateXrayProfiles('203.0.113.1');
     const server = JSON.parse(Buffer.from(generated.bundle.files['server.json']!, 'base64').toString());
     const inbound = server.inbounds[0];
     const privateKey = Buffer.from(inbound.streamSettings.realitySettings.privateKey, 'base64url');
@@ -25,10 +25,10 @@ describe('independent Xray identity', () => {
       expect(link.searchParams.get('flow')).toBe('xtls-rprx-vision');
       expect(ids).toContain(link.username);
     }
-    expect(generateXrayProfiles('stockholm', 'i-test', '203.0.113.1').bundle.files['server.json']).not.toBe(generated.bundle.files['server.json']);
+    expect(generateXrayProfiles('203.0.113.1').bundle.files['server.json']).not.toBe(generated.bundle.files['server.json']);
   });
   it('rejects invalid endpoints and malformed share input', () => {
-    expect(() => generateXrayProfiles('stockholm', 'i-test', '::1')).toThrow('IPv4');
+    expect(() => generateXrayProfiles('::1')).toThrow('IPv4');
     expect(() => xrayLink({}, 'test')).toThrow('client profile');
   });
 });

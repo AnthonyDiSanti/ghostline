@@ -1,29 +1,19 @@
 # Ghostline documentation
 
-Read by task. These documents are the current project specification, incorporating Anthony's 2026-09-07 corrections to the upstream v0.3 proposal. They distinguish selected behavior from observed deployment/device evidence.
+Current specifications describe one regional ECS gateway architecture. Git history owns superseded approaches; do not keep old deployment recipes as agent-facing alternatives.
 
-| Task | Read | Owns |
-| --- | --- | --- |
-| Understand what to build and what counts as success | [Product](product.md) | Scope, devices, privacy intent, accepted limitations, follow-ons |
-| Choose or change infrastructure/runtime ownership | [Architecture](architecture.md) | EC2 topology, Amnezia reference phase, configuration/secrets boundaries |
-| Scaffold, write, or verify implementation | [Development](development.md) | Code layout, npm command contract, testing, first implementation sequence |
-| Migrate credentials or install owned containers | [Runtime](runtime.md) | Local bundles, pinned builds, client imports, protocol installation and verification |
-| Operate the primary Stockholm exit | [ECS runtime](ecs.md), [Stockholm ECS evidence](launch-stockholm-ecs.md) | AL2023/ECR/SSM ownership, unattended lifecycle, current profiles and later image/network evaluations |
-| Diagnose Mac VPN crashes or choose the next client trial | [Mac client stability](mac-client-stability.md), [final three-client comparison](mac-client-stability.md#final-client-selection-notes) | Crash evidence, retired socket recovery, OneXray/Streisand/v2rayN tradeoffs and next validation |
-| Assess v2rayN for both Mac protocols | [v2rayN assessment](v2rayn-assessment.md) | Xray/Mihomo compatibility, sudo handling, local control API, update security and Mac stability evidence |
-| Select a maintained Xray container image | [Xray image assessment](xray-images.md) | Official and third-party maintenance evidence, pinned official mirror, initializer handoff and deferred RAM configuration |
-| Locate credentials and regional Parameter Store paths | [Secrets](secrets.md) | Credential categories, implemented Stockholm paths, server/device access boundaries and recovery exclusions |
-| Park, redeploy or release a regional exit | [Development lifecycle](development.md#on-demand-regional-lifecycle) | Explicit retained-IP versus full-release commands |
-| Compare Fargate, stopped EC2 and cold rebuild costs | [Lifecycle assessment](deployment-lifecycle.md) | Protocol compatibility, Cape Town price model and on-demand management tradeoffs |
-| Reuse personal-assistant code or conventions | [Reference reuse](reference-reuse.md) | Source locations, adaptation decisions, possible shared components |
-| Inspect deployed resources, launch actions and device evidence | [Stockholm ECS](launch-stockholm-ecs.md), [Cape Town](launch-cape-town.md), [retired Stockholm Ubuntu](launch-stockholm.md), [retired Frankfurt](launch.md) | Per-target lifecycle state and nonsecret observations |
-| Select an endpoint country against performance/privacy requirements | [Region assessment](region-selection.md) | Conditional Frankfurt/Stockholm recommendations, Cape Town backup intent, privacy evidence and comparison limits |
-| Understand the provenance of earlier requirements | [Historical inputs](archive/README.md) | Original upstream documents; not implementation requirements |
+| Task | Read |
+| --- | --- |
+| Understand product intent and evidence limits | [Product](product.md) |
+| Change regional topology, ownership or cost tags | [Architecture](architecture.md) |
+| Understand containers, RAM, networking, memory and recovery | [ECS gateway](ecs.md) |
+| Build, test, deploy or add another region | [Development](development.md) |
+| Inspect image provenance and release policy | [Images](images.md), [runtime notice](../runtime/NOTICE.md) |
+| Import credentials or review their security boundary | [Secrets](secrets.md) |
+| Stop, rebuild, park or release an exit | [Lifecycle](deployment-lifecycle.md) |
+| Inspect live regional identities and validation | [Stockholm](launch-stockholm-ecs.md), [Cape Town](launch-cape-town.md) |
+| Diagnose Mac crashes or review client selection | [Mac stability](mac-client-stability.md), [v2rayN assessment](v2rayn-assessment.md) |
+| Select a region against privacy/performance needs | [Region assessment](region-selection.md) |
+| Reuse personal-assistant conventions | [Reference reuse](reference-reuse.md) |
 
-## Documentation boundaries
-
-- Keep one authoritative home for each concern; link instead of duplicating decision tables.
-- Current specifications outrank archived inputs. New owner decisions update the relevant topic and leave a rationale breadcrumb in the working-memory decision log.
-- Distinguish selected direction, proposed engineering defaults, and observed results. Do not describe planned files or commands as implemented.
-- Record launch activities and observed settings when launch occurs. Do not prebuild an operations manual for an unproven setup.
-- Add a topic only when it has content worth retrieving. Keep this flat map until the project needs subdirectories.
+Stable behavior belongs here; live work, decisions and follow-ups belong in `.context/`. Keep source attribution and current evidence, remove superseded instructions, and never store credentials or sensitive diagnostics in either location. Client/region research is separate from the deployment architecture.

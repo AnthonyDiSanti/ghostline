@@ -4,14 +4,13 @@ import { CloudAssembly } from 'aws-cdk-lib/cx-api';
 import { buildApp } from '../lib/app.js';
 import { deploymentIds, getDeployment } from '../lib/config.js';
 import { captureRelease, releaseAfterDeletion } from '../lib/lifecycle.js';
-import { launch } from './fixture.js';
 
 afterAll(() => CloudAssembly.cleanupTemporaryDirectories());
 it.each(deploymentIds)('parks %s with only the same retained, tagged allocations', id => {
   // Stable logical IDs and properties are what make a later active deployment reuse addresses.
   const config = { ...getDeployment(id), account: '000000000000' };
-  const active = Template.fromStack(buildApp(launch, config).stack).toJSON();
-  const parked = Template.fromStack(buildApp(launch, config, {}, 'parked').stack).toJSON();
+  const active = Template.fromStack(buildApp(config).stack).toJSON();
+  const parked = Template.fromStack(buildApp(config, {}, 'parked').stack).toJSON();
   const addresses = Object.fromEntries(Object.entries(active.Resources).filter(([, r]: any) => r.Type === 'AWS::EC2::EIP')
     .map(([key, resource]: any) => { const { DependsOn: _dependency, ...rest } = resource; return [key, rest]; }));
   expect(parked.Resources).toEqual(addresses);
@@ -21,7 +20,7 @@ it.each(deploymentIds)('parks %s with only the same retained, tagged allocations
 });
 
 describe('explicit scoped address release', () => {
-  const config = getDeployment('stockholm');
+  const config = getDeployment('stockholm-ecs');
   const stackId = `arn:aws:cloudformation:${config.region}:${config.account}:stack/${config.stackName}/test`;
   const ids = ['eipalloc-aaa', 'eipalloc-bbb'];
   const record = { account: config.account, region: config.region, stackId, allocations: ids };

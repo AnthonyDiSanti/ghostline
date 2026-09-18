@@ -1,0 +1,3 @@
+# Keep all findings actionable; exceptions belong beside the instruction with a specific rationale.
+failure-threshold: style
+ignored: []

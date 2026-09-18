@@ -1,113 +1,41 @@
-# Stockholm ECS launch and primary cutover
+# Stockholm gateway evidence
 
-Status: **Primary exit; official XTLS migration and retained-IP rebuild completed 2026-09-13.** Original ECS cutover completed 2026-09-12. Owner acceptance and unattended retained-IP lifecycle validation preceded retirement of the old Ubuntu Stockholm stack and EIPs. Cape Town is unchanged. The trial began on 2026-09-10; the sections below preserve chronological evidence. [Architecture and commands](ecs.md).
+Primary target `stockholm-ecs`; profile `personal`; account `757999402784`; region `eu-north-1`, AZ `eu-north-1a`. Endpoint stack `GhostlineEcsTrial`, images `GhostlineEcsTrialImages`, resource prefix `ghostline-ecs-stockholm`. These are stable cloud identities for the common [gateway recipe](ecs.md).
 
-- Target `stockholm-ecs`, profile `personal`, account `757999402784`, region `eu-north-1`, AZ `eu-north-1a`.
-- Endpoint stack `GhostlineEcsTrial`; durable image stack `GhostlineEcsTrialImages`.
-- Stock AL2023 ECS x86_64 image `ami-0c020a23b5dfdbd1b`, AWS owner `591542846629`, release `al2023-ami-ecs-hvm-2023.0.20260901-kernel-6.1-x86_64`; ECS agent 1.106.2, Docker 25.0.16 per AWS release metadata.
-- One t3.small, encrypted 30 GiB gp3, one ENI, two EIPs, separate Xray/AWG bridge tasks. No SSH key or inbound SSH.
-- Six Stockholm credential parameters created and round-trip verified; keys/UUIDs preserved. No LastPass action or deletion of local recovery copies.
-- Both immutable ECR releases published; offline topology/credential checks passed before launch.
+One ECS-optimized AL2023 ARM64 `t4g.small`, AMI `ami-06a77ee974da159b5`, encrypted 30 GiB gp3. ECS agent 1.106.2, Docker 25.0.16. Current host `i-0e591a05b9eac9221`, ENI `eni-04f7468459396df35`, disk `vol-04400b40a19db4f2b`.
 
-Initial host `i-0cfa31a9139579f24`, ENI `eni-03a9220b5e86f3e26`.
-
-| Protocol | Public address | Allocation | Private address |
+| Protocol | EIP | Allocation | Private address |
 | --- | --- | --- | --- |
-| Xray | 51.20.163.146 | eipalloc-079db1eebf4b5cc78 | 10.79.0.11 |
-| AWG | 16.16.73.146 | eipalloc-07627e295d844e8de | 10.79.0.10 |
+| Xray | `51.20.163.146` | `eipalloc-079db1eebf4b5cc78` | `10.79.0.11` |
+| AWG | `16.16.73.146` | `eipalloc-07627e295d844e8de` | `10.79.0.10` |
 
-Both ECS services reached steady state on the one AL2023 host. SSM verified configuration hashes match Parameter Store, read-only unprivileged bridge configuration, blocked IMDS and each container's assigned public egress. A disposable Xray client completed real HTTPS through the Xray EIP. Subsequent restoration and lifecycle results are recorded below.
+Original client identities and existing primary profiles remain valid. Anthony accepted both iOS ARM64 protocols on September 15; the current recovery evidence below uses real automated clients. Mac REALITY uses OneXraySE, AWG uses Amnezia. Repeated sleep/wake remains separate in [client stability](mac-client-stability.md).
 
-The initial disposable AWG attempt had no handshake against either the ECS or unchanged Ubuntu Stockholm endpoint. Inspection found the Mac connected to the existing Xray VPN; this nested-tunnel path is a confounder. Repeat with the native VPN disconnected before attributing failure to ECS. No server tuning or security relaxation was applied.
+## Shared gateway task — 2026-09-18
 
-The first park exposed a missing EC2→cluster dependency: cluster deletion raced a still-registered host. The host then terminated/deregistered and all other endpoint resources were removed. Cleaned up the empty trial cluster, added the dependency and a stopped-host deregistration preflight, with regression coverage. Both EIP allocations, ECR releases and parameters remained intact.
+Anthony approved consolidating the regional runtime while retaining the existing separate engine images. The primary now uses service/family `ghostline-ecs-stockholm-gateway`: one essential Xray container, one essential AWG container, and one nonessential initializer. Both engines wait for initialization success. Each has a native 60-second restart eligibility policy; the initializer has none. One 2 MiB host tmpfs exposes only the appropriate protocol directory read-only to each engine. The task's enforced budget is 1,126 MiB, with 666 MiB reserved from ECS scheduling and no separate engine memory ceilings.
 
-Retained-IP rebuild passed: new host `i-0da0f70b19c4a51d1`, ENI `eni-0ed168296680f7636`; both original trial allocations/public IPs survived. Both tasks restored automatically from ECR and Parameter Store, with matching configuration hashes and expected public egress. No SSH/install step was run. The deployed network helper matches the source prepared for commit.
+Only the initializer receives the two server parameters; no task IAM role or engine secret environment exists. The shared initializer tag is `sha-61a1a395b892e21c25eb6179942ef639d325d45395f6c2f624da440a4e95ea94`, digest `sha256:cba49d2f4752a5bee81182c2245d87d09c5af32c1d4c1ed806a628a377cab5e2`. Xray release `sha-7a85259e169537e2bf38995425b5a297e2e72451f07da38c7fdee433ed331e52`, digest `sha256:96e356574d4de2e4c6f9dea2ff79a9e4dc439558df73a38eefd8192553c9f367`; AWG release `sha-85df0db151107552ff01243b7831ecf5f168336e7ad5870d9a8f92a490c564c0`, digest `sha256:73d62dfeff88e9b7d95cd9c7e625c024d2343855bd11aac10152184c659823d0`. Shared resources use System=shared; engine/EIP tags remain protocol-specific.
 
-With the native Xray VPN disconnected, disposable Xray and AWG clients each completed real HTTPS through their assigned EIP. The earlier AWG failure was confined to the nested Xray path; no protocol/configuration tuning was required. These are the 2026-09-10 agent-run isolated client checks; the owner confirmation below is separate evidence.
+IAM shutdown ordering retains host authority through termination and execution authority through service deletion. A full park completed unattended in about 133 CDK-reported seconds; its rebuild took about 263 seconds. No credential import, manual installation or engine republishing was needed. Stop waits for actual task termination before stopping EC2.
 
-Stop passed: both services drained to zero; `i-0da0f70b19c4a51d1` reached stopped while retaining encrypted 30 GiB gp3 `vol-06ac4f02736c7b70d`, the ENI and both EIP allocations. Live volume/EIP tags match Project=ghostline, Environment=prod, System=shared/xray/amneziawg. Start passed: the same host/disk/ENI returned, both services stabilized at one task, both restored configuration/IMDS/egress checks passed, and both real client HTTPS/exit checks passed again.
-
-2026-09-10 final infrastructure diff: no changes in endpoint or image stack. Full Node 24 gate: four offline targets and 95 tests pass. Git-visible live-credential scan, local documentation links and whitespace checks pass. The agent prepared native trial profiles without installing them during that session; files are under `.local/recovery/stockholm-ecs-clients/`. Existing Stockholm/Cape Town AWS resources remain unchanged.
-
-On 2026-09-10, restored the original native Stockholm Xray selection after isolated tests. Amnezia showed Connected and an independent HTTPS check exits through `16.170.38.152`. The temporary watchdog process ended. No trial native profiles were installed or old profiles edited by the agent during that session.
-
-## Owner acceptance — 2026-09-12
-
-Anthony reported: “Both protocols are working,” then added: “I confirmed the IP masquerading as well.” Record this as owner acceptance of protocol connectivity and IP masquerading for the ECS bridge checkpoint. The report does not enumerate devices or separate DNS, IPv6, concurrency or performance subtests; do not infer those results. Existing Stockholm/Cape Town resources remain preserved until an explicit cutover/retirement instruction.
-
-## Unattended lifecycle validation — 2026-09-12
-
-Anthony requested this checkpoint before Stockholm cutover and explicitly excluded Cape Town. All mutations targeted `stockholm-ecs`; the older Stockholm `GhostlinePoc` stack/resources remained identical and its host remained running throughout the recorded comparisons. The Mac passed direct-internet checks before and after the run; final exit was `5.195.76.221`. The agent did not change native routes or profiles.
-
-Corrected one automation gap before teardown: ECS deploy/publish inherited CDK's interactive IAM approval default. The explicit ECS command now disables that prompt after its fresh diff, retaining target/account/region checks. Global CDK settings, legacy commands, IAM policies and network controls did not change. Regression coverage guards ECS-only noninteractive scope.
-
-| Sequence | Observed result |
+| Validation | Observed result |
 | --- | --- |
-| Running host → park → deploy | Passed with stdin closed. Removed host `i-0da0f70b19c4a51d1`, its disk, ENI and cluster; rebuilt as `i-0dd477fc361ee6ff1`. Both real protocol HTTPS/exit and server configuration/isolation checks passed. |
-| Stop → start | Passed on `i-0dd477fc361ee6ff1`, preserving host, disk, ENI and both EIPs. Both services drained to zero and returned to one; server and real client checks passed. Stop took 39 seconds; start took 176 seconds, including EC2 health readiness. |
-| Stop → park → deploy | Passed in one unattended sequence with all checks and stdin closed. Stopped-host park took 93 seconds; deploy took 285 seconds. The empty ECS registration/cluster, host, disk and ENI were removed without intervention, then replaced automatically. Both real protocol HTTPS/exit and server checks passed again. |
+| Cold restoration | Both real encrypted clients pass; server hashes, private RO tmpfs, absent swap/engine secret environment, bridge isolation, assigned EIPs and the actual parent cgroup memory limit pass |
+| Mature AWG crash | Same container/task recovered in 2.57 seconds; Xray and initializer unchanged; all five real Xray HTTPS probes succeeded |
+| Mature Xray crash | Same container/task recovered in 2.46 seconds; AWG and initializer unchanged; all four real AWG HTTPS probes succeeded |
+| Early repeated AWG crash | Whole task replaced; both engine identities changed and fresh shared initialization exited zero |
+| Ordinary forced deployment | Fresh task and successful initializer; exact unchanged engine releases, server security/config checks and both real HTTPS tunnels pass |
+| Host stop/start | Same host/disk/IPs return; a fresh task reruns initialization, restores private RAM configuration and passes both real encrypted HTTPS tunnels plus memory/security checks |
 
-Both original allocations/public IPs and their tags survived both parking cycles. All six regional SecureString values and versions matched the baseline, as did published image tags/digests. Neither cycle imported credentials, published/rebuilt images, used SSH, installed runtime files manually, or required cleanup/repair between commands.
+With both encrypted clients present, 15 rounds through both protocols succeeded. The sampled task used about 14.1 MiB and had a 15.7 MiB lifetime peak; host available memory was about 1,372 MiB. No task limit/OOM events or host OOM kills occurred. PSI averages were zero at observation, with small nonzero cumulative stall totals (about 33 ms some / 28 ms full). These are light browsing-like requests, not throughput, CPU-credit or device-capacity benchmarks. Cache charging differs from earlier samples; no consolidation memory saving or optimal size is inferred.
 
-Final live state: host `i-0ccd265f182b32daf`, ENI `eni-07b6ab15aaa75d982`, encrypted 30 GiB disk `vol-05348498adf9b9730`. Both ECS services have desired/running count one and pending count zero. Xray remains `51.20.163.146`; AWG remains `16.16.73.146`. The prior two hosts/disks/ENIs are gone. Disposable test containers were removed.
+Private, nonsecret diagnostics are under `.local/diagnostics/gateway-2026-09-18/`. The deployment passed its full local gate and actual image tests, including partial-failure cleanup and AWG in-place restart. Current cleanup verification is recorded in the handoff. Existing profiles remain valid; this gateway deployment did not change native client profiles or exercise sleep/wake. Protocol health probes for a running-but-broken engine remain absent.
 
-Final CDK diff: no changes in endpoint or image stack. Full local gate: typecheck, four offline target synths and 96 tests pass. Task-local nonsecret snapshots, credential hashes and command logs are under `.local/diagnostics/stockholm-ecs-lifecycle-2026-09-12/`; plaintext credentials are excluded from those artifacts.
+Final audit: host `i-0e591a05b9eac9221`, encrypted 30 GiB gp3 `vol-04400b40a19db4f2b`, ENI `eni-04f7468459396df35`; task definition `ghostline-ecs-stockholm-gateway:2`, one desired/running gateway task and no pending task. Only the final tagged primary host/root volume remains. The original EIPs/allocation IDs and all six parameter hashes/versions match the pre-change baseline. Cost tags match Project=ghostline, Environment=prod and the existing System dimensions. Both endpoint and image stack diffs are clean.
 
-This closes the explicit stop/start and retained-IP cold-rebuild checkpoint. Full address release/new-profile behavior, idle expiration and a remote controller were not exercised or introduced. Existing native profiles retain the same endpoint/credential identities. Cutover/old-host retirement remains a separate instruction.
+ECS reports 1,180 MiB schedulable memory after the 666 MiB reserve and 54 MiB remaining after placing the 1,126 MiB task. Those are placement counters, not physical free memory. The final stopped/started task is fresh and both protocol files still match Parameter Store exactly. All disposable clients were cleaned up. No new native iOS or sleep/wake acceptance is claimed.
 
-## Primary cutover and Mac profiles — 2026-09-12
+## Architecture cleanup regression — 2026-09-18
 
-Anthony explicitly authorized cutover and checking the previously installed Stockholm profiles. The Mac initially had the old Ubuntu endpoints only. Protected backups of both Amnezia preference domains were saved before changing profiles. Imported the generated ECS Mac profiles with preserved device credentials, then verified both through native Amnezia 5.0.1.5:
-
-| Mac profile | Endpoint | Observed native result |
-| --- | --- | --- |
-| Ghostline Stockholm REALITY | `51.20.163.146:443` TCP | Connected; exact public exit and Wikipedia HTTPS 200 passed |
-| Ghostline Stockholm AWG | `16.16.73.146:443` UDP | Version 3.1; three rounds passed all nine pings, direct DNS, Wikipedia HTTPS 200 and exact public exit |
-
-The AWG test used the verified local daemon watchdog and unconditional disconnect cleanup. Direct egress returned to `5.195.76.221`; the timer ended. Both replacement profiles retain their familiar names; removed only the obsolete Stockholm entries from the application. Both Cape Town profiles remain intact. Final selection is Stockholm REALITY, **disconnected**. No persistent logging or client privacy-setting changes were made. These short tests do not establish sustained performance, IPv6 protection or iOS import.
-
-`npm run destroy stockholm` completed unattended and released only the old stack's captured allocations. Verified `GhostlinePoc` is `DELETE_COMPLETE`, old host `i-033493f9d064f8b00` terminated, root disk `vol-00624392e421f4f1a` and ENI `eni-037352399599d6cc9` absent, and allocations `eipalloc-0849e55ead905822b` / `eipalloc-0c6fc191dc53dd019` released. The release record is `.local/deployments/stockholm/last-release.json`. No Cape Town AWS operations were targeted.
-
-The active ECS stack outputs/resource identities, EIP associations/tags, ECR image digests and all six SecureString versions matched the pre-cutover baseline. The final secret audit read metadata only. Both services remain desired/running one, pending zero, on `i-0ccd265f182b32daf`; the ECS EIPs were kept rather than reassociating the old addresses. Post-retirement runtime configuration/isolation/egress verification and disposable encrypted HTTPS tests passed for both protocols. Final endpoint/image CDK diff: no changes. Full local gate: typecheck, four offline synths and 96 tests passed.
-
-Evidence and protected local preference backups are under `.local/diagnostics/stockholm-cutover-2026-09-12/`. Local credentials/recovery copies remain; Anthony intermediates LastPass saves. Current iOS exports are `.local/recovery/stockholm-ecs-clients/ios-{xray,awg}.vpn` and `ios-{xray,awg}-qr.png`. Any phone profile still using `16.170.38.152` or `13.50.178.121` must be replaced with these exports; no iOS profile change was performed during this cutover.
-
-## iPhone acceptance and recovery timing — 2026-09-12
-
-Anthony confirmed the iPhone works through both Stockholm protocols after cutover. This closes the current iOS profile/connectivity follow-up; it does not add separately measured DNS, IPv6, concurrency or throughput results. Anthony will save LastPass recovery material at the end of architecture refinement because the material is still changing. Keep the existing local copies and regional parameters; vault updates are deliberately deferred, not an immediate reminder or implementation blocker.
-
-## Official XTLS migration — 2026-09-13
-
-Anthony authorized the selected official-image/initializer design and permitted decrypting regional parameters only when plaintext remains outside tool output and the conversation. All six original parameter values/versions were compared locally by hash; no credential rotation or parameter writes were performed.
-
-Published the unmodified official Xray 26.7.28 amd64 image to the existing Xray ECR repository. The ECR manifest matches upstream exactly: `sha256:d7911c19a283acdc57e171ae0e3bd49ab4c29db14e2ab9274aa97132dd3ca3b9`. The new immutable `xray-config` repository has System=xray cost tagging; its pinned Alpine 3.24.1/jq initializer is separate from the engine. The image migration itself did not change AWG's image or task definition; the subsequent cold rebuild recreated both tasks from their retained images.
-
-The initial deployment replaced only the Xray task/service after adding scoped initializer-image pull permissions. It kept host `i-0ccd265f182b32daf`, its disk/ENI and both EIPs. Xray task revision 5 starts the official non-root engine after the network-disabled initializer exits successfully. The engine mounts its private configuration read-only from task-scoped Docker storage on encrypted EBS; it receives no Parameter Store environment variable.
-
-Initial live checks passed preserved configuration hashes, private file ownership/modes, read-only bridge isolation, blocked IMDS and distinct EIP egress. Both disposable clients completed real encrypted HTTPS through the expected addresses. The first new server verifier misclassified an AL2023 Python 3.9 `socket.timeout`; correcting the exception type fixed the diagnostic without runtime changes or network relaxation, and regression coverage reproduces the older Python behavior.
-
-Local validation passes 102 tests, four offline synths and six Docker image cases: exact private handoff after initializer exit, official configuration validation/non-root port 443, and five invalid-input cases rejected without credential output or partial files. Lifecycle and native-client results follow below. Evidence lives under `.local/diagnostics/xtls-migration-2026-09-13/`; raw parameter values are excluded from diagnostic artifacts.
-
-### Unattended restoration and final state
-
-| Sequence | Result |
-| --- | --- |
-| Stop → start | Passed with stdin closed. Stop took 38.6 seconds; start took 99.7 seconds. The same host/disk/ENI returned, both services stabilized and both server/real-client checks passed. |
-| Running host → park → deploy | Passed with stdin closed. Park took 154.1 seconds; deploy took 310.7 seconds. Only the two tracked EIPs and CDK metadata remained while parked. The new host restored both protocols from retained ECR/Parameter Store state; server and real-client checks passed. |
-
-Both EIPs/allocation IDs and tags, all six credential values/versions and all published image tags/digests matched the post-publication baseline throughout. No image republish, credential import, SSH, manual installation or repair occurred during the sequence. Removed host `i-0ccd265f182b32daf`, disk `vol-05348498adf9b9730` and ENI `eni-07b6ab15aaa75d982` were verified gone, including the old task storage on that disk. Normal delayed ECS task-volume cleanup on a retained host was not separately timed; this is not a secure-erasure claim.
-
-Final host: `i-0f0dc651c312542c2`; ENI: `eni-0c03f6d8ff213a20c`; root disk: `vol-0aaf612e214bd4b9d`, verified encrypted 30 GiB gp3. Both services are desired/running one, pending zero. Public addresses remain Xray `51.20.163.146` and AWG `16.16.73.146`.
-
-A separate redacted live audit verified initializer exit zero, disabled networking, CHOWN-only added capability, secret injection only into the initializer, and the same Docker local volume mounted writable by the initializer/read-only by Xray. Final endpoint and image CDK diff: **no differences**. Cape Town was not targeted.
-
-### Existing device profiles and separate Mac stability issue
-
-Anthony confirmed both existing iPhone profiles work after this migration. No new profile imports were needed.
-
-The native Mac REALITY test returned `51.20.163.146` and Wikipedia HTTPS 200. Automation later lost the Amnezia window; Anthony reported a configd crash, prolonged spinning beach ball and hard system restart. He reports recurrence and suspects sleeping while Amnezia is connected, possibly intermittently. No crash-report or sleep/wake correlation has yet established causality. This is tracked separately from server migration acceptance.
-
-Anthony then authorized remaining connect/disconnect checks while keeping the Mac awake. The guarded native AWG test passed three rounds of direct DNS, HTTPS 200 and exact exit `16.16.73.146`, plus all nine pings. Its independent local watchdog/cleanup disconnected the tunnel; direct egress returned to `5.195.76.221`. Final UI: Stockholm REALITY selected at `51.20.163.146`, **disconnected**. Cape Town profiles are intact. No sleep reproduction, client reset or persistent settings change was performed.
-
-The server migration work unit is complete. Task `01M2D00GJ5HE1591CYW6KSFVV1` in the [backlog](../.context/tasks.md) prioritizes crash/sleep diagnosis and, if warranted by evidence, alternative clients. Anthony requested recording this handoff and pausing to touch base before that investigation. RAM-backed rendered configuration remains an explicit later task; LastPass updates remain deferred until architecture refinement is complete.
+Removal of obsolete recipes leaves Stockholm’s active/parked synthesized templates (including user-data bytes) and all three release identities exactly equal to a pre-cleanup baseline. No Stockholm cloud deployment was required. Both real encrypted protocol probes pass from the direct local connection. Initial probes while OneXraySE was connected failed for both regions; disconnecting the enclosing native tunnel restored direct-path success. Run disposable tests without nesting a native VPN.

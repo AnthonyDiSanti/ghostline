@@ -4,8 +4,8 @@ import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
-import { readFileSync } from 'node:fs';
-import { gzipSync } from 'node:zlib';
+import { ecsMemoryBudget } from './ecs-memory.js';
+import { ecsUserData } from './ecs-user-data.js';
 import type { DeploymentConfig } from './config.js';
 import { imageArtifacts, releaseTag, type ImageArtifact } from './ecs-release.js';
 
@@ -19,62 +19,11 @@ export class EcsImagesStack extends Stack {
         repositoryName: `${props.deployment.resourceName}/${protocol}`, imageTagMutability: ecr.TagMutability.IMMUTABLE,
         removalPolicy: RemovalPolicy.RETAIN, emptyOnDelete: false,
       });
-      Tags.of(repository).add('System', protocol === 'awg' ? 'amneziawg' : 'xray');
+      Tags.of(repository).add('System', protocol === 'gateway-config' ? 'shared' : protocol === 'awg' ? 'amneziawg' : 'xray');
       new CfnOutput(this, `${protocol}Repository`, { value: repository.repositoryUri });
       return [protocol, repository];
     })) as Record<ImageArtifact, ecr.Repository>;
   }
-}
-
-export function ecsUserData(config: DeploymentConfig, cluster: string): string {
-  // The entire host payload is nonsecret; platform image already contains Docker and the ECS agent.
-  const network = gzipSync(readFileSync(new URL('../../runtime/ecs/network.py', import.meta.url))).toString('base64');
-  return `#!/bin/bash
-set -euo pipefail
-# EIP association follows instance creation; tolerate that short first-boot network gap.
-for attempt in {1..12}; do
-  dnf install -y python3 iptables conntrack-tools amazon-ssm-agent && break
-  sleep 5
-done
-command -v python3 iptables conntrack
-systemctl enable --now amazon-ssm-agent
-install -d -m 0755 /usr/local/lib/ghostline /etc/ecs /etc/systemd/system/ecs.service.d
-echo '${network}' | base64 -d | gzip -d > /usr/local/lib/ghostline/network.py
-cat > /etc/ghostline-network.json <<'JSON'
-{"family":"${config.resourceName}","xray":"10.79.0.11","awg":"10.79.0.10"}
-JSON
-cat > /etc/ecs/ecs.config <<'ECS'
-ECS_CLUSTER=${cluster}
-ECS_ENABLE_TASK_IAM_ROLE=false
-ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=false
-ECS_SELINUX_CAPABLE=true
-ECS
-# amazon-ec2-net-utils configures both assigned private IPv4 addresses on AL2023.
-cat > /etc/systemd/system/ghostline-network.service <<'UNIT'
-[Unit]
-Description=Ghostline ECS bridge identity rules
-After=docker.service network-online.target
-Requires=docker.service
-Before=ecs.service
-[Service]
-Type=simple
-ExecStartPre=/usr/bin/python3 /usr/local/lib/ghostline/network.py --initialize
-ExecStart=/usr/bin/python3 /usr/local/lib/ghostline/network.py
-Restart=always
-RestartSec=1
-[Install]
-WantedBy=multi-user.target
-UNIT
-cat > /etc/systemd/system/ecs.service.d/ghostline.conf <<'UNIT'
-[Unit]
-Requires=ghostline-network.service
-After=ghostline-network.service
-UNIT
-systemctl daemon-reload
-systemctl enable ghostline-network.service
-systemctl start --no-block ghostline-network.service
-systemctl enable --now --no-block ecs
-`;
 }
 
 export class EcsEndpointStack extends Stack {
@@ -132,6 +81,8 @@ export class EcsEndpointStack extends Stack {
     });
     // The host must terminate (and deregister) before CloudFormation deletes its ECS cluster.
     instance.addResourceDependency(cluster);
+    // Keep agent authority until the host terminates; otherwise service/cluster deletion can stall.
+    instance.node.addDependency(hostRole.node.findChild('DefaultPolicy'));
     instance.addResourceDependency(route); instance.addResourceDependency(subnetRoutes);
     Tags.of(instance).add('Name', config.resourceName);
     const associations = (['xray', 'awg'] as const).map(protocol => {
@@ -140,53 +91,61 @@ export class EcsEndpointStack extends Stack {
       association.addResourceDependency(instance);
       return association;
     });
-    for (const protocol of ['xray', 'awg'] as const) {
-      const execution = new iam.Role(this, `${protocol}ExecutionRole`, { assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com') });
-      props.repositories[protocol].grantPull(execution);
-      if (protocol === 'xray') props.repositories['xray-config'].grantPull(execution);
-      execution.addToPolicy(new iam.PolicyStatement({ actions: ['ssm:GetParameters'],
-        resources: [`arn:aws:ssm:${config.region}:${config.account}:parameter/ghostline/prod/server/${protocol}`] }));
-      const definition = new ecs.CfnTaskDefinition(this, `${protocol}Task`, {
-        family: `${config.resourceName}-${protocol}`, networkMode: 'bridge', requiresCompatibilities: ['EC2'],
-        executionRoleArn: execution.roleArn,
-        ...(protocol === 'xray' ? { volumes: [{ name: 'xray-config', dockerVolumeConfiguration: { scope: 'task', driver: 'local' } }] } : {}),
-        containerDefinitions: [{ name: protocol, essential: true,
-          image: `${props.repositories[protocol].repositoryUri}:${releaseTag(protocol)}`,
-          memory: protocol === 'xray' ? 256 : 512, cpu: 256, readonlyRootFilesystem: true,
-          dnsServers: ['1.1.1.1', '1.0.0.1'],
-          dockerSecurityOptions: ['no-new-privileges'],
-          portMappings: [{ containerPort: 443, hostPort: 443, protocol: protocol === 'xray' ? 'tcp' : 'udp' }],
-          ...(protocol === 'xray' ? {
-            user: '65532:65532', command: ['run', '-config', '/usr/local/etc/xray/server.json'],
-            dependsOn: [{ containerName: 'xray-config', condition: 'SUCCESS' }], startTimeout: 60,
-            mountPoints: [{ sourceVolume: 'xray-config', containerPath: '/usr/local/etc/xray', readOnly: true }],
-          } : { secrets: [{ name: 'GHOSTLINE_CONFIG', valueFrom: `arn:aws:ssm:${config.region}:${config.account}:parameter/ghostline/prod/server/${protocol}` }] }),
-          linuxParameters: { initProcessEnabled: true, capabilities: { drop: ['ALL'], add: protocol === 'xray' ? ['NET_BIND_SERVICE'] : ['NET_ADMIN'] },
-            tmpfs: [{ containerPath: '/run', size: 16, mountOptions: ['rw', 'nosuid', 'nodev', 'noexec', 'mode=0700'] },
-              { containerPath: '/tmp', size: 16, mountOptions: ['rw', 'nosuid', 'nodev', 'noexec'] }],
-            ...(protocol === 'awg' ? { devices: [{ hostPath: '/dev/net/tun', containerPath: '/dev/net/tun', permissions: ['read', 'write'] }] } : {}) },
-          ...(protocol === 'awg' ? { systemControls: [{ namespace: 'net.ipv4.ip_forward', value: '1' },
-            { namespace: 'net.ipv4.conf.all.src_valid_mark', value: '1' }] } : {}),
-          logConfiguration: { logDriver: 'json-file', options: { 'max-size': '1m', 'max-file': '1' } },
-        }, ...(protocol === 'xray' ? [{
-          // Only the short-lived writer receives the bundle; the unmodified engine reads a private file.
-          name: 'xray-config', essential: false, image: `${props.repositories['xray-config'].repositoryUri}:${releaseTag('xray-config')}`,
-          memory: 64, cpu: 16, user: '0:0', readonlyRootFilesystem: true, disableNetworking: true,
-          dockerSecurityOptions: ['no-new-privileges'],
-          secrets: [{ name: 'GHOSTLINE_CONFIG', valueFrom: `arn:aws:ssm:${config.region}:${config.account}:parameter/ghostline/prod/server/xray` }],
-          mountPoints: [{ sourceVolume: 'xray-config', containerPath: '/config', readOnly: false }],
-          linuxParameters: { initProcessEnabled: true, capabilities: { drop: ['ALL'], add: ['CHOWN'] } },
-          logConfiguration: { logDriver: 'json-file', options: { 'max-size': '1m', 'max-file': '1' } },
-        }] : [])],
-      });
-      Tags.of(definition).add('System', protocol === 'awg' ? 'amneziawg' : 'xray');
-      // Stop-first replacement allows a single host and fixed ports without hidden surge capacity.
-      const service = new ecs.CfnService(this, `${protocol}Service`, { cluster: cluster.attrArn,
-        serviceName: `${config.resourceName}-${protocol}`, taskDefinition: definition.ref, desiredCount: 1, launchType: 'EC2',
-        deploymentConfiguration: { minimumHealthyPercent: 0, maximumPercent: 100 }, propagateTags: 'TASK_DEFINITION' });
-      associations.forEach(association => service.addResourceDependency(association));
-      new CfnOutput(this, `${protocol}ServiceName`, { value: service.attrName });
-    }
+    // One scheduling and release unit shares capacity; engines retain separate network/mount namespaces.
+    const memory = ecsMemoryBudget(config.instanceType);
+    const execution = new iam.Role(this, 'GatewayExecutionRole', { assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com') });
+    for (const repository of Object.values(props.repositories)) repository.grantPull(execution);
+    execution.addToPolicy(new iam.PolicyStatement({ actions: ['ssm:GetParameters'],
+      resources: ['xray', 'awg'].map(protocol => `arn:aws:ssm:${config.region}:${config.account}:parameter/ghostline/prod/server/${protocol}`) }));
+    const engines = (['xray', 'awg'] as const).map(protocol => ({ name: protocol, essential: true,
+      image: `${props.repositories[protocol].repositoryUri}:${releaseTag(protocol)}`,
+      cpu: 256, readonlyRootFilesystem: true,
+      restartPolicy: { enabled: true, restartAttemptPeriod: 60 },
+      dnsServers: ['1.1.1.1', '1.0.0.1'],
+      dockerSecurityOptions: ['no-new-privileges'],
+      portMappings: [{ containerPort: 443, hostPort: 443, protocol: protocol === 'xray' ? 'tcp' : 'udp' }],
+      user: protocol === 'xray' ? '65532:65532' : '0:65532',
+      dependsOn: [{ containerName: 'gateway-config', condition: 'SUCCESS' }],
+      mountPoints: [{ sourceVolume: `${protocol}-config`, containerPath: protocol === 'xray' ? '/usr/local/etc/xray' : '/etc/ghostline/awg', readOnly: true }],
+      ...(protocol === 'xray' ? {
+        command: ['run', '-config', '/usr/local/etc/xray/server.json'],
+      } : {}),
+      linuxParameters: { initProcessEnabled: true, capabilities: { drop: ['ALL'], add: protocol === 'xray' ? ['NET_BIND_SERVICE'] : ['NET_ADMIN'] },
+        tmpfs: [{ containerPath: '/run', size: 16, mountOptions: ['rw', 'nosuid', 'nodev', 'noexec', 'mode=0700'] },
+          { containerPath: '/tmp', size: 16, mountOptions: ['rw', 'nosuid', 'nodev', 'noexec'] }],
+        ...(protocol === 'awg' ? { devices: [{ hostPath: '/dev/net/tun', containerPath: '/dev/net/tun', permissions: ['read', 'write'] }] } : {}) },
+      ...(protocol === 'awg' ? { systemControls: [{ namespace: 'net.ipv4.ip_forward', value: '1' },
+        { namespace: 'net.ipv4.conf.all.src_valid_mark', value: '1' }] } : {}),
+      logConfiguration: { logDriver: 'json-file', options: { 'max-size': '1m', 'max-file': '1' } },
+    }));
+    const definition = new ecs.CfnTaskDefinition(this, 'GatewayTask', {
+      family: `${config.resourceName}-gateway`, networkMode: 'bridge', requiresCompatibilities: ['EC2'],
+      memory: String(memory.task), executionRoleArn: execution.roleArn,
+      runtimePlatform: { cpuArchitecture: 'ARM64', operatingSystemFamily: 'LINUX' },
+      volumes: [{ name: 'gateway-config', host: { sourcePath: '/run/ghostline-config' } },
+        ...(['xray', 'awg'] as const).map(protocol => ({ name: `${protocol}-config`, host: { sourcePath: `/run/ghostline-config/${protocol}` } }))],
+      containerDefinitions: [...engines, {
+        // Only the short-lived writer receives credentials. Both engines wait for the entire configuration set.
+        name: 'gateway-config', essential: false, startTimeout: 60,
+        image: `${props.repositories['gateway-config'].repositoryUri}:${releaseTag('gateway-config')}`,
+        memory: 64, cpu: 16, user: '65532:65532', readonlyRootFilesystem: true, disableNetworking: true,
+        dockerSecurityOptions: ['no-new-privileges'],
+        secrets: ['xray', 'awg'].map(protocol => ({ name: `GHOSTLINE_${protocol.toUpperCase()}_BUNDLE`,
+          valueFrom: `arn:aws:ssm:${config.region}:${config.account}:parameter/ghostline/prod/server/${protocol}` })),
+        mountPoints: [{ sourceVolume: 'gateway-config', containerPath: '/config', readOnly: false }],
+        linuxParameters: { initProcessEnabled: true, capabilities: { drop: ['ALL'] } },
+        logConfiguration: { logDriver: 'json-file', options: { 'max-size': '1m', 'max-file': '1' } },
+      }],
+    });
+    Tags.of(definition).add('System', 'shared');
+    Tags.of(execution).add('System', 'shared');
+    // Fixed ports prohibit a surge task; native engine restarts avoid replacing healthy siblings.
+    const service = new ecs.CfnService(this, 'GatewayService', { cluster: cluster.attrArn,
+      serviceName: `${config.resourceName}-gateway`, taskDefinition: definition.ref, desiredCount: 1, launchType: 'EC2',
+      deploymentConfiguration: { minimumHealthyPercent: 0, maximumPercent: 100 }, propagateTags: 'TASK_DEFINITION' });
+    associations.forEach(association => service.addResourceDependency(association));
+    service.node.addDependency(execution.node.findChild('DefaultPolicy'));
+    new CfnOutput(this, 'GatewayServiceName', { value: service.attrName });
     new CfnOutput(this, 'InstanceId', { value: instance.ref });
     new CfnOutput(this, 'ClusterName', { value: config.resourceName });
     new CfnOutput(this, 'NetworkInterfaceId', { value: nic.ref });

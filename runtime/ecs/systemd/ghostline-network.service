@@ -1,0 +1,13 @@
+[Unit]
+Description=Ghostline ECS bridge identity rules
+After=docker.service network-online.target
+Requires=docker.service
+Before=ecs.service
+[Service]
+Type=simple
+ExecStartPre=/usr/bin/python3 /usr/local/lib/ghostline/network.py --initialize
+ExecStart=/usr/bin/python3 /usr/local/lib/ghostline/network.py
+Restart=always
+RestartSec=1
+[Install]
+WantedBy=multi-user.target

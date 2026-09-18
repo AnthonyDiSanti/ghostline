@@ -1,4 +1,3 @@
-import { isIP } from 'node:net';
 import defaults from '../deployment.json' with { type: 'json' };
 
 export interface DeploymentConfig {
@@ -12,15 +11,6 @@ export interface DeploymentConfig {
   instanceType: string;
   rootVolumeGiB: number;
   globalTags: Record<string, string>;
-  ecs?: { credentialSource: string };
-  runtime?: {
-    awgEnabled: boolean;
-  };
-}
-
-export interface LaunchInputs {
-  operatorSshCidr: string;
-  sshPublicKey: string;
 }
 
 export function validateGlobalTags(tags: Record<string, string>): Record<string, string> {
@@ -62,29 +52,13 @@ export function validateDeployment(config: DeploymentConfig): DeploymentConfig {
     || !new RegExp(`^${config.region}[a-z]$`).test(config.availabilityZone)) {
     throw new Error('Deployment requires an account and matching region/availability zone.');
   }
-  if (!/^ami-[a-f0-9]{17}$/.test(config.amiId) || !/^t3\.[a-z0-9]+$/.test(config.instanceType)
-    || !Number.isInteger(config.rootVolumeGiB) || config.rootVolumeGiB < 8) {
-    throw new Error('Deployment requires a pinned AMI, t3 instance and root disk of at least 8 GiB.');
+  if (!/^ami-[a-f0-9]{17}$/.test(config.amiId) || !/^t4g\.(small|medium|large|xlarge|2xlarge)$/.test(config.instanceType)
+    || !Number.isInteger(config.rootVolumeGiB) || config.rootVolumeGiB < 30) {
+    throw new Error('Deployment requires an AL2023 ARM64 AMI, supported t4g instance and at least 30 GiB.');
   }
-  if (config.runtime && (typeof config.runtime.awgEnabled !== 'boolean' || Object.hasOwn(config.runtime, 'stage'))) {
-    throw new Error('Migration stages are retired; runtime requires an explicit awgEnabled boolean.');
-  }
-  if (config.ecs && (!config.runtime?.awgEnabled || typeof config.ecs.credentialSource !== 'string'
-    || !/^[a-z][a-z0-9-]*$/.test(config.ecs.credentialSource)
-    || config.rootVolumeGiB < 30)) throw new Error('ECS requires both protocols, a credential source and the stock image minimum disk.');
+  // Reject unsupported configuration instead of retaining an implicit alternative deployment mode.
+  const fields = new Set(['id', 'stackName', 'resourceName', 'account', 'region', 'availabilityZone',
+    'amiId', 'instanceType', 'rootVolumeGiB', 'globalTags']);
+  if (Object.keys(config).some(key => !fields.has(key))) throw new Error('Unknown deployment configuration field.');
   return { ...config, globalTags: validateGlobalTags(config.globalTags) };
-}
-
-export function validateLaunchInputs(input: LaunchInputs): LaunchInputs {
-  // SSH always targets one operator address; moving networks must not widen the access rule.
-  const cidr = input.operatorSshCidr.trim();
-  const [address, prefix, extra] = cidr.split('/');
-  if (!address || isIP(address) !== 4 || prefix !== '32' || extra !== undefined || address === '0.0.0.0') {
-    throw new Error('operatorSshCidr must be a single IPv4 address with /32.');
-  }
-  const publicKey = input.sshPublicKey.trim();
-  if (!/^ssh-rsa [A-Za-z0-9+/]+={0,2}(?: [^\r\n]+)?$/.test(publicKey)) {
-    throw new Error('sshPublicKey must be a single OpenSSH RSA public key; never provide a private key.');
-  }
-  return { operatorSshCidr: cidr, sshPublicKey: publicKey };
 }
