@@ -11,7 +11,8 @@ import { credentialParameters, importParameters } from '../lib/parameters.js';
 import { setEcsPower } from '../lib/ecs-power.js';
 import { deployedClientImages, testEcsClients } from '../lib/ecs-client-test.js';
 import { imageArchitecture, imageArtifacts, imagePlatform, releaseTag } from '../lib/ecs-release.js';
-import { assertOfficialXray, prepareImage } from '../lib/ecs-images.js';
+import { assertOfficialXray, prepareImage, publishImageSet } from '../lib/ecs-images.js';
+import { testEcsImages } from '../lib/ecs-image-tests.js';
 import { ecsMemoryBudget } from '../lib/ecs-memory.js';
 import { ecsVerificationCommand } from '../lib/ecs-verification.js';
 import { parseJson } from '../lib/xray-config.js';
@@ -72,23 +73,32 @@ async function publish() {
   run('docker', ['--config', dockerConfig, 'login', '--username', 'AWS', '--password-stdin', registry], password);
   chmodSync(resolve(dockerConfig, 'config.json'), 0o600);
   try {
-    for (const protocol of imageArtifacts) {
-      const repository = `${config.resourceName}/${protocol}`;
-      const tag = releaseTag(protocol);
-      const existing = aws(['ecr', 'list-images', '--repository-name', repository]).imageIds;
-      if (existing.some((image: { imageTag?: string }) => image.imageTag === tag)) {
-        console.log(`${protocol}: immutable release already published.`); continue;
-      }
-      const docker = (args: string[]) => run('docker', args);
-      const local = prepareImage(protocol, resolve(work, 'build'), docker);
-      const image = `${registry}/${repository}:${tag}`;
-      docker(['tag', local, image]);
-      run('docker', ['--config', dockerConfig, 'push', image], undefined, true);
-      if (protocol === 'xray') {
+    const docker = (args: string[]) => run('docker', args);
+    // Prime the verified official source used to check a mirrored Xray image's exact content.
+    prepareImage('xray', resolve(work, 'build'), docker);
+    const tested = await publishImageSet({
+      existing: (artifact, tag) => {
+        const repository = `${config.resourceName}/${artifact}`;
+        const existing = aws(['ecr', 'list-images', '--repository-name', repository]).imageIds;
+        if (!existing.some((image: { imageTag?: string }) => image.imageTag === tag)) return undefined;
+        const image = `${registry}/${repository}:${tag}`;
         run('docker', ['--config', dockerConfig, 'pull', '--platform', platform, image]);
-        assertOfficialXray(image, docker);
-      }
-    }
+        return docker(['image', 'inspect', image, '--format', '{{.Id}}']).trim();
+      },
+      build: artifact => docker(['image', 'inspect', prepareImage(artifact, resolve(work, 'build'), docker), '--format', '{{.Id}}']).trim(),
+      test: testEcsImages,
+      push: (artifact, tag, imageId) => {
+        const image = `${registry}/${config.resourceName}/${artifact}:${tag}`;
+        docker(['tag', imageId, image]);
+        run('docker', ['--config', dockerConfig, 'push', image], undefined, true);
+        run('docker', ['--config', dockerConfig, 'pull', '--platform', platform, image]);
+        if (docker(['image', 'inspect', image, '--format', '{{.Id}}']).trim() !== imageId) throw new Error('Published image differs from tested content.');
+        if (artifact === 'xray') assertOfficialXray(image, docker);
+      },
+    });
+    writeFileSync(resolve(work, 'publication.json'), JSON.stringify({ testedAt: new Date().toISOString(),
+      images: imageArtifacts.map(artifact => ({ artifact, tag: releaseTag(artifact), imageId: tested[artifact] })) }, null, 2) + '\n');
+    console.log('All three regional images match the locally tested set.');
   } finally {
     run('docker', ['--config', dockerConfig, 'logout', registry]);
   }

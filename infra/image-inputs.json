@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "resolvedAt": "2026-09-19T18:26:54.077Z",
+  "xray": {
+    "tag": "v26.3.27",
+    "commit": "d2758a023cd7f4174a5a5fa4ff66e487d4342ba0",
+    "imageDigest": "sha256:79f798b6a130132414c45773bc039e9e51b9694f2dd5ddf99083353ece168f48"
+  },
+  "awg": {
+    "daemon": {
+      "tag": "v3.1.20260828",
+      "commit": "b5928efb6ca19f0153958460c3d141f04abc5c2e",
+      "archiveSha256": "10bf7458e090bf52f87df27adcd3904a60e4d17fab844d9415e46379147f1ab4",
+      "publicationDigest": "sha256:cbafc02b8373a83f428272db6d8001b37bc02e6211cbd8c0cb4e2e3759b12b72",
+      "workflowSha256": "cc41a29dca208a95c82c5c80a9adff0aee7c027840f4e756b5bb268f64361332"
+    },
+    "tools": {
+      "tag": "v3.1.20260812",
+      "commit": "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843",
+      "archiveSha256": "22438f231d39ea27e4bdc69707ec3103357f3cecc9ad3eecba18a61e5b39c9b9"
+    }
+  }
+}

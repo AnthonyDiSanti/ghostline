@@ -2,6 +2,20 @@
 
 Superseded architectures and retired deployment recipes belong in git history. These entries record decisions that still constrain current work.
 
+## 2026-09-19 — Roll the validated stable selection to both regions
+
+Anthony authorized publishing and deploying the selected images everywhere. Publish/test each exact regional set, then deploy Stockholm and pass live runtime/tunnel checks before updating Cape Town. Both now run task revision 3 with official stable Xray 26.3.27 and unchanged AWG upstream versions in the new verified build. Preserve the hosts, EIPs and all six credential values/versions per region; before/after comparison confirms this. No initializer recipe, native client configuration or routing changes were required. Physical-device acceptance remains separate from automated encrypted probes. See both regional launch records.
+
+## 2026-09-19 — Resolve, validate and record stable image selections
+
+Anthony prioritizes image completion before feature work and authorized stable build resolution. Implement a distinct AWS-free `images:build` command that resolves once and promotes `infra/image-inputs.json` only after real local image/tunnel checks. Publishing to another region, deploying and restarting reuse that selection. The file records a successful resolution, not a policy to remain on manually selected versions. Publication validates exact immutable ECR bytes where present and exact new image IDs otherwise. No regional rollout is implied by local success.
+
+Xray/tools use official latest releases with explicit stable flags. AWG daemon currently has no GitHub Releases: interpret its strict numeric source tags plus official versioned Docker publication/workflow as its release channel; fail if that policy changes. Record source/image identities and digest verification without claiming unavailable signatures/attestations. Xray stable was older than the previously deployed prerelease; the authorized rollout above applies the selected stable policy. Base/toolchain updates stay explicit recipe changes. [Policy and source evidence](../docs/images.md).
+
+After the anonymous API quota was exhausted, Anthony explicitly approved using the existing GitHub CLI login for read-only public release metadata. The build now makes fixed-host GETs only to the reviewed upstream release/tag/commit routes; credentials stay inside `gh`, HTTP debug logging/prompts are disabled and source downloads remain anonymous. Authentication failure stops the build; no silent anonymous fallback or permission expansion is implied.
+
+AGENTS.md now names the implemented command, recorded selection and acceptance boundary instead of the superseded fixed-input publisher. Synthetic probe shell logic remains a linted fixture. Temporary test failures were fixture issues, resolved without changing protocol configuration or deployed engines.
+
 ## 2026-09-18 — One maintained regional architecture
 
 Anthony selected one ECS gateway task/service on AL2023 Graviton ARM64, with separate unchanged Xray/AWG engine images and a shared initializer. Both engines mount protocol-private RAM directories read-only. Only the initializer receives ECS-injected server secrets; no task role exists. Accept privileged Docker/ECS metadata persistence rather than adding a second orchestration system. [Runtime](../docs/ecs.md), [secrets](../docs/secrets.md).
@@ -22,7 +36,7 @@ Cape Town preflight demonstrated that AWS's ECS AMI publisher account differs ac
 
 ## 2026-09-17 — Official stable protocol releases
 
-Anthony wants the latest official stable release for new builds, accepts compatibility debugging and excludes prereleases. Verify each download; immutable ECR artifacts record what was deployed. Stable-channel automation is still a follow-up, not a claim about the fixed current publisher. AWG's daemon channel differs from its tools' GitHub Releases. [Image policy](../docs/images.md#release-policy).
+Anthony wants the latest official stable release for new builds, accepts compatibility debugging and excludes prereleases. Verify each download; immutable ECR artifacts record what was deployed. September 19 implements this policy with recorded successful build selections; AWG's daemon channel differs from its tools' GitHub Releases. [Image policy](../docs/images.md#release-policy).
 
 ## 2026-09-13 — Mac client and recovery boundary
 

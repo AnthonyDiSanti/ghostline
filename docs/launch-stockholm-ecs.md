@@ -11,11 +11,25 @@ One ECS-optimized AL2023 ARM64 `t4g.small`, AMI `ami-06a77ee974da159b5`, encrypt
 
 Original client identities and existing primary profiles remain valid. Anthony accepted both iOS ARM64 protocols on September 15; the current recovery evidence below uses real automated clients. Mac REALITY uses OneXraySE, AWG uses Amnezia. Repeated sleep/wake remains separate in [client stability](mac-client-stability.md).
 
+## Stable image rollout — 2026-09-19
+
+The current task definition is `ghostline-ecs-stockholm-gateway:3`. Xray now runs official stable **26.3.27**, replacing prerelease 26.7.28 under the selected stable-only policy. AWG daemon **3.1.20260828** and tools **3.1.20260812** retain their upstream versions; the new recipe resolves and verifies their source inputs. The initializer release is unchanged. [Build and publication policy](images.md).
+
+| Artifact | Release tag | Regional manifest digest |
+| --- | --- | --- |
+| Xray | `sha-2ea9b5b6f68e06647e990d1da7b77d64e2527f819c23258f0f94351a837cbc7e` | `sha256:79f798b6a130132414c45773bc039e9e51b9694f2dd5ddf99083353ece168f48` |
+| AWG | `sha-1339ec17dad7cc59b18803242eaea973c28272286e8341dd66566779c01c891a` | `sha256:517118d3a299210635a4a384fa224de39a21d4b48849facfd0304a8878031b2c` |
+| Initializer | `sha-61a1a395b892e21c25eb6179942ef639d325d45395f6c2f624da440a4e95ea94` | `sha256:cba49d2f4752a5bee81182c2245d87d09c5af32c1d4c1ed806a628a377cab5e2` |
+
+Publication passed exact-artifact local encrypted tunnel and initializer/security checks before pushing. The reviewed CDK change replaced only engine image references and the task revision. After deployment, both real encrypted HTTPS/assigned-EIP tests and live configuration, private read-only tmpfs, environment, isolation and enforced-memory checks pass. No task OOM events were observed. Physical-device browsing and sleep/wake remain separate acceptance checks; profiles require no edits.
+
+The service has one running task, no pending tasks and successful shared initialization; its image digests match ECR. All stack outputs and all six parameter values/versions match the pre-rollout baseline, including the host, ENI and both original EIPs. Endpoint and image-stack diffs are clean. Nonsecret evidence is under `.local/diagnostics/stable-rollout-2026-09-19/`.
+
 ## Shared gateway task — 2026-09-18
 
 Anthony approved consolidating the regional runtime while retaining the existing separate engine images. The primary now uses service/family `ghostline-ecs-stockholm-gateway`: one essential Xray container, one essential AWG container, and one nonessential initializer. Both engines wait for initialization success. Each has a native 60-second restart eligibility policy; the initializer has none. One 2 MiB host tmpfs exposes only the appropriate protocol directory read-only to each engine. The task's enforced budget is 1,126 MiB, with 666 MiB reserved from ECS scheduling and no separate engine memory ceilings.
 
-Only the initializer receives the two server parameters; no task IAM role or engine secret environment exists. The shared initializer tag is `sha-61a1a395b892e21c25eb6179942ef639d325d45395f6c2f624da440a4e95ea94`, digest `sha256:cba49d2f4752a5bee81182c2245d87d09c5af32c1d4c1ed806a628a377cab5e2`. Xray release `sha-7a85259e169537e2bf38995425b5a297e2e72451f07da38c7fdee433ed331e52`, digest `sha256:96e356574d4de2e4c6f9dea2ff79a9e4dc439558df73a38eefd8192553c9f367`; AWG release `sha-85df0db151107552ff01243b7831ecf5f168336e7ad5870d9a8f92a490c564c0`, digest `sha256:73d62dfeff88e9b7d95cd9c7e625c024d2343855bd11aac10152184c659823d0`. Shared resources use System=shared; engine/EIP tags remain protocol-specific.
+Only the initializer receives the two server parameters; no task IAM role or engine secret environment exists. Shared resources use System=shared; engine/EIP tags remain protocol-specific. Current image identities are recorded above.
 
 IAM shutdown ordering retains host authority through termination and execution authority through service deletion. A full park completed unattended in about 133 CDK-reported seconds; its rebuild took about 263 seconds. No credential import, manual installation or engine republishing was needed. Stop waits for actual task termination before stopping EC2.
 

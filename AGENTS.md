@@ -37,7 +37,7 @@ For nontrivial changes:
 - Never print decrypted parameters, client profiles, private keys or injected environment values. Emit selected metadata, hashes and equality results only.
 - Do not stage, unstage, commit or amend unless explicitly requested.
 
-For new protocol releases, resolve official stable channels, verify downloads and record resolved identities. Exclude prereleases/drafts/nightly/main; `latest` alone is not evidence of stability. `docs/images.md` distinguishes this selected policy from the current fixed-input publisher.
+For new protocol releases, use `npm run images:build`: resolve official stable channels, verify artifacts, pass local encrypted/image checks and record `infra/image-inputs.json`. Publish/deploy reuse that selection without rediscovery. Exclude prereleases/drafts/nightly/main; `latest` alone is not evidence of stability. Read `docs/images.md` for AWG's tag-based channel and provenance limits. Local compatibility is not native-client or regional acceptance.
 
 Before native Mac recovery/sleep testing, read `docs/mac-client-stability.md`. The Amnezia raw daemon-socket watchdog is retired after a correlated service crash; do not reuse its ignored scripts as recovery.
 

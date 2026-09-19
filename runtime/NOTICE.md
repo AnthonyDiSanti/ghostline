@@ -11,12 +11,11 @@ AmneziaVPN is copyright its upstream contributors and distributed under GPLv3;
 follow those terms. See upstream
 [third-party terms](https://github.com/amnezia-vpn/amnezia-client/blob/5.0.1.5/THIRD_PARTY_LICENSES.md).
 
-- Xray: unmodified official `ghcr.io/xtls/xray-core` 26.7.28 ARM64 image,
-  mirrored to ECR by digest. [Upstream source/license](https://github.com/XTLS/Xray-core/tree/v26.7.28)
+- Xray: unmodified official `ghcr.io/xtls/xray-core` ARM64 image,
+  mirrored to ECR by resolved digest. [Upstream source/license](https://github.com/XTLS/Xray-core)
   remain authoritative; Ghostline does not rebuild this engine.
-- AWG: `ecs/awg.Dockerfile` compiles official daemon v3.1.20260828
-  (`b5928efb6ca19f0153958460c3d141f04abc5c2e`) and tools v3.1.20260812
-  (`ee0f0a9aa34ff0a0da4b3433b9512781cfe02843`). Source archives and builders
+- AWG: `ecs/awg.Dockerfile` compiles official daemon and tools releases
+  recorded in [image inputs](../infra/image-inputs.json). Source archives and builders
   are checksum/digest-pinned. Each upstream license remains under
   `/usr/share/licenses/`. The Alpine 3.24.1 runtime uses Ghostline's network
   startup and pinned direct packages, without a third-party supervisor.
@@ -25,4 +24,4 @@ follow those terms. See upstream
 
 No image contains server credentials or desktop-client code. Regional ECR
 publication uses immutable content identities. [Image policy](../docs/images.md)
-distinguishes deployed releases from the selected stable-update follow-up.
+describes stable resolution, verification and evidence limits; regional launch records own deployed versions.

@@ -11,6 +11,7 @@
     "watch": "tsc --noEmit --watch",
     "test:vitest": "vitest run",
     "test:ecs-images": "node --import=tsx scripts/ecs-image-test.ts",
+    "images:build": "node --import=tsx scripts/images-build.ts",
     "test:cdk": "node --import=tsx scripts/synth-test.ts",
     "test:assets": "python3 -B scripts/check-assets.py",
     "lint:shell": "python3 -B scripts/check-assets.py shellcheck",

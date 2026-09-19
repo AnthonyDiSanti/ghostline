@@ -1,12 +1,23 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { loadImageInputs, type ImageInputs } from './image-inputs.js';
 
 export type Protocol = 'xray' | 'awg';
 export const imageArtifacts = ['xray', 'awg', 'gateway-config'] as const;
 export type ImageArtifact = typeof imageArtifacts[number];
 export const imageArchitecture = 'arm64';
 export const imagePlatform = 'linux/arm64';
-export const officialXrayImage = 'ghcr.io/xtls/xray-core@sha256:96e356574d4de2e4c6f9dea2ff79a9e4dc439558df73a38eefd8192553c9f367';
+export const imageInputs = loadImageInputs();
+export const officialXrayImage = `ghcr.io/xtls/xray-core@${imageInputs.xray.imageDigest}`;
+
+export function releaseBuildArgs(artifact: ImageArtifact, inputs: ImageInputs = imageInputs): Record<string, string> {
+  // Only immutable verified source identities reach Docker; discovery timestamps never invalidate caches.
+  if (artifact !== 'awg') return {};
+  return { AWG_COMMIT: inputs.awg.daemon.commit, AWG_SHA256: inputs.awg.daemon.archiveSha256,
+    TOOLS_COMMIT: inputs.awg.tools.commit, TOOLS_SHA256: inputs.awg.tools.archiveSha256 };
+}
+
+export function localImage(artifact: ImageArtifact): string { return `ghostline-${artifact}:${releaseTag(artifact)}`; }
 
 export function releaseFiles(protocol: ImageArtifact): Record<string, Buffer> {
   // Xray is mirrored byte-for-byte; it has no Ghostline Dockerfile or build context.
@@ -21,11 +32,12 @@ export function releaseFiles(protocol: ImageArtifact): Record<string, Buffer> {
   return files;
 }
 
-export function releaseTag(protocol: ImageArtifact): string {
+export function releaseTag(protocol: ImageArtifact, inputs: ImageInputs = imageInputs): string {
   const hash = createHash('sha256');
-  if (protocol === 'xray') hash.update(officialXrayImage).update('\0').update(imagePlatform);
+  if (protocol === 'xray') hash.update(`ghcr.io/xtls/xray-core@${inputs.xray.imageDigest}`).update('\0').update(imagePlatform);
   // Include the target platform in each content identity.
   else hash.update(imagePlatform).update('\0');
+  for (const [name, value] of Object.entries(releaseBuildArgs(protocol, inputs)).sort()) hash.update(name).update('\0').update(value).update('\0');
   // NUL separators distinguish filenames/content boundaries; pinned base images and build instructions are inputs.
   for (const [name, bytes] of Object.entries(releaseFiles(protocol)).sort()) hash.update(name).update('\0').update(bytes).update('\0');
   return `sha-${hash.digest('hex')}`;

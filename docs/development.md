@@ -11,6 +11,7 @@ Use Node 24 and the single strict TypeScript package under `infra/`. Select a na
 | `infra/lib/ecs-stack.ts` | Reusable endpoint and durable image stacks |
 | `infra/lib/ecs-memory.ts`, `infra/lib/deployment-ami.ts` | Memory budget and AWS host-image checks |
 | `infra/lib/ecs-release.ts`, `infra/lib/ecs-images.ts` | Three ARM64 image artifacts, content identities and publication |
+| `infra/lib/stable-images.ts`, `infra/lib/upstream-download.ts`, `infra/image-inputs.json` | Stable resolution, scoped authenticated metadata reads and recorded verified build inputs |
 | `infra/lib/parameters.ts`, `infra/lib/xray-config.ts` | Portable credential validation and regional SecureString import |
 | `infra/lib/ecs-power.ts`, `infra/lib/lifecycle.ts` | Scoped start/stop, deletion and retained-address release |
 | `infra/lib/ecs-user-data.ts`, `runtime/ecs/` | Host fixtures, shared initializer, engine startup and bridge policy |
@@ -35,12 +36,13 @@ Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra
 | `npm run lint:shell` / `npm run lint:docker` | Focused asset linting |
 | `npm run test:cdk` | Fresh offline synthesis of the maintained catalog |
 | `npm test` | Full local gate: typecheck, asset checks, synth and Vitest |
-| `npm run test:ecs-images` | Build/test the three ARM64 artifacts with disposable synthetic credentials |
+| `npm run images:build` | Resolve official stable engines, build/test locally, then record the successful selection |
+| `npm run test:ecs-images` | Build/test the recorded three ARM64 artifacts and real local encrypted tunnels with synthetic credentials |
 | `npm run deployments` | List maintained targets; allocate nothing |
 | `npm run preflight <target>` | Verify AWS account, enabled region, AWS AL2023 ARM64 AMI, AZ, instance capacity/offering |
 | `npm run synth <target>` / `npm run diff <target>` | Synthesize / compare the selected endpoint |
 | `npm run ecs <target> import <directory>` | Import six validated protected credential files; refuse conflicting values |
-| `npm run ecs <target> publish` | Diff/create durable ECR repositories and publish missing immutable releases |
+| `npm run ecs <target> publish` | Diff/create ECR repositories, test the exact regional image set and publish missing immutable releases |
 | `npm run ecs <target> deploy` | Preflight, check server parameters/images, diff and deploy the gateway |
 | `npm run ecs <target> start` / `stop` | Start/stop the selected host and service in lifecycle order |
 | `npm run ecs <target> status` | Read selected stack outputs and EC2 state |
@@ -52,7 +54,7 @@ Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra
 
 The primary target is `stockholm-ecs`; the backup target is `cape-town`. Npm accepts these positional arguments without `--`; the delimiter is only useful when forwarding options such as `npm run test:assets -- --docker`. AWS commands use profile `personal`. CDK receives `GHOSTLINE_DEPLOYMENT` from the wrapper; only explicit `active`/`parked` lifecycle modes are supported. No SSH key or operator CIDR input exists.
 
-Use `ecs deploy` for a normal active rollout; low-level `npm run deploy` remains the direct CDK entrypoint used by the lifecycle wrapper. Image publication precedes deployment. Never use `--all`, deploy a retired catalog recipe, or run an unreviewed change against a live exit.
+Use `images:build` for a new official stable selection with `gh` authenticated to `github.com`; review and commit `image-inputs.json`. Publication and deployment reuse this selection without contacting release channels. [Image workflow and evidence limits](images.md). Use `ecs deploy` for a normal active rollout; low-level `npm run deploy` remains the direct CDK entrypoint used by the lifecycle wrapper. Image publication precedes deployment. Never use `--all`, deploy a retired catalog recipe, or run an unreviewed change against a live exit.
 
 ## Asset verification
 
@@ -62,7 +64,7 @@ Use native Bash/Python and `brew install shellcheck hadolint`, or Docker for mis
 
 All diagnostic severities fail. ShellCheck ignores home configuration; Hadolint uses `infra/hadolint.yaml`; inherited lint exclusions are removed. Fix findings or document a narrow exception beside the relevant instruction. Use real fixtures with synthetic inputs and replace only external command boundaries in tests. Do not recreate EC2/systemd in a mock framework.
 
-Offline synthesis currently covers **two named regional configurations, each with an endpoint stack and an image stack**, not the number of container images. Independent synthetic-region tests verify stack reuse without making abandoned regions deployable. Static checks do not establish connectivity. Disconnect a native VPN before disposable tunnel probes so nesting does not distort direct-path results.
+Offline synthesis currently covers **two named regional configurations, each with an endpoint stack and an image stack**, not the number of container images. Independent synthetic-region tests verify stack reuse without making abandoned regions deployable. Static checks do not establish connectivity. Disconnect a native VPN before regional tunnel probes so nesting does not distort direct-path results; the local image suite keeps both protocol peers inside Docker.
 
 ## On-demand regional lifecycle
 
