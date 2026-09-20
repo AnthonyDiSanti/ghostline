@@ -2,6 +2,18 @@
 
 Backup target `cape-town`; profile `personal`; account `757999402784`; region `af-south-1`, AZ `af-south-1a`. Endpoint stack `GhostlineCapeTown`, images `GhostlineCapeTownImages`, resource prefix `ghostline-cape-town`. It uses the same [gateway recipe](ecs.md) as Stockholm, with independent regional images and credential parameters.
 
+## GuardDuty rollout — 2026-09-20
+
+Later the same day, Anthony authorized alignment with freshly observed AWS defaults from London. Enabled S3 protection, EKS audit logs, EBS malware protection, RDS protection and Lambda protection; foundational protection and Runtime Monitoring stayed enabled. AI Protection and fleet-wide agent management remain off, matching observed defaults; the live regional response does not expose AI Analyst. No feature was disabled. Host/disk/IP/task and all six parameter versions/timestamps remain unchanged. Evidence: `.local/diagnostics/london-lifecycle-2026-09-20/`; [policy](guardduty.md).
+
+Regional detector `094c09ce8d854e7cb7e0eaad0b0b876c` enables foundational protection and Runtime Monitoring. Optional plans/fleet-wide agent management started off; the host inclusion tag automatically installed agent **v1.17.1**, and exact-host coverage became **HEALTHY**. Installer success preceded coverage by several minutes. No manual installation or reboot was needed.
+
+`GhostlineCapeTown` owns available private-DNS endpoint `vpce-081c4552f6a8c9348` and its security group in dedicated VPC `vpc-05f04553befa389fe`. The common stack restricts endpoint access to this account and HTTPS ingress to the host SG. Regional protection has no application CloudFormation owner and persists through teardown. [Contract](guardduty.md).
+
+The first detector request rejected unavailable `AI_ANALYST`, even though its requested initial value was disabled. The ordinary deployment retry succeeded with no additional infrastructure diff. Creation was subsequently simplified to accept AWS defaults for future regions, removing the regional flag matrix. Cape Town's existing settings are preserved. Both endpoint/image diffs were clean at rollout; repeat reconciliation performs no writes and reconfirms healthy coverage.
+
+Both real REALITY/AWG HTTPS probes pass through the original EIPs after automatic installation, with native VPN disconnected and direct en0 routes checked immediately beforehand. Metadata-only comparison confirms unchanged host, disk, ENI, EIPs, task revision and all six SecureString versions/modification timestamps. Existing private exports supplied client tests; this rollout retrieved no Parameter Store values. Evidence is under `.local/diagnostics/guardduty-rollout-2026-09-20/` and `.local/deployments/cape-town/ecs/guardduty.json`. Existing profiles require no edits; no new native iOS or sleep/wake acceptance is inferred.
+
 ## Stable image rollout — 2026-09-19
 
 The current task definition is `ghostline-cape-town-gateway:3`. Xray now runs official stable **26.3.27**, replacing prerelease 26.7.28. AWG daemon **3.1.20260828** and tools **3.1.20260812** retain their upstream versions in the newly verified source build. The initializer is unchanged. [Build and publication policy](images.md).

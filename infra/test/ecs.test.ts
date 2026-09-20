@@ -8,7 +8,7 @@ import { imageArtifacts, officialXrayImage, releaseFiles, releaseTag } from '../
 
 afterAll(() => CloudAssembly.cleanupTemporaryDirectories());
 const config = { ...getDeployment('stockholm-ecs'), account: '000000000000' };
-const { app, stack } = buildApp(config);
+const { app, stack } = buildApp(config, { service: true, runtime: true });
 const template = Template.fromStack(stack);
 const resources = template.toJSON().Resources as Record<string, any>;
 
@@ -25,6 +25,41 @@ it('uses one SSH-free AL2023 host with retained dual addresses and no paid gatew
   expect(host.MetadataOptions).toMatchObject({ HttpTokens: 'required', HttpPutResponseHopLimit: 1 });
   expect(host.BlockDeviceMappings[0]).toMatchObject({ DeviceName: '/dev/xvda', Ebs: { Encrypted: true, VolumeSize: 30, DeleteOnTermination: true } });
   expect(Object.values(resources).find(r => r.Type === 'AWS::EC2::SecurityGroup').Properties.SecurityGroupIngress.map((r: any) => r.FromPort)).toEqual([443, 443]);
+});
+
+it('owns GuardDuty transport for the full host lifetime with private, account-scoped access', () => {
+  // Dependency direction is the teardown contract, not merely a matching resource count.
+  template.resourceCountIs('AWS::EC2::VPCEndpoint', 1);
+  const endpoint = resources.GuardDutyEndpoint;
+  expect(endpoint.Properties).toMatchObject({ VpcId: { Ref: 'Vpc' }, VpcEndpointType: 'Interface',
+    ServiceName: `com.amazonaws.${config.region}.guardduty-data`, SubnetIds: [{ Ref: 'Subnet' }],
+    SecurityGroupIds: [{ 'Fn::GetAtt': ['GuardDutySecurityGroup', 'GroupId'] }],
+    PrivateDnsEnabled: true, IpAddressType: 'ipv4', DnsOptions: { DnsRecordIpType: 'ipv4' },
+    PolicyDocument: { Version: '2012-10-17', Statement: [
+      { Effect: 'Allow', Principal: '*', Action: '*', Resource: '*' },
+      { Effect: 'Deny', Principal: '*', Action: '*', Resource: '*',
+        Condition: { StringNotEquals: { 'aws:PrincipalAccount': config.account } } },
+    ] } });
+  expect(resources.Instance.DependsOn).toContain('GuardDutyEndpoint');
+  const hostPolicy = Object.entries(resources).find(([id]) => id.startsWith('HostRoleDefaultPolicy'))![1];
+  const actions = hostPolicy.Properties.PolicyDocument.Statement.flatMap((statement: any) => [].concat(statement.Action));
+  expect(actions).toContain('ssm:GetManifest');
+  expect(actions.some((action: string) => action.startsWith('ssm:GetParameter'))).toBe(false);
+  const packageRead = hostPolicy.Properties.PolicyDocument.Statement.find((statement: any) =>
+    Array.isArray(statement.Action) && statement.Action.includes('ssm:GetDocument'));
+  expect(packageRead).toMatchObject({ Effect: 'Allow', Action: ['ssm:DescribeDocument', 'ssm:GetDocument'],
+    Resource: `arn:aws:ssm:${config.region}::document/AmazonGuardDuty-RuntimeMonitoringSsmPlugin` });
+  expect(resources.GuardDutySecurityGroup.Properties.SecurityGroupIngress).toEqual([
+    { IpProtocol: 'tcp', FromPort: 443, ToPort: 443, SourceSecurityGroupId: { 'Fn::GetAtt': ['SecurityGroup', 'GroupId'] } },
+  ]);
+  expect(resources.GuardDutySecurityGroup.Properties.SecurityGroupEgress).toEqual([
+    { IpProtocol: 'icmp', FromPort: 252, ToPort: 86, CidrIp: '255.255.255.255/32', Description: 'Disallow all traffic' },
+  ]);
+  for (const resource of [endpoint, resources.GuardDutySecurityGroup]) {
+    expect(resource.DeletionPolicy).not.toBe('Retain');
+    expect(resource.Properties.Tags).toContainEqual({ Key: 'System', Value: 'shared' });
+    expect(resource.Properties.Tags).not.toContainEqual({ Key: 'GuardDutyManaged', Value: 'true' });
+  }
 });
 
 it('runs one bridge task with isolated engines, one secret recipient and shared memory', () => {

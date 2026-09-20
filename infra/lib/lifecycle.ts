@@ -1,4 +1,5 @@
 import type { DeploymentConfig } from './config.js';
+import { prepareEcsRemoval } from './ecs-power.js';
 
 export interface ReleaseRecord {
   account: string;
@@ -7,6 +8,20 @@ export interface ReleaseRecord {
   allocations: string[];
 }
 export type AwsMetadata = (args: string[]) => any;
+
+export function deleteEndpointStack(stack: any, aws: AwsMetadata): void {
+  // Resume the captured stack without consulting stale ECS outputs after partial CloudFormation deletion.
+  if (stack.StackStatus === 'DELETE_COMPLETE') return;
+  if (stack.StackStatus !== 'DELETE_IN_PROGRESS') {
+    const resources = aws(['cloudformation', 'list-stack-resources', '--stack-name', stack.StackId]).StackResourceSummaries;
+    const cluster = resources.find((resource: any) => resource.LogicalResourceId === 'Cluster');
+    if (cluster && cluster.ResourceStatus !== 'DELETE_COMPLETE') {
+      prepareEcsRemoval(Object.fromEntries((stack.Outputs ?? []).map((item: any) => [item.OutputKey, item.OutputValue])), aws);
+    }
+    aws(['cloudformation', 'delete-stack', '--stack-name', stack.StackId]);
+  }
+  aws(['cloudformation', 'wait', 'stack-delete-complete', '--stack-name', stack.StackId]);
+}
 
 export function captureRelease(config: DeploymentConfig, stack: any, resources: any[]): ReleaseRecord {
   // Capture CloudFormation-owned allocations before deleting the stack, never from a regional tag search.

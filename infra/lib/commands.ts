@@ -12,11 +12,12 @@ export function deploymentCommand(action: string, target: string | undefined, in
   return { config, artifactDir, args };
 }
 
-export function ecsDeploymentCommand(action: 'diff' | 'deploy', target: string, infraDir: string, images = false) {
+export function ecsDeploymentCommand(action: 'diff' | 'deploy', target: string, infraDir: string, component: 'endpoint' | 'images' = 'endpoint') {
   // Keep cold rebuilds noninteractive and restrict them to a named ECS target.
   const config = getDeployment(target);
   const artifactDir = resolve(infraDir, '../.local/deployments', config.id, 'ecs');
-  const args = [action, `${config.stackName}${images ? 'Images' : ''}`, '--profile', 'personal',
+  const name = `${config.stackName}${component === 'images' ? 'Images' : ''}`;
+  const args = [action, name, '--profile', 'personal',
     '--region', config.region, '--output', resolve(artifactDir, 'cdk.out')];
   if (action === 'deploy') args.push('--require-approval', 'never');
   return { config, artifactDir, args };

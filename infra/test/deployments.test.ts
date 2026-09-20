@@ -27,9 +27,9 @@ describe('regional gateway configuration', () => {
   });
   it('keeps image and endpoint deployment scopes explicit and unattended', () => {
     // A cold rebuild must not strand an endpoint waiting for an unavailable terminal.
-    for (const images of [false, true]) {
-      const command = ecsDeploymentCommand('deploy', 'stockholm-ecs', '/repo/infra', images);
-      expect(command.args.slice(0, 2)).toEqual(['deploy', images ? 'GhostlineEcsTrialImages' : 'GhostlineEcsTrial']);
+    for (const component of ['endpoint', 'images'] as const) {
+      const command = ecsDeploymentCommand('deploy', 'stockholm-ecs', '/repo/infra', component);
+      expect(command.args.slice(0, 2)).toEqual(['deploy', component === 'images' ? 'GhostlineEcsTrialImages' : 'GhostlineEcsTrial']);
       expect(command.args.slice(-2)).toEqual(['--require-approval', 'never']);
       expect(command.args).not.toContain('--all');
     }

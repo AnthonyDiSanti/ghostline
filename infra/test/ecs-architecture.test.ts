@@ -13,7 +13,7 @@ it('instantiates the same ARM64 gateway in independent regions without adding li
   for (const region of ['eu-north-1', 'eu-central-1']) {
     const config = { ...getDeployment('stockholm-ecs'), account: '000000000000',
       id: `test-${region}`, region, availabilityZone: `${region}a`, stackName: 'TestGateway', resourceName: 'test-gateway' };
-    const template = Template.fromStack(buildApp(config).stack);
+    const template = Template.fromStack(buildApp(config, { service: true, runtime: true }).stack);
     template.resourceCountIs('AWS::EC2::Instance', 1);
     template.resourceCountIs('AWS::EC2::EIP', 2);
     template.resourceCountIs('AWS::ECS::TaskDefinition', 1);

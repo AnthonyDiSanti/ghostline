@@ -24,12 +24,14 @@ Successful use means both devices connect, browse intended sites and use video n
 
 Prefer full-device routing and available client failure protection. Best-effort mobile behavior is accepted. 4K is a desired workload, not a separate release gate. No sensitive browsing history, destination collection, DNS-query logs or traffic captures are required for acceptance.
 
+GuardDuty is an additional protection layer: enable available capabilities, accept confirmed regional gaps (including complete service absence), and preserve enabled protection through teardown. Enabled GuardDuty is a separate security-telemetry boundary: AWS may receive process, network and DNS metadata through its host agent. This is not a zero-logging guarantee. See [scope and costs](guardduty.md#data-and-cost-boundary).
+
 Anthony prefers browsing without compulsory signup or disclosure of identity documents, biometrics or identity-linked verification credentials. He accepts testing nearer open-internet exits despite potential site-specific age checks; Cape Town is the slower fallback. [Region assessment](region-selection.md) owns that decision and its limits. A VPN does not guarantee exemption from destination policies.
 
 Keep production-account controls intact. One host per exit, ordinary project separation and existing security controls are sufficient; no HA, rollback framework, custom client or elaborate segmentation is required. Do not silently make deferred hardening a launch prerequisite.
 
 ## Later work
 
-Representative throughput/CPU-credit sizing, stable-release automation, optional Bottlerocket evaluation, stronger diagnostic controls and a performance-oriented protocol remain possible follow-ups. Add Windows/Android, independent guest access or phone-accessible launch/expiration only when selected. A third protocol needs explicit port/IP and resource design; shared task budgeting does not promise unlimited capacity.
+Representative throughput/CPU-credit sizing, optional Bottlerocket evaluation, stronger diagnostic controls and a performance-oriented protocol remain possible follow-ups. Stable-release automation is implemented; see [images](images.md). Add Windows/Android, independent guest access or phone-accessible launch/expiration only when selected. A third protocol needs explicit port/IP and resource design; shared task budgeting does not promise unlimited capacity.
 
 There is no automatic protocol failover, public service, user portal, automatic credential rotation or expiration controller in the current scope.

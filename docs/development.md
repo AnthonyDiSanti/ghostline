@@ -14,6 +14,7 @@ Use Node 24 and the single strict TypeScript package under `infra/`. Select a na
 | `infra/lib/stable-images.ts`, `infra/lib/upstream-download.ts`, `infra/image-inputs.json` | Stable resolution, scoped authenticated metadata reads and recorded verified build inputs |
 | `infra/lib/parameters.ts`, `infra/lib/xray-config.ts` | Portable credential validation and regional SecureString import |
 | `infra/lib/ecs-power.ts`, `infra/lib/lifecycle.ts` | Scoped start/stop, deletion and retained-address release |
+| `infra/lib/guardduty-discovery.ts`, `infra/lib/guardduty.ts` | Live regional availability, enable-only reconciliation and bounded coverage verification |
 | `infra/lib/ecs-user-data.ts`, `runtime/ecs/` | Host fixtures, shared initializer, engine startup and bridge policy |
 | `infra/lib/ecs-client-test.ts`, `infra/lib/ecs-verification.ts` | Real client probes and redacted SSM verification |
 | `infra/lib/fixtures.ts`, `infra/test/fixtures/` | Explicit fixture rendering and standalone test programs |
@@ -40,13 +41,13 @@ Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra
 | `npm run test:ecs-images` | Build/test the recorded three ARM64 artifacts and real local encrypted tunnels with synthetic credentials |
 | `npm run deployments` | List maintained targets; allocate nothing |
 | `npm run preflight <target>` | Verify AWS account, enabled region, AWS AL2023 ARM64 AMI, AZ, instance capacity/offering |
-| `npm run synth <target>` / `npm run diff <target>` | Synthesize / compare the selected endpoint |
+| `npm run synth <target>` / `npm run diff <target>` | Discover live GuardDuty availability and synthesize / compare the selected endpoint |
 | `npm run ecs <target> import <directory>` | Import six validated protected credential files; refuse conflicting values |
 | `npm run ecs <target> publish` | Diff/create ECR repositories, test the exact regional image set and publish missing immutable releases |
-| `npm run ecs <target> deploy` | Preflight, check server parameters/images, diff and deploy the gateway |
+| `npm run ecs <target> deploy` | Check parameter metadata/images/live support, diff/deploy gateway, enable available protection and verify its reported coverage |
 | `npm run ecs <target> start` / `stop` | Start/stop the selected host and service in lifecycle order |
 | `npm run ecs <target> status` | Read selected stack outputs and EC2 state |
-| `npm run ecs <target> verify` | Check live configuration hashes, security, memory, native architecture and EIP egress |
+| `npm run ecs <target> verify` | Check live configuration hashes, security, memory, architecture, EIP egress and GuardDuty coverage |
 | `npm run ecs <target> profiles` | Write protected client profiles/links/QRs with current addresses |
 | `npm run ecs <target> test` | Test real encrypted HTTPS through both protocols using disposable local clients |
 | `npm run park <target>` | Remove endpoint compute/disk/networking while retaining its two tracked EIPs |
@@ -54,7 +55,7 @@ Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra
 
 The primary target is `stockholm-ecs`; the backup target is `cape-town`. Npm accepts these positional arguments without `--`; the delimiter is only useful when forwarding options such as `npm run test:assets -- --docker`. AWS commands use profile `personal`. CDK receives `GHOSTLINE_DEPLOYMENT` from the wrapper; only explicit `active`/`parked` lifecycle modes are supported. No SSH key or operator CIDR input exists.
 
-Use `images:build` for a new official stable selection with `gh` authenticated to `github.com`; review and commit `image-inputs.json`. Publication and deployment reuse this selection without contacting release channels. [Image workflow and evidence limits](images.md). Use `ecs deploy` for a normal active rollout; low-level `npm run deploy` remains the direct CDK entrypoint used by the lifecycle wrapper. Image publication precedes deployment. Never use `--all`, deploy a retired catalog recipe, or run an unreviewed change against a live exit.
+Use `images:build` for a new official stable selection with `gh` authenticated to `github.com`; review and commit `image-inputs.json`. Publication and deployment reuse this selection without contacting release channels. [Image workflow and evidence limits](images.md). Use `ecs deploy` for a normal active rollout, including [regional GuardDuty](guardduty.md). First detector creation accepts AWS defaults plus supported Runtime Monitoring; existing detectors are discovered live and receive only missing available protection, preserving other settings. Confirmed service/feature gaps produce explicit reduced-protection results; access/installation failures still surface. Low-level `npm run deploy` remains the direct CDK entrypoint used by the lifecycle wrapper and does not run the security enabler. Image publication precedes deployment. Never use `--all`, deploy a retired catalog recipe, or run an unreviewed change against a live exit.
 
 ## Asset verification
 
@@ -64,7 +65,7 @@ Use native Bash/Python and `brew install shellcheck hadolint`, or Docker for mis
 
 All diagnostic severities fail. ShellCheck ignores home configuration; Hadolint uses `infra/hadolint.yaml`; inherited lint exclusions are removed. Fix findings or document a narrow exception beside the relevant instruction. Use real fixtures with synthetic inputs and replace only external command boundaries in tests. Do not recreate EC2/systemd in a mock framework.
 
-Offline synthesis currently covers **two named regional configurations, each with an endpoint stack and an image stack**, not the number of container images. Independent synthetic-region tests verify stack reuse without making abandoned regions deployable. Static checks do not establish connectivity. Disconnect a native VPN before regional tunnel probes so nesting does not distort direct-path results; the local image suite keeps both protocol peers inside Docker.
+Offline synthesis covers **two named regional configurations, each with endpoint and image stacks**. These offline synths use explicit synthetic GuardDuty support; named CLI synth/diff/deploy commands discover support live. Regional GuardDuty settings are outside the application CloudFormation lifecycle. Stack count is independent of the three container images. Independent synthetic-region tests verify reuse without making abandoned regions deployable. Static checks do not establish connectivity. Disconnect a native VPN before regional tunnel probes so nesting does not distort direct-path results; the local image suite keeps both protocol peers inside Docker.
 
 ## On-demand regional lifecycle
 

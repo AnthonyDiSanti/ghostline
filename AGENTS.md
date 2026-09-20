@@ -39,6 +39,8 @@ For nontrivial changes:
 
 For new protocol releases, use `npm run images:build`: resolve official stable channels, verify artifacts, pass local encrypted/image checks and record `infra/image-inputs.json`. Publish/deploy reuse that selection without rediscovery. Exclude prereleases/drafts/nightly/main; `latest` alone is not evidence of stability. Read `docs/images.md` for AWG's tag-based channel and provenance limits. Local compatibility is not native-client or regional acceptance.
 
+Immediately before real-client probes on macOS, check `scutil --nc list` and `route -n get <test-IP>`; a native VPN can connect after the initial session check. Disconnect with existing authorization before claiming direct-path results, then restore the prior connection.
+
 Before native Mac recovery/sleep testing, read `docs/mac-client-stability.md`. The Amnezia raw daemon-socket watchdog is retired after a correlated service crash; do not reuse its ignored scripts as recovery.
 
 ## Documentation and completion

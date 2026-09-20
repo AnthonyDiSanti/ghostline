@@ -7,6 +7,7 @@ import { Construct } from 'constructs';
 import { ecsMemoryBudget } from './ecs-memory.js';
 import { ecsUserData } from './ecs-user-data.js';
 import type { DeploymentConfig } from './config.js';
+import type { GuardDutySupport } from './guardduty-discovery.js';
 import { imageArtifacts, releaseTag, type ImageArtifact } from './ecs-release.js';
 
 export class EcsImagesStack extends Stack {
@@ -28,7 +29,7 @@ export class EcsImagesStack extends Stack {
 
 export class EcsEndpointStack extends Stack {
   constructor(scope: Construct, id: string, props: StackProps & {
-    deployment: DeploymentConfig; repositories: EcsImagesStack['repositories']; lifecycle: 'active' | 'parked';
+    deployment: DeploymentConfig; repositories: EcsImagesStack['repositories']; lifecycle: 'active' | 'parked'; guardDuty: GuardDutySupport;
   }) {
     super(scope, id, props);
     const config = props.deployment;
@@ -55,6 +56,29 @@ export class EcsEndpointStack extends Stack {
       securityGroupIngress: ['tcp', 'udp'].map(ipProtocol => ({ ipProtocol, fromPort: 443, toPort: 443, cidrIp: '0.0.0.0/0' })),
       securityGroupEgress: [{ ipProtocol: '-1', cidrIp: '0.0.0.0/0', description: 'VPN internet egress and AWS platform APIs' }],
     });
+    let telemetry: ec2.CfnVPCEndpoint | undefined;
+    if (props.guardDuty.runtime) {
+      // Match GuardDuty's private/account boundary, tightening ingress from the VPC CIDR to our host.
+      const telemetrySecurity = new ec2.CfnSecurityGroup(this, 'GuardDutySecurityGroup', {
+        vpcId: vpc.ref, groupDescription: 'Private GuardDuty telemetry from the gateway host',
+        securityGroupIngress: [{ ipProtocol: 'tcp', fromPort: 443, toPort: 443, sourceSecurityGroupId: security.attrGroupId }],
+        // CloudFormation treats an empty list as default allow-all. Use CDK's no-traffic sentinel instead.
+        securityGroupEgress: [{ ipProtocol: 'icmp', fromPort: 252, toPort: 86, cidrIp: '255.255.255.255/32', description: 'Disallow all traffic' }],
+      });
+      telemetry = new ec2.CfnVPCEndpoint(this, 'GuardDutyEndpoint', {
+        vpcId: vpc.ref, vpcEndpointType: 'Interface', serviceName: `com.amazonaws.${config.region}.guardduty-data`,
+        subnetIds: [subnet.ref], securityGroupIds: [telemetrySecurity.attrGroupId], privateDnsEnabled: true,
+        ipAddressType: 'ipv4', dnsOptions: { dnsRecordIpType: 'ipv4' },
+        // This is the exact account boundary AWS automatically installed in the disposable test VPC.
+        policyDocument: { Version: '2012-10-17', Statement: [
+          { Effect: 'Allow', Principal: '*', Action: '*', Resource: '*' },
+          { Effect: 'Deny', Principal: '*', Action: '*', Resource: '*',
+            Condition: { StringNotEquals: { 'aws:PrincipalAccount': config.account } } },
+        ] },
+      });
+      Tags.of(telemetrySecurity).add('System', 'shared');
+      Tags.of(telemetry).add('System', 'shared');
+    }
     const nic = new ec2.CfnNetworkInterface(this, 'NetworkInterface', {
       subnetId: subnet.ref, groupSet: [security.attrGroupId],
       privateIpAddresses: [{ privateIpAddress: '10.79.0.10', primary: true }, { privateIpAddress: '10.79.0.11', primary: false }],
@@ -68,6 +92,14 @@ export class EcsEndpointStack extends Stack {
     hostRole.addToPolicy(new iam.PolicyStatement({ actions: ['ssm:UpdateInstanceInformation',
       'ssmmessages:CreateControlChannel', 'ssmmessages:CreateDataChannel',
       'ssmmessages:OpenControlChannel', 'ssmmessages:OpenDataChannel'], resources: ['*'] }));
+    if (props.guardDuty.runtime) {
+      // GuardDuty's automatic Distributor installation needs this internal, unscopable package API.
+      // Do not attach AmazonSSMManagedInstanceCore: it also grants unrelated Parameter Store reads.
+      hostRole.addToPolicy(new iam.PolicyStatement({ actions: ['ssm:GetManifest'], resources: ['*'] }));
+      // Distributor then reads only AWS's public GuardDuty package document, never account-owned documents.
+      hostRole.addToPolicy(new iam.PolicyStatement({ actions: ['ssm:DescribeDocument', 'ssm:GetDocument'],
+        resources: [`arn:aws:ssm:${config.region}::document/AmazonGuardDuty-RuntimeMonitoringSsmPlugin`] }));
+    }
     for (const repository of Object.values(props.repositories)) repository.grantPull(hostRole);
     const profile = new iam.CfnInstanceProfile(this, 'InstanceProfile', { roles: [hostRole.roleName] });
     const instance = new ec2.CfnInstance(this, 'Instance', {
@@ -81,10 +113,14 @@ export class EcsEndpointStack extends Stack {
     });
     // The host must terminate (and deregister) before CloudFormation deletes its ECS cluster.
     instance.addResourceDependency(cluster);
+    // Precreate transport before automatic agent setup; reverse deletion keeps it until host termination.
+    if (telemetry) instance.addResourceDependency(telemetry);
     // Keep agent authority until the host terminates; otherwise service/cluster deletion can stall.
     instance.node.addDependency(hostRole.node.findChild('DefaultPolicy'));
     instance.addResourceDependency(route); instance.addResourceDependency(subnetRoutes);
     Tags.of(instance).add('Name', config.resourceName);
+    // Inclusion tags let AWS install/update only selected hosts without enabling fleet-wide agent management.
+    if (props.guardDuty.runtime) Tags.of(instance).add('GuardDutyManaged', 'true');
     const associations = (['xray', 'awg'] as const).map(protocol => {
       const association = new ec2.CfnEIPAssociation(this, `${protocol}Association`, { allocationId: addresses[protocol].attrAllocationId,
         networkInterfaceId: nic.ref, privateIpAddress: protocol === 'xray' ? '10.79.0.11' : '10.79.0.10' });

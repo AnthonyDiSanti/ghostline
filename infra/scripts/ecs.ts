@@ -4,10 +4,11 @@ import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
+import { GuardDutyClient } from '@aws-sdk/client-guardduty';
 import { fromIni } from '@aws-sdk/credential-providers';
 import { getDeployment } from '../lib/config.js';
 import { ecsDeploymentCommand } from '../lib/commands.js';
-import { credentialParameters, importParameters } from '../lib/parameters.js';
+import { assertServerParameterMetadata, credentialParameters, importParameters, serverParameterNames } from '../lib/parameters.js';
 import { setEcsPower } from '../lib/ecs-power.js';
 import { deployedClientImages, testEcsClients } from '../lib/ecs-client-test.js';
 import { imageArchitecture, imageArtifacts, imagePlatform, releaseTag } from '../lib/ecs-release.js';
@@ -18,6 +19,8 @@ import { ecsVerificationCommand } from '../lib/ecs-verification.js';
 import { parseJson } from '../lib/xray-config.js';
 import { xrayLink } from '../lib/xray.js';
 import { profileQr, vpnLink } from '../lib/profile-share.js';
+import { ensureGuardDuty, guardDutyPreflight, verifyGuardDuty } from '../lib/guardduty.js';
+import { discoverGuardDuty } from '../lib/guardduty-discovery.js';
 
 const [target, action, ...extra] = process.argv.slice(2);
 const config = getDeployment(target);
@@ -30,6 +33,7 @@ const work = resolve(root, '.local/deployments', config.id, 'ecs');
 mkdirSync(work, { recursive: true, mode: 0o700 });
 const environment = { ...process.env, GHOSTLINE_DEPLOYMENT: config.id };
 const parameters = new SSMClient({ region: config.region, credentials: fromIni({ profile: 'personal' }) });
+const guardDuty = new GuardDutyClient({ region: config.region, credentials: fromIni({ profile: 'personal' }) });
 
 function run(command: string, args: string[], input?: string | Buffer, visible = false): string {
   // Errors never reproduce captured secret values or the ECR authentication token.
@@ -50,9 +54,9 @@ function state(): Record<string, string> {
   return Object.fromEntries(stack.Outputs.map((item: any) => [item.OutputKey, item.OutputValue]));
 }
 
-function cdk(action: 'diff' | 'deploy', images = false) {
+function cdk(action: 'diff' | 'deploy', component: 'endpoint' | 'images' = 'endpoint') {
   // Scope every synthesis/deployment explicitly; no wildcard stack selection or SSH launch inputs.
-  const command = ecsDeploymentCommand(action, config.id, resolve(root, 'infra'), images);
+  const command = ecsDeploymentCommand(action, config.id, resolve(root, 'infra'), component);
   run(process.execPath, [resolve(root, 'infra/node_modules/aws-cdk/bin/cdk'), ...command.args], undefined, true);
 }
 
@@ -63,8 +67,8 @@ async function parameter(name: string): Promise<string> {
 }
 
 async function publish() {
-  cdk('diff', true);
-  cdk('deploy', true);
+  cdk('diff', 'images');
+  cdk('deploy', 'images');
   // Keep registry authentication in an ignored task-local Docker config, never in process argv.
   const dockerConfig = resolve(work, 'docker');
   mkdirSync(dockerConfig, { recursive: true, mode: 0o700 });
@@ -143,6 +147,17 @@ async function verify() {
     console.log(`${protocol}: private read-only tmpfs, absent engine secret environment and disabled host swap verified.`);
   }
   console.log(`Gateway memory: ${budget.task} MiB enforced task limit; ${budget.reserved} MiB ECS reserve; no task OOM events.`);
+  await monitoring(outputs);
+}
+
+async function monitoring(outputs: Record<string, string>) {
+  // Coverage propagates asynchronously; persist only nonsecret host/status evidence after the bounded gate.
+  const support = discoverGuardDuty(config);
+  const evidence = await verifyGuardDuty(guardDuty, support, outputs.InstanceId!, { report: console.log });
+  writeFileSync(resolve(work, 'guardduty.json'), JSON.stringify(evidence, null, 2) + '\n', { mode: 0o600 });
+  console.log(evidence.status === 'HEALTHY'
+    ? `GuardDuty: HEALTHY coverage for ${evidence.instanceId}; agent ${evidence.agentVersion}.`
+    : `GuardDuty: ${evidence.status}; ${evidence.reason} Gateway validation continues with reduced protection.`);
 }
 
 async function profiles() {
@@ -171,14 +186,23 @@ try {
   switch (action) {
     case 'import': console.log(await importParameters(parameters, config, credentialParameters(resolve(extra[0]!)))); break;
     case 'publish': await publish(); break;
-    case 'deploy':
+    case 'deploy': {
       run(process.execPath, ['--import=tsx', 'scripts/deployment.ts', 'preflight', config.id], undefined, true);
-      await parameter('server/xray'); await parameter('server/awg');
+      assertServerParameterMetadata(aws(['ssm', 'describe-parameters', '--parameter-filters',
+        JSON.stringify([{ Key: 'Name', Option: 'Equals', Values: serverParameterNames }])]).Parameters);
       for (const protocol of imageArtifacts) {
         // Missing releases should fail here, not leave CloudFormation waiting on unstartable tasks.
         aws(['ecr', 'describe-images', '--repository-name', `${config.resourceName}/${protocol}`, '--image-ids', `imageTag=${releaseTag(protocol)}`]);
       }
-      cdk('diff'); cdk('deploy'); break;
+      const support = discoverGuardDuty(config);
+      if (support.service) await guardDutyPreflight(guardDuty);
+      cdk('diff');
+      // Transport and host permissions must exist before a new detector begins automatic installation.
+      cdk('deploy');
+      const protection = await ensureGuardDuty(guardDuty, support, { tags: { ...config.globalTags, System: 'shared' }, report: console.log });
+      if (protection.status !== 'RUNTIME_ENABLED') console.log(`GuardDuty: ${protection.status}; ${protection.reason}`);
+      await monitoring(state()); break;
+    }
     case 'start': case 'stop': power(action); break;
     case 'status': {
       const outputs = state();

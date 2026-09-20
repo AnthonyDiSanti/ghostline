@@ -15,6 +15,6 @@ npm run deployments
 npm run ecs stockholm-ecs status
 ```
 
-Use the same target-scoped commands for each region. `stop` retains host/disk/IPs; `park` retains only the endpoint's billable EIPs; `destroy` also releases them. Durable images and credentials survive endpoint removal. Adding a catalog entry allocates nothing. [Development and commands](docs/development.md).
+Use the same target-scoped commands for each region. `stop` retains host/disk/IPs; `park` retains only the endpoint's billable EIPs; `destroy` also releases them. Durable images, credentials and regional GuardDuty protection survive endpoint removal. Adding a catalog entry allocates nothing. [Development and commands](docs/development.md).
 
 Start at the [documentation map](docs/README.md). `infra/` owns CDK/tooling, `runtime/ecs/` owns native fixtures/image recipes, and `.context/` owns live working memory. Secrets and client exports stay under ignored `.local/` or their authorized stores. Anthony intermediates LastPass activity.

@@ -4,10 +4,17 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import type { SSMClient } from '@aws-sdk/client-ssm';
-import { credentialParameters, importParameters, validateAwgIdentity } from '../lib/parameters.js';
+import { assertServerParameterMetadata, credentialParameters, importParameters, serverParameterNames, validateAwgIdentity } from '../lib/parameters.js';
 import { generateAwgProfiles } from '../lib/awg.js';
 import { generateXrayProfiles } from '../lib/xray.js';
 import { getDeployment } from '../lib/config.js';
+
+it('validates deployment prerequisites without requiring credential values', () => {
+  const metadata = serverParameterNames.map(Name => ({ Name, Type: 'SecureString' }));
+  expect(() => assertServerParameterMetadata(metadata)).not.toThrow();
+  expect(() => assertServerParameterMetadata(metadata.slice(1))).toThrow('Both server parameters');
+  expect(() => assertServerParameterMetadata(metadata.map(p => ({ ...p, Type: 'String' })))).toThrow('SecureStrings');
+});
 
 it('rejects mismatched AWG keys and obfuscation settings before import', () => {
   const one = generateAwgProfiles('192.0.2.1');

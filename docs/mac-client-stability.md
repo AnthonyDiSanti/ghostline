@@ -40,6 +40,8 @@ Next proposed bounded check: one full Mac restart, with the VPN disconnected, to
 
 ## OneXraySE regional configuration
 
+Anthony authorized all VPN connect/disconnect actions during this and future testing cycles on September 20. Check actual OS state/routes immediately before probes, avoid nested tunnels and restore the connection active before testing. This does not authorize forced sleep or reboot.
+
 Observed 2026-09-13: OneXraySE **26.9.2, build 444**, bundle `net.yuandev.onexray.se`, reports **Xray-core 26.9.9**. Its signed network extension `net.yuandev.onexray.se.tun` is activated/enabled. Anthony authorized configuring Stockholm and Cape Town; scope remains Mac REALITY, retaining AWG in Amnezia and all deployed server settings.
 
 | Imported local node | Endpoint | Identity verification |
@@ -71,6 +73,8 @@ The first connection reported `NEConfigurationErrorDomain` code 10 / `NEVPNError
 The DNS checks establish working native resolution, the resolver's tunnel route and TLS reachability; they are not a packet-capture audit of every OS/application query. With encrypted DNS configured, `scutil --dns` did not display an ordinary global nameserver and retained the scoped Wi-Fi resolver; that display alone neither proves a DNS leak nor an absent working resolver. Literal IPv6 HTTPS failed both connected and disconnected, so the current network cannot establish IPv6 leak prevention. Recheck on an IPv6-capable network before claiming it.
 
 For these tests, `scutil --nc list` identified the OneXraySE service and `scutil --nc stop <service-id>` reliably disconnected it. Bounded native probes invoke that supported command in `finally`; no Amnezia daemon socket was used. Rediscover the service ID after any reinstall. Sandboxed curl cannot access the native resolver in this environment and produced misleading DNS failures; actual pass/fail evidence comes from authorized native execution outside that command sandbox.
+
+September 20 restoration check: `scutil --nc start` returned zero while OneXray remained disconnected. The app's Connect button restored Stockholm successfully. Verify app/OS state, actual tunnel route and expected HTTPS exit; a successful command return alone does not establish reconnection.
 
 Private probe results are under `.local/diagnostics/onexrayse-2026-09-13/`: `stockholm-native.json`, `cape-town-native.json`, `stockholm-reconnect.json` and per-stage/final disconnected checks. No new relevant `.ips` crash reports appeared in the two DiagnosticReports directories during the awake trial. No sleep or restart was forced. **Configuration and awake connectivity are complete; practical use and repeated owner-coordinated battery/AC sleep/wake cycles remain the stability acceptance.** Keep AWG in Amnezia and only one tunnel active.
 
@@ -128,7 +132,7 @@ Original triage recommendation: prefer a replacement-client trial; a one-enginee
 
 Owner decision — 2026-09-13: wait for upstream work and use an alternative Mac REALITY client. Upstream awake reproductions make avoiding sleep insufficient protection; pause routine REALITY use in the affected Amnezia build. This concerns its Mac Xray/tunnel integration, not proof that the REALITY protocol itself causes kernel crashes. AWG remains in Amnezia under the existing scope; no AWG-only instance of this watchdog failure has been identified.
 
-At major work-unit transitions, including To Do reviews, check [#2933](https://github.com/amnezia-vpn/amnezia-client/issues/2933), any linked patch and [Amnezia releases](https://github.com/amnezia-vpn/amnezia-client/releases). Distinguish community progress, confirmed resolution, and inclusion in a released **macOS client build**; also note any required macOS OS update. Record date and applicable version in the [recurring task](../.context/tasks.md#recurring-mac-release-check). Last review on September 13 found the issue open, no matching fix, and current client 5.0.1.5. Do not repeat a full investigation or install a background monitor.
+At major work-unit transitions, including To Do reviews, check [#2933](https://github.com/amnezia-vpn/amnezia-client/issues/2933), any linked patch and [Amnezia releases](https://github.com/amnezia-vpn/amnezia-client/releases). Distinguish community progress, confirmed resolution, and inclusion in a released **macOS client build**; also note any required macOS OS update. Record date and applicable version in the [recurring task](../.context/tasks.md#recurring-mac-release-check). September 20 commit-prep review found the issue still open with no linked development PR and latest release 5.0.1.5; no fixed Mac build was identified. Do not repeat a full investigation or install a background monitor.
 
 A released fix is a reason to reconsider the official client, not automatically switch back. Verify existing-server compatibility and repeat awake/reconnect and coordinated sleep/wake checks before returning to normal use. The potential broader benefit of an upstream fix remains a reason to revisit, not a guaranteed outcome.
 

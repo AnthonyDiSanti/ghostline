@@ -11,6 +11,7 @@ Current specifications describe one regional ECS gateway architecture. Git histo
 | Inspect image provenance and release policy | [Images](images.md), [runtime notice](../runtime/NOTICE.md) |
 | Import credentials or review their security boundary | [Secrets](secrets.md) |
 | Stop, rebuild, park or release an exit | [Lifecycle](deployment-lifecycle.md) |
+| Discover available regional security and verify host telemetry | [GuardDuty](guardduty.md) |
 | Inspect live regional identities and validation | [Stockholm](launch-stockholm-ecs.md), [Cape Town](launch-cape-town.md) |
 | Diagnose Mac crashes or review client selection | [Mac stability](mac-client-stability.md), [v2rayN assessment](v2rayn-assessment.md) |
 | Select a region against privacy/performance needs | [Region assessment](region-selection.md) |

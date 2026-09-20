@@ -3,8 +3,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { getDeployment } from '../lib/config.js';
-import { captureRelease, releaseAfterDeletion, type ReleaseRecord } from '../lib/lifecycle.js';
-import { prepareEcsRemoval } from '../lib/ecs-power.js';
+import { captureRelease, deleteEndpointStack, releaseAfterDeletion, type ReleaseRecord } from '../lib/lifecycle.js';
 
 const [target, ...extra] = process.argv.slice(2);
 if (extra.length) throw new Error('Usage: npm run destroy <deployment>');
@@ -35,11 +34,7 @@ if (existsSync(recordPath)) {
 }
 console.log(`Destroying ${config.id}; releasing only ${record.allocations.join(', ')} after stack deletion.`);
 const stack = aws(['cloudformation', 'describe-stacks', '--stack-name', record.stackId]).Stacks[0];
-if (stack.StackStatus !== 'DELETE_COMPLETE') {
-  prepareEcsRemoval(Object.fromEntries((stack.Outputs ?? []).map((item: any) => [item.OutputKey, item.OutputValue])), aws);
-  aws(['cloudformation', 'delete-stack', '--stack-name', record.stackId]);
-  aws(['cloudformation', 'wait', 'stack-delete-complete', '--stack-name', record.stackId]);
-}
+deleteEndpointStack(stack, aws);
 releaseAfterDeletion(config, record, aws);
 renameSync(recordPath, resolve(folder, 'last-release.json'));
 console.log('Stack deleted and captured EIPs released. Local credentials remain available; new IPs require new client endpoint settings.');

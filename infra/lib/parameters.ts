@@ -7,6 +7,16 @@ import type { DeploymentConfig } from './config.js';
 
 export interface CredentialParameter { name: string; value: string; system: string }
 
+export const serverParameterNames = ['xray', 'awg'].map(protocol => `/ghostline/prod/server/${protocol}`);
+
+export function assertServerParameterMetadata(parameters: Array<{ Name?: string; Type?: string }>): void {
+  // Deployment needs existence/type only; avoid decrypting server credentials just to discard their values.
+  if (parameters.length !== serverParameterNames.length || !serverParameterNames.every(name =>
+    parameters.some(parameter => parameter.Name === name && parameter.Type === 'SecureString'))) {
+    throw new Error('Both server parameters must exist as SecureStrings before deployment.');
+  }
+}
+
 function protectedFile(path: string): string {
   // Credential imports must not silently accept files readable by other local users.
   if (statSync(path).mode & 0o077) throw new Error('Credential source must have private filesystem permissions.');

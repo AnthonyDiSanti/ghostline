@@ -8,7 +8,7 @@ import { deploymentIds, getDeployment } from '../lib/config.js';
 try {
   for (const id of deploymentIds) {
     const config = { ...getDeployment(id), account: '000000000000' };
-    const { app } = buildApp(config);
+    const { app } = buildApp(config, { service: true, runtime: true });
     const assembly = app.synth();
     const artifact = assembly.getStackArtifact(config.stackName);
     // Direct deployment must stay asset-free and small enough for CloudFormation TemplateBody.

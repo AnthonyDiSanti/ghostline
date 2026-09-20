@@ -11,6 +11,18 @@ One ECS-optimized AL2023 ARM64 `t4g.small`, AMI `ami-06a77ee974da159b5`, encrypt
 
 Original client identities and existing primary profiles remain valid. Anthony accepted both iOS ARM64 protocols on September 15; the current recovery evidence below uses real automated clients. Mac REALITY uses OneXraySE, AWG uses Amnezia. Repeated sleep/wake remains separate in [client stability](mac-client-stability.md).
 
+## GuardDuty rollout — 2026-09-20
+
+Later the same day, Anthony authorized alignment with freshly observed AWS defaults from London. Enabled S3 protection, EKS audit logs, EBS malware protection, RDS protection and Lambda protection; foundational protection and Runtime Monitoring stayed enabled. AI plans and fleet-wide agent management remain off, matching the observed defaults. No feature was disabled. Host/disk/IP/task and all six parameter versions/timestamps remain unchanged. Evidence: `.local/diagnostics/london-lifecycle-2026-09-20/`; [policy](guardduty.md).
+
+The normal deployment created regional detector `b50ec1bd775944d0b304467602bba9c7` with foundational protection and Runtime Monitoring enabled. Optional plans and fleet-wide agent management started off; the host's inclusion tag automatically installed agent **v1.17.1**, and exact-host coverage became **HEALTHY**. Installer success preceded coverage by several minutes; service diagnostics reported active/running with no failure. No manual installation or reboot was needed.
+
+`GhostlineEcsTrial` owns available endpoint `vpce-04e52c0730b7572aa` and its security group inside dedicated VPC `vpc-090e08936b99e19e2`. Private DNS, the account-restricted endpoint policy and HTTPS ingress from the host SG are configured by the common stack. Regional protection has no application CloudFormation owner and persists through teardown. [Contract](guardduty.md).
+
+Both real encrypted REALITY/AWG HTTPS probes pass through their original EIPs after rollout, with OneXray disconnected and direct en0 routes checked immediately beforehand. This is automated client evidence, not a new sleep/wake test. Regional deployment, coverage and metadata audit artifacts are under `.local/diagnostics/guardduty-rollout-2026-09-20/` and `.local/deployments/stockholm-ecs/ecs/guardduty.json`.
+
+The final endpoint/image diff is clean. Metadata-only comparison confirms unchanged host, disk, ENI, EIPs, task revision and all six SecureString versions/modification timestamps. No Parameter Store values were retrieved for this audit; existing private client exports supplied the tunnel checks.
+
 ## Stable image rollout — 2026-09-19
 
 The current task definition is `ghostline-ecs-stockholm-gateway:3`. Xray now runs official stable **26.3.27**, replacing prerelease 26.7.28 under the selected stable-only policy. AWG daemon **3.1.20260828** and tools **3.1.20260812** retain their upstream versions; the new recipe resolves and verifies their source inputs. The initializer release is unchanged. [Build and publication policy](images.md).
@@ -24,6 +36,8 @@ The current task definition is `ghostline-ecs-stockholm-gateway:3`. Xray now run
 Publication passed exact-artifact local encrypted tunnel and initializer/security checks before pushing. The reviewed CDK change replaced only engine image references and the task revision. After deployment, both real encrypted HTTPS/assigned-EIP tests and live configuration, private read-only tmpfs, environment, isolation and enforced-memory checks pass. No task OOM events were observed. Physical-device browsing and sleep/wake remain separate acceptance checks; profiles require no edits.
 
 The service has one running task, no pending tasks and successful shared initialization; its image digests match ECR. All stack outputs and all six parameter values/versions match the pre-rollout baseline, including the host, ENI and both original EIPs. Endpoint and image-stack diffs are clean. Nonsecret evidence is under `.local/diagnostics/stable-rollout-2026-09-19/`.
+
+September 20: Anthony confirmed native macOS and iPhone checks pass through Stockholm over both protocols and accepted this as sufficient device validation for the image rollout. This does not claim a new coordinated sleep/wake or IPv6 test.
 
 ## Shared gateway task — 2026-09-18
 

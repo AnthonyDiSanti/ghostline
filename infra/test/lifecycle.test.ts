@@ -3,14 +3,35 @@ import { Template } from 'aws-cdk-lib/assertions';
 import { CloudAssembly } from 'aws-cdk-lib/cx-api';
 import { buildApp } from '../lib/app.js';
 import { deploymentIds, getDeployment } from '../lib/config.js';
-import { captureRelease, releaseAfterDeletion } from '../lib/lifecycle.js';
+import { captureRelease, deleteEndpointStack, releaseAfterDeletion } from '../lib/lifecycle.js';
 
 afterAll(() => CloudAssembly.cleanupTemporaryDirectories());
+
+it('resumes partial deletion without calling a deleted ECS cluster through stale outputs', () => {
+  // CloudFormation preserves outputs even after their resources have disappeared.
+  const aws = vi.fn(() => ({ StackResourceSummaries: [{ LogicalResourceId: 'Cluster', ResourceStatus: 'DELETE_COMPLETE' }] }));
+  deleteEndpointStack({ StackId: 'captured-arn', StackStatus: 'DELETE_FAILED',
+    Outputs: [{ OutputKey: 'ClusterName', OutputValue: 'deleted-cluster' }, { OutputKey: 'InstanceId', OutputValue: 'deleted-host' }] }, aws);
+  expect(aws.mock.calls).toEqual([
+    [['cloudformation', 'list-stack-resources', '--stack-name', 'captured-arn']],
+    [['cloudformation', 'delete-stack', '--stack-name', 'captured-arn']],
+    [['cloudformation', 'wait', 'stack-delete-complete', '--stack-name', 'captured-arn']],
+  ]);
+});
+
+it('waits for an existing deletion and leaves an already deleted stack untouched', () => {
+  const aws = vi.fn();
+  deleteEndpointStack({ StackId: 'captured-arn', StackStatus: 'DELETE_IN_PROGRESS' }, aws);
+  expect(aws.mock.calls).toEqual([[['cloudformation', 'wait', 'stack-delete-complete', '--stack-name', 'captured-arn']]]);
+  aws.mockClear();
+  deleteEndpointStack({ StackId: 'captured-arn', StackStatus: 'DELETE_COMPLETE' }, aws);
+  expect(aws).not.toHaveBeenCalled();
+});
 it.each(deploymentIds)('parks %s with only the same retained, tagged allocations', id => {
   // Stable logical IDs and properties are what make a later active deployment reuse addresses.
   const config = { ...getDeployment(id), account: '000000000000' };
-  const active = Template.fromStack(buildApp(config).stack).toJSON();
-  const parked = Template.fromStack(buildApp(config, {}, 'parked').stack).toJSON();
+  const active = Template.fromStack(buildApp(config, { service: true, runtime: true }).stack).toJSON();
+  const parked = Template.fromStack(buildApp(config, { service: true, runtime: true }, {}, 'parked').stack).toJSON();
   const addresses = Object.fromEntries(Object.entries(active.Resources).filter(([, r]: any) => r.Type === 'AWS::EC2::EIP')
     .map(([key, resource]: any) => { const { DependsOn: _dependency, ...rest } = resource; return [key, rest]; }));
   expect(parked.Resources).toEqual(addresses);
