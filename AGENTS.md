@@ -4,7 +4,7 @@
 
 Ghostline is a personal connectivity PoC with one regional architecture: ECS-optimized AL2023 ARM64, one Graviton host, one shared gateway task/service, separate Xray/AWG engines, one initializer and two EIPs. Stockholm is primary and Cape Town is backup. Read each launch record for observed deployment state before cloud changes.
 
-Preserve protocol choices, device credentials and existing endpoints during runtime work. Clients switch manually; no HA, automatic protocol failover, rollback framework or custom client is required. Product scope and evidence limits live in `docs/product.md`. Keep secrets out of git and preserve production-account controls. Anthony intermediates LastPass activity and has deferred vault closeout.
+Preserve protocol choices, device credentials and existing endpoints during runtime work. Clients switch manually; no HA, automatic protocol failover, custom rollback framework or custom client is required. Product scope and evidence limits live in `docs/product.md`. Keep secrets out of git and preserve production-account controls. Anthony intermediates LastPass activity and has deferred vault closeout.
 
 Use the common ECS recipe for every region. Do not retain retired targets, alternative provisioners, installer-specific modes, compatibility branches or superseded architectural proposals. Git history owns removed approaches. Keep stable AWS resource names where renaming would replace live resources; a historical name is not a deployment mode.
 
@@ -36,6 +36,8 @@ For nontrivial changes:
 - Run a fresh CDK diff before deployment. For source-only cleanup, compare synthesized active/parked resources, user-data bytes and release identities to a pre-change baseline.
 - Never print decrypted parameters, client profiles, private keys or injected environment values. Emit selected metadata, hashes and equality results only.
 - Do not stage, unstage, commit or amend unless explicitly requested.
+
+For releases, read `docs/releases.md`: CDK owns static local `keep-production` references; publication owns global production/MRU aliases. Qualify once centrally, preserve fixed production plus three prior releases, and never add per-region fallback pins or retest protocols as a delivery gate. Regional release resources survive endpoint stop/park/destroy.
 
 For new protocol releases, use `npm run images:build`: resolve official stable channels, verify artifacts, pass local encrypted/image checks and record `infra/image-inputs.json`. Publish/deploy reuse that selection without rediscovery. Exclude prereleases/drafts/nightly/main; `latest` alone is not evidence of stability. Read `docs/images.md` for AWG's tag-based channel and provenance limits. Local compatibility is not native-client or regional acceptance.
 

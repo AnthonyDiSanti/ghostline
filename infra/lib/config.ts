@@ -1,3 +1,5 @@
+import { publicationProfile } from './releases/topology.js';
+import { readFileSync } from 'node:fs';
 import defaults from '../deployment.json' with { type: 'json' };
 
 export interface DeploymentConfig {
@@ -36,7 +38,7 @@ export function getDeployment(id: string | undefined): DeploymentConfig {
   if (!id || !Object.hasOwn(defaults.deployments, id)) {
     throw new Error(`Select a deployment: ${deploymentIds.join(', ')}.`);
   }
-  const { deployments, ...shared } = defaults;
+  const { deployments, imagePublication: _publication, ...shared } = defaults;
   const config = { ...shared, ...deployments[id as keyof typeof deployments], id };
   // Validate catalog JSON at the boundary before building any cloud resources.
   return validateDeployment(config as DeploymentConfig);
@@ -61,4 +63,10 @@ export function validateDeployment(config: DeploymentConfig): DeploymentConfig {
     'amiId', 'instanceType', 'rootVolumeGiB', 'globalTags']);
   if (Object.keys(config).some(key => !fields.has(key))) throw new Error('Unknown deployment configuration field.');
   return { ...config, globalTags: validateGlobalTags(config.globalTags) };
+}
+
+export function getPublication() {
+  // Activation persists membership during this process; do not reuse the import cache for later reconciliation.
+  const current = JSON.parse(readFileSync(new URL('../deployment.json', import.meta.url), 'utf8'));
+  return publicationProfile(current.imagePublication ?? {}, deploymentIds.map(id => getDeployment(id).region));
 }

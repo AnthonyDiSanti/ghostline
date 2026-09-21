@@ -9,6 +9,7 @@ Current specifications describe one regional ECS gateway architecture. Git histo
 | Understand containers, RAM, networking, memory and recovery | [ECS gateway](ecs.md) |
 | Build, test, deploy or add another region | [Development](development.md) |
 | Inspect image provenance and release policy | [Images](images.md), [runtime notice](../runtime/NOTICE.md) |
+| Publish, replicate, retain or recover application releases | [Release workflow](releases.md) |
 | Import credentials or review their security boundary | [Secrets](secrets.md) |
 | Stop, rebuild, park or release an exit | [Lifecycle](deployment-lifecycle.md) |
 | Discover available regional security and verify host telemetry | [GuardDuty](guardduty.md) |

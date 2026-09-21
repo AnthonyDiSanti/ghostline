@@ -1,6 +1,28 @@
 # Current decisions
 
-Superseded architectures and retired deployment recipes belong in git history. These entries record decisions that still constrain current work.
+## 2026-09-21 — Exercise fresh-image publication with initializer hardening
+
+Anthony requested a useful change and a new build through the release pipeline. Reduce unnecessary inheritance: retain both input bundles in unexported shell variables, clear their original environment names before external commands, and give each renderer only its selected bundle. Clear each working variable after use. This is hygiene inside the existing trusted initializer, not an IAM/container isolation change or erasure of ECS/Docker metadata. Central synthetic-image qualification owns the regression and protocol checks; regional rollout remains identity/completeness orchestration.
+
+## 2026-09-21 — Publish one app release through regional repositories (Anthony)
+
+Use self-contained primary/DR publication with common `ghostline/prod/{xray,awg,gateway-config}` repositories and one shared subscriber list, independent of gateway locations. Defaults are Northern Virginia (`us-east-1`) and London (`eu-west-2`), with persisted overrides. Both sources replicate directly to their peer and all subscribers; activation explicitly seeds existing releases. Preserve unrelated registry rules. Organizational centralization is a future migration. [Pricing and topology](knowledge/ecr-placement.md), [implemented contract](../docs/releases.md).
+
+Qualify artifacts once centrally. Regional gates check the OCI release document in the initializer repository, exact local manifests and movable aliases, then force deployment. CDK alone owns static local `:keep-production` task references. A release never registers/selects a task definition. Keep immutable artifact identities; accept the brief final-validation-to-ECS-capture race. No distributed tag lock, digest task revisions or repeat regional protocol qualification.
+
+Use regionless `keep-production`, `keep-production-release`, `keep-mru-1..3` and `keep-mru-N-release`. Retain **production plus three prior distinct app releases**, with every image/document. Promotion owns history; regional failures/rollback do not reorder it. Anthony explicitly rejected additional regional rollback pins. Alert when a region runs outside this fixed window; its older cold-recovery images may expire. Exact keep-alias rules protect the selected artifacts, followed by seven-day expiry of all unprotected tagged/untagged artifacts using original push age.
+
+Use hourly/event reconciliation with reserved concurrency one, conditional attempt records and explicit retry for failed/ambiguous attempts. New ready intent can proceed after an older failed intent. Native ECS circuit breaker/rollback restores the most recent completed regional service revision, does not move registry tags, and does **not** cascade MRU1 → MRU2 → MRU3. Keep zero-surge one-host deployment; no custom recovery controller or blue/green EIP machinery. [Limits](knowledge/event-driven-releases.md).
+
+Scope the gate to manifest reads, attempt state, diagnostics and `UpdateService` on one service. AWS cannot constrain every UpdateService field to force-only; code/tests enforce the exact request shape. Grant no task-definition registration, role passing, ECR writes or secret reads. Task-definition registration/selection is alert-worthy. The live audit found no logging CloudTrail trails, so the release stack supplies a regional write-management trail with private encrypted seven-day S3 storage; default Event history cannot feed these EventBridge alerts.
+
+Keep release resources separate from disposable endpoints. Private regional Lambda asset buckets use CLI deployment credentials, without additional privileged bootstrap roles. Extract independent SNS notifications from personal-assistant's pattern; privately initialize Ghostline-owned email parameters and require recipient confirmation. Record later personal-assistant adoption below its GuardDuty correction; this is documentation transfer only, not authorization for sibling implementation.
+
+Instruction breadcrumb: AGENTS.md now routes image delivery through `docs/releases.md`, separates central qualification from regional rollout, and preserves fixed app history. Clarify that the deferred rollback framework is a custom controller, not the accepted native ECS circuit breaker.
+
+## 2026-09-20 — Remove obsolete image repositories
+
+Anthony authorized cleanup after the ECR cost review. Remove the five unused Stockholm trial/per-engine-initializer repositories and their obsolete Graviton image stack after exact ownership, importer and live-reference checks. Preserve all releases in the six maintained repositories and both running gateways; verified after deletion. Regional ECR remains the current architecture. Native replication and bounded release retention were discussed, not selected or deployed. [Evidence and constraints](knowledge/ecr-placement.md).
 
 ## 2026-09-20 — Keep available regional GuardDuty protection enabled permanently
 
@@ -11,6 +33,8 @@ Anthony explicitly accepts partial protection or complete regional service absen
 Anthony separately authorized one-time Stockholm/Cape Town alignment using fresh London's AWS defaults intersected with each region's live features. S3, EKS audit, EBS malware, RDS and Lambda were enabled without disabling anything. Ordinary reconciliation does not keep copying defaults or enable every optional plan. New Zealand's authorized detector-only probe preserves its resulting protection; advertised disabled enrollment and absent response fields are not workload coverage or proven rejection. [Observed inventory](../docs/guardduty.md#new-zealand-capability-probe--september-20).
 
 Anthony requires personal-assistant coordination at closeout. Its source declares a detector when manageGuardDutyDetector=true, but live ownership remains unverified. The written handoff recommends inspecting ownership, deploying/verifying Retain before removing any live declaration, then adopting equivalent enable-only reconciliation. This is a separate work unit; no sibling-repo edits, messages or account-wide ownership migration are authorized by this note.
+
+Anthony subsequently authorized the documentation transfer to personal-assistant, including broader reusable learnings. Use its existing `context/scratch/` task namespace and link it from handoff/tasks; put compact general lessons in its existing infra-ops knowledge note. Preserve its Fargate/HA requirements and pre-existing dirty work. This delivers the coordination artifact, not approval to apply the migration or transplant Ghostline's host configuration. Promote adopted behavior and remove the temporary scratch note when the receiving task completes.
 
 ## 2026-09-20 — Own GuardDuty transport and automatic host enrollment in IaC
 

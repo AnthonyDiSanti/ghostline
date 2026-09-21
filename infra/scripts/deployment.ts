@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { deploymentIds, getDeployment, type DeploymentConfig } from '../lib/config.js';
 import { deploymentCommand } from '../lib/commands.js';
+import { assertStartReady } from '../lib/releases/gate.js';
+import { operatorGate } from '../lib/releases/operator.js';
 import { prepareEcsRemoval } from '../lib/ecs-power.js';
 import { assertDeploymentAmi } from '../lib/deployment-ami.js';
 import { assertInstanceMemory } from '../lib/ecs-memory.js';
@@ -51,6 +53,7 @@ if (action === 'list') {
 } else {
   const command = deploymentCommand(action === 'park' ? 'deploy' : action ?? '', target, infraDir);
   if (action !== 'synth') preflight(command.config);
+  if (action === 'deploy') await assertStartReady(operatorGate(command.config.id));
   mkdirSync(command.artifactDir, { recursive: true, mode: 0o700 });
   console.log(`Target: ${command.config.id} (${command.config.account}/${command.config.region}/${command.config.stackName})`);
   const environment = { ...process.env, GHOSTLINE_DEPLOYMENT: command.config.id, GHOSTLINE_LIFECYCLE: action === 'park' ? 'parked' : 'active' };

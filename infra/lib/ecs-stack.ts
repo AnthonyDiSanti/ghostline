@@ -8,31 +8,16 @@ import { ecsMemoryBudget } from './ecs-memory.js';
 import { ecsUserData } from './ecs-user-data.js';
 import type { DeploymentConfig } from './config.js';
 import type { GuardDutySupport } from './guardduty-discovery.js';
-import { imageArtifacts, releaseTag, type ImageArtifact } from './ecs-release.js';
-
-export class EcsImagesStack extends Stack {
-  readonly repositories: Record<ImageArtifact, ecr.Repository>;
-  constructor(scope: Construct, id: string, props: StackProps & { deployment: DeploymentConfig }) {
-    super(scope, id, props);
-    // Images outlive the disposable endpoint; immutable content tags cannot silently change a release.
-    this.repositories = Object.fromEntries(imageArtifacts.map(protocol => {
-      const repository = new ecr.Repository(this, protocol, {
-        repositoryName: `${props.deployment.resourceName}/${protocol}`, imageTagMutability: ecr.TagMutability.IMMUTABLE,
-        removalPolicy: RemovalPolicy.RETAIN, emptyOnDelete: false,
-      });
-      Tags.of(repository).add('System', protocol === 'gateway-config' ? 'shared' : protocol === 'awg' ? 'amneziawg' : 'xray');
-      new CfnOutput(this, `${protocol}Repository`, { value: repository.repositoryUri });
-      return [protocol, repository];
-    })) as Record<ImageArtifact, ecr.Repository>;
-  }
-}
+import { artifacts, production, repository } from './releases/model.js';
 
 export class EcsEndpointStack extends Stack {
   constructor(scope: Construct, id: string, props: StackProps & {
-    deployment: DeploymentConfig; repositories: EcsImagesStack['repositories']; lifecycle: 'active' | 'parked'; guardDuty: GuardDutySupport;
+    deployment: DeploymentConfig; lifecycle: 'active' | 'parked'; guardDuty: GuardDutySupport;
   }) {
     super(scope, id, props);
     const config = props.deployment;
+    // Durable regional repositories are activated separately and never owned by the disposable endpoint.
+    const repositories = Object.fromEntries(artifacts.map(name => [name, ecr.Repository.fromRepositoryName(this, `${name}Repository`, repository(name))]));
     const addresses = Object.fromEntries((['xray', 'awg'] as const).map(protocol => {
       const eip = new ec2.CfnEIP(this, `${protocol}Address`, { domain: 'vpc' });
       eip.applyRemovalPolicy(RemovalPolicy.RETAIN);
@@ -100,7 +85,7 @@ export class EcsEndpointStack extends Stack {
       hostRole.addToPolicy(new iam.PolicyStatement({ actions: ['ssm:DescribeDocument', 'ssm:GetDocument'],
         resources: [`arn:aws:ssm:${config.region}::document/AmazonGuardDuty-RuntimeMonitoringSsmPlugin`] }));
     }
-    for (const repository of Object.values(props.repositories)) repository.grantPull(hostRole);
+    for (const repository of Object.values(repositories)) repository.grantPull(hostRole);
     const profile = new iam.CfnInstanceProfile(this, 'InstanceProfile', { roles: [hostRole.roleName] });
     const instance = new ec2.CfnInstance(this, 'Instance', {
       imageId: config.amiId, instanceType: config.instanceType, iamInstanceProfile: profile.ref,
@@ -130,12 +115,12 @@ export class EcsEndpointStack extends Stack {
     // One scheduling and release unit shares capacity; engines retain separate network/mount namespaces.
     const memory = ecsMemoryBudget(config.instanceType);
     const execution = new iam.Role(this, 'GatewayExecutionRole', { assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com') });
-    for (const repository of Object.values(props.repositories)) repository.grantPull(execution);
+    for (const repository of Object.values(repositories)) repository.grantPull(execution);
     execution.addToPolicy(new iam.PolicyStatement({ actions: ['ssm:GetParameters'],
       resources: ['xray', 'awg'].map(protocol => `arn:aws:ssm:${config.region}:${config.account}:parameter/ghostline/prod/server/${protocol}`) }));
     const engines = (['xray', 'awg'] as const).map(protocol => ({ name: protocol, essential: true,
-      image: `${props.repositories[protocol].repositoryUri}:${releaseTag(protocol)}`,
-      cpu: 256, readonlyRootFilesystem: true,
+      image: `${repositories[protocol]!.repositoryUri}:${production}`,
+      versionConsistency: 'enabled', cpu: 256, readonlyRootFilesystem: true,
       restartPolicy: { enabled: true, restartAttemptPeriod: 60 },
       dnsServers: ['1.1.1.1', '1.0.0.1'],
       dockerSecurityOptions: ['no-new-privileges'],
@@ -163,8 +148,8 @@ export class EcsEndpointStack extends Stack {
       containerDefinitions: [...engines, {
         // Only the short-lived writer receives credentials. Both engines wait for the entire configuration set.
         name: 'gateway-config', essential: false, startTimeout: 60,
-        image: `${props.repositories['gateway-config'].repositoryUri}:${releaseTag('gateway-config')}`,
-        memory: 64, cpu: 16, user: '65532:65532', readonlyRootFilesystem: true, disableNetworking: true,
+        image: `${repositories['gateway-config']!.repositoryUri}:${production}`,
+        versionConsistency: 'enabled', memory: 64, cpu: 16, user: '65532:65532', readonlyRootFilesystem: true, disableNetworking: true,
         dockerSecurityOptions: ['no-new-privileges'],
         secrets: ['xray', 'awg'].map(protocol => ({ name: `GHOSTLINE_${protocol.toUpperCase()}_BUNDLE`,
           valueFrom: `arn:aws:ssm:${config.region}:${config.account}:parameter/ghostline/prod/server/${protocol}` })),
@@ -178,7 +163,7 @@ export class EcsEndpointStack extends Stack {
     // Fixed ports prohibit a surge task; native engine restarts avoid replacing healthy siblings.
     const service = new ecs.CfnService(this, 'GatewayService', { cluster: cluster.attrArn,
       serviceName: `${config.resourceName}-gateway`, taskDefinition: definition.ref, desiredCount: 1, launchType: 'EC2',
-      deploymentConfiguration: { minimumHealthyPercent: 0, maximumPercent: 100 }, propagateTags: 'TASK_DEFINITION' });
+      deploymentConfiguration: { minimumHealthyPercent: 0, maximumPercent: 100, deploymentCircuitBreaker: { enable: true, rollback: true } }, propagateTags: 'TASK_DEFINITION' });
     associations.forEach(association => service.addResourceDependency(association));
     service.node.addDependency(execution.node.findChild('DefaultPolicy'));
     new CfnOutput(this, 'GatewayServiceName', { value: service.attrName });

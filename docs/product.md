@@ -28,7 +28,7 @@ GuardDuty is an additional protection layer: enable available capabilities, acce
 
 Anthony prefers browsing without compulsory signup or disclosure of identity documents, biometrics or identity-linked verification credentials. He accepts testing nearer open-internet exits despite potential site-specific age checks; Cape Town is the slower fallback. [Region assessment](region-selection.md) owns that decision and its limits. A VPN does not guarantee exemption from destination policies.
 
-Keep production-account controls intact. One host per exit, ordinary project separation and existing security controls are sufficient; no HA, rollback framework, custom client or elaborate segmentation is required. Do not silently make deferred hardening a launch prerequisite.
+Keep production-account controls intact. One host per exit, ordinary project separation and existing security controls are sufficient; no HA, custom rollback framework, custom client or elaborate segmentation is required. Do not silently make deferred hardening a launch prerequisite.
 
 ## Later work
 

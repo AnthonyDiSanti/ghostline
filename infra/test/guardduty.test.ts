@@ -22,8 +22,8 @@ function error(name: string) { return Object.assign(new Error(name), { name }); 
 it('keeps regional settings outside both active and parked CloudFormation lifecycles', () => {
   for (const lifecycle of ['active', 'parked'] as const) {
     const app = buildApp(config, { service: true, runtime: true }, {}, lifecycle);
-    for (const stack of [app.stack, app.images]) Template.fromStack(stack).resourceCountIs('AWS::GuardDuty::Detector', 0);
-    expect(app.app.synth().stacks).toHaveLength(2);
+    for (const stack of [app.stack]) Template.fromStack(stack).resourceCountIs('AWS::GuardDuty::Detector', 0);
+    expect(app.app.synth().stacks).toHaveLength(1);
     const endpoint = Template.fromStack(app.stack).toJSON();
     if (lifecycle === 'active') {
       expect(endpoint.Resources.Instance.Properties.Tags).toContainEqual({ Key: 'GuardDutyManaged', Value: 'true' });

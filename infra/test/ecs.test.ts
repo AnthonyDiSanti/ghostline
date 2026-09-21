@@ -70,6 +70,10 @@ it('runs one bridge task with isolated engines, one secret recipient and shared 
   expect(task.TaskRoleArn).toBeUndefined();
   expect(task.PidMode).toBeUndefined();
   expect(task.ContainerDefinitions).toHaveLength(3);
+  for (const container of task.ContainerDefinitions) {
+    expect(container.VersionConsistency).toBe('enabled');
+    expect(JSON.stringify(container.Image)).toContain(':keep-production');
+  }
   const initializer = task.ContainerDefinitions.find((c: any) => c.Name === 'gateway-config');
   expect(initializer).toMatchObject({ Essential: false, DisableNetworking: true, User: '65532:65532',
     ReadonlyRootFilesystem: true, Memory: 64, LinuxParameters: { Capabilities: { Drop: ['ALL'] } },
@@ -92,7 +96,7 @@ it('runs one bridge task with isolated engines, one secret recipient and shared 
   expect(task.Volumes).toEqual([{ Name: 'gateway-config', Host: { SourcePath: '/run/ghostline-config' } },
     ...['xray', 'awg'].map(protocol => ({ Name: `${protocol}-config`, Host: { SourcePath: `/run/ghostline-config/${protocol}` } }))]);
   expect(resources.GatewayService.Properties).toMatchObject({ DesiredCount: 1,
-    DeploymentConfiguration: { MinimumHealthyPercent: 0, MaximumPercent: 100 } });
+    DeploymentConfiguration: { MinimumHealthyPercent: 0, MaximumPercent: 100, DeploymentCircuitBreaker: { Enable: true, Rollback: true } } });
   expect(resources.GatewayService.DependsOn).toContain(Object.keys(resources).find(key => key.startsWith('GatewayExecutionRoleDefaultPolicy')));
   const statements = Object.values(resources).filter(r => r.Type === 'AWS::IAM::Policy').flatMap(r => r.Properties.PolicyDocument.Statement);
   const reads = statements.filter(s => [].concat(s.Action).some((a: string) => a.startsWith('ssm:GetParameter')));
@@ -106,14 +110,7 @@ it('runs one bridge task with isolated engines, one secret recipient and shared 
   expect(officialXrayImage).toMatch(/^ghcr.io\/xtls\/xray-core@sha256:[a-f0-9]{64}$/);
 });
 
-it('keeps immutable ECR repositories in a durable separate stack', () => {
-  const images = app.node.findChild(`${config.stackName}Images`) as any;
-  const imageResources = Template.fromStack(images).findResources('AWS::ECR::Repository');
-  expect(Object.keys(imageResources)).toHaveLength(3);
-  for (const repository of Object.values(imageResources)) {
-    expect(repository.DeletionPolicy).toBe('Retain');
-    expect(repository.Properties.ImageTagMutability).toBe('IMMUTABLE');
-  }
+it('keeps build identities separate from static deployment aliases', () => {
   expect(ecsUserData(config, 'cluster').length).toBeLessThan(16_384);
   expect(ecsUserData(config, 'cluster')).not.toContain('PrivateKey');
   for (const protocol of imageArtifacts) {

@@ -21,5 +21,14 @@
       "stackName": "GhostlineCapeTown",
       "resourceName": "ghostline-cape-town"
     }
+  },
+  "imagePublication": {
+    "primaryRegion": "us-east-1",
+    "disasterRecoveryRegion": "eu-west-2",
+    "subscribers": [
+      "eu-north-1",
+      "af-south-1"
+    ],
+    "automation": true
   }
 }

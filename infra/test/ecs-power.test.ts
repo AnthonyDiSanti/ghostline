@@ -5,7 +5,7 @@ const outputs = { InstanceId: 'i-gateway', ClusterName: 'gateway', GatewayServic
 function mock(state: string, owner = 'gateway') {
   return vi.fn((args: string[]) => args[1] === 'describe-instances' ? { Reservations: [{ Instances: [{
     State: { Name: state }, Tags: [{ Key: 'aws:cloudformation:stack-name', Value: owner }],
-  }] }] } : args[1] === 'list-tasks' ? { taskArns: ['task-selected'] } : {});
+  }] }] } : args[1] === 'list-tasks' ? { taskArns: ['task-selected'] } : args[1] === 'describe-services' ? { services: [{ status: 'ACTIVE', desiredCount: 0 }] } : {});
 }
 it('drains the shared service before stopping the host and does not touch another deployment', () => {
   const aws = mock('running'); setEcsPower('stop', 'gateway', outputs, aws);
@@ -25,7 +25,8 @@ it('finishes stopping before starting and waits for EC2 health before scheduling
   expect(calls[1]).toContain('instance-stopped');
   expect(calls[2]).toContain('start-instances');
   expect(calls[3]).toContain('instance-status-ok');
-  expect(calls[4]).toContain('--desired-count 1');
+  expect(calls[4]).toContain('describe-services');
+  expect(calls[5]).toContain('--desired-count 1 --force-new-deployment');
 });
 
 it('deregisters a stopped empty host before cluster deletion but rejects unrelated hosts', () => {

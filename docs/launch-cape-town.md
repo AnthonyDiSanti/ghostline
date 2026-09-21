@@ -1,6 +1,20 @@
 # Cape Town gateway evidence
 
-Backup target `cape-town`; profile `personal`; account `757999402784`; region `af-south-1`, AZ `af-south-1a`. Endpoint stack `GhostlineCapeTown`, images `GhostlineCapeTownImages`, resource prefix `ghostline-cape-town`. It uses the same [gateway recipe](ecs.md) as Stockholm, with independent regional images and credential parameters.
+Backup target `cape-town`; profile `personal`; account `757999402784`; region `af-south-1`, AZ `af-south-1a`. Endpoint stack `GhostlineCapeTown`, release repositories `GhostlineRelease`, resource prefix `ghostline-cape-town`. It uses the same [gateway recipe](ecs.md) as Stockholm, with independent regional images and credential parameters.
+
+## Fresh initializer release — 2026-09-21
+
+Current production is `65dc6a00-595a-4493-9601-cffc2de80a7e`, document `sha256:b591df0898e0a46d255e22203a6a883df27bc033404bfb964dd8c9ba4cf10b3a`. A small initializer improvement limits each renderer's inherited environment to its own protocol bundle. Central qualification passed the synthetic regression, both encrypted protocols and configuration/security checks before publishing from Virginia. Stable upstream versions are unchanged; this does not change credential values or the existing IAM/container boundary.
+
+Native replication triggered one automatic regional deployment; CloudTrail confirms its force-only request. The rollout completed on task revision **4**, with expected image digests and unchanged endpoint/host/ENI/EIP and server-parameter metadata. Repeat reconciliation returns `already-running`. All four regions retain the same current release plus two prior distinct releases, with temporary publication aliases removed. Fresh endpoint diff was clean. Evidence: `.local/releases/initializer-hardening/final-audit.json`, `force-evidence.json` and `reconcile-completed.log`. No regional/native-device browsing tests were repeated. Anthony subsequently confirmed the SNS subscription; commit-prep readback verifies its confirmed ARN. The original message was found in Gmail Spam. No operational test email was sent.
+
+## Global release migration — 2026-09-21
+
+Task revision **4** now uses static local `ghostline/prod/{xray,awg,gateway-config}:keep-production` references, explicit version consistency and native ECS circuit-breaker rollback. `GhostlineRelease` owns repositories/history/automation independently of the endpoint. The old per-target image stack and its three repositories were removed after consumer/export/ownership checks. [Release contract](releases.md).
+
+The same two previously qualified image sets were published from London and Virginia. Both automatic deployments completed, retained task revision 4 and produced no duplicate deployment on reconciliation. At migration completion, global production was `d045bc56-a6ac-4192-9bfa-b7f8501bd0b6`, document `sha256:3951dc8b90b20639fbc116749786f788773182c23faec46be706fc73dcf49f06`; MRU1 retains the other accepted set. Protocol versions remain Xray 26.3.27, AWG daemon 3.1.20260828/tools 3.1.20260812.
+
+Final audit confirms stable expected running digests, identical stack outputs/host/ENI/EIPs and unchanged server parameter metadata. Existing client profiles need no change. No engine build, tunnel or native-device qualification was repeated. Endpoint CDK diff is clean. Regional event/hourly gates and logging audit trail are active; SNS email confirmation was subsequently verified during commit prep. Evidence: `.local/releases/migration/final-audit.json`, publication/reconciliation logs and `cleanup.json`.
 
 ## GuardDuty rollout — 2026-09-20
 
@@ -16,7 +30,7 @@ Both real REALITY/AWG HTTPS probes pass through the original EIPs after automati
 
 ## Stable image rollout — 2026-09-19
 
-The current task definition is `ghostline-cape-town-gateway:3`. Xray now runs official stable **26.3.27**, replacing prerelease 26.7.28. AWG daemon **3.1.20260828** and tools **3.1.20260812** retain their upstream versions in the newly verified source build. The initializer is unchanged. [Build and publication policy](images.md).
+The September 19 task definition was `ghostline-cape-town-gateway:3`. Xray now runs official stable **26.3.27**, replacing prerelease 26.7.28. AWG daemon **3.1.20260828** and tools **3.1.20260812** retain their upstream versions in the newly verified source build. The initializer is unchanged. [Build and publication policy](images.md).
 
 | Artifact | Release tag | Regional manifest digest |
 | --- | --- | --- |

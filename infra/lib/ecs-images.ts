@@ -4,28 +4,6 @@ import { imageArchitecture, imageArtifacts, imageInputs, imagePlatform, localIma
 
 export type DockerCommand = (args: string[]) => string;
 
-export async function publishImageSet(operations: {
-  existing: (artifact: ImageArtifact, tag: string) => string | undefined;
-  build: (artifact: ImageArtifact) => string;
-  test: (images: Record<ImageArtifact, string>) => Promise<void>;
-  push: (artifact: ImageArtifact, tag: string, imageId: string) => void;
-}): Promise<Record<ImageArtifact, string>> {
-  // Reuse immutable regional bytes where present. Test the entire set before pushing anything,
-  // and carry content IDs across the gate so mutable local tags cannot swap out a tested artifact.
-  const selected = {} as Record<ImageArtifact, string>;
-  const missing = new Set<ImageArtifact>();
-  const tags = Object.fromEntries(imageArtifacts.map(artifact => [artifact, releaseTag(artifact)]));
-  for (const artifact of imageArtifacts) {
-    const existing = operations.existing(artifact, tags[artifact]!);
-    if (!existing) missing.add(artifact);
-    selected[artifact] = existing ?? operations.build(artifact);
-    if (!/^sha256:[a-f0-9]{64}$/.test(selected[artifact])) throw new Error('Publication requires exact local image IDs.');
-  }
-  await operations.test({ ...selected });
-  for (const artifact of missing) operations.push(artifact, tags[artifact]!, selected[artifact]);
-  return selected;
-}
-
 export function assertImagePlatform(image: string, docker: DockerCommand): void {
   // A pinned base or a stale local tag can override build intent; inspect before publication.
   if (docker(['image', 'inspect', image, '--format', '{{.Os}}/{{.Architecture}}']).trim() !== imagePlatform) {

@@ -22,15 +22,21 @@ export function deployedClientImages(config: DeploymentConfig, outputs: Record<s
     || task.runtimePlatform?.cpuArchitecture !== 'ARM64') {
     throw new Error('Deployed client image ownership or architecture mismatch.');
   }
+  const running = aws(['ecs', 'list-tasks', '--cluster', cluster, '--service-name', gateway]).taskArns;
+  if (running?.length !== 1) throw new Error('Expected one running gateway task.');
+  const detail = aws(['ecs', 'describe-tasks', '--cluster', cluster, '--tasks', ...running]);
+  if (detail.failures?.length || detail.tasks?.length !== 1 || detail.tasks[0].taskDefinitionArn !== service.taskDefinition) {
+    throw new Error('Running task differs from the stable service.');
+  }
   const images = {} as Record<ImageArtifact, string>;
-  // Only this target's immutable engine/initializer artifacts may execute on the local machine.
+  // A production tag may have moved since this deployment. Execute only the actual running digests.
   for (const artifact of imageArtifacts) {
     const candidates = task.containerDefinitions.filter((item: any) => item.name === artifact);
-    const prefix = `${config.account}.dkr.ecr.${config.region}.amazonaws.com/${config.resourceName}/${artifact}:`;
-    const image = candidates[0]?.image;
-    if (candidates.length !== 1 || typeof image !== 'string' || !image.startsWith(prefix)
-      || !/^sha-[a-f0-9]{64}$/.test(image.slice(prefix.length))) throw new Error('Expected an owned immutable deployed image.');
-    images[artifact] = image;
+    const prefix = `${config.account}.dkr.ecr.${config.region}.amazonaws.com/ghostline/prod/${artifact}`;
+    const container = detail.tasks[0].containers.find((c: any) => c.name === artifact);
+    if (candidates.length !== 1 || candidates[0]?.image !== `${prefix}:keep-production`
+      || !/^sha256:[a-f0-9]{64}$/.test(container?.imageDigest ?? '')) throw new Error('Expected an owned resolved deployed image.');
+    images[artifact] = `${prefix}@${container.imageDigest}`;
   }
   return images;
 }

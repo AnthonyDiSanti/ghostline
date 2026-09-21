@@ -8,7 +8,7 @@ Each regional exit owns a dedicated, non-default VPC (`10.79.0.0/24`), one publi
 
 One ECS service manages one task containing separate `xray` and `awg` engines plus the short-lived `gateway-config` initializer. Both engines wait for initialization success, mount only their own RAM-backed configuration read-only and share one formula-derived memory budget. Eligible engine exits restart independently; whole-task replacement reruns initialization. Host fixtures supply generic storage and networking. See [configuration, networking and recovery](ecs.md).
 
-`EcsEndpointStack` is reusable across explicitly configured regions. `EcsImagesStack` retains three ECR repositories independently of endpoint removal. Regional Parameter Store holds six server/device SecureStrings independently of either stack. Deployment, restart and rebuild preserve credential identity; profile export substitutes current EIPs. [Secrets](secrets.md) owns the format and access boundary.
+`EcsEndpointStack` is reusable across explicitly configured regions. `RegionalReleaseStack` retains three common-name ECR repositories and regional release handling independently of endpoint removal. [Release distribution](releases.md) owns publication, app-level history and the readiness gate. Regional Parameter Store holds six server/device SecureStrings independently of either stack. Deployment, restart and rebuild preserve credential identity; profile export substitutes current EIPs. [Secrets](secrets.md) owns the format and access boundary.
 
 Where regional runtime telemetry is supported, the stack also owns a private GuardDuty telemetry endpoint and security group, ordered before host creation and after host deletion. Its additional interface carries telemetry. An imperative deployment step creates the account/region detector with AWS defaults plus supported Runtime Monitoring, or enables only missing available requirements on an existing detector. It preserves unrelated settings and never disables or deletes regional security. Host inclusion tags enroll our hosts with AWS-managed agents where runtime transport is supported. Confirmed service/capability gaps are accepted and reported; live discovery controls the deployment shape. [GuardDuty](guardduty.md) defines scope, data collection and deployment verification; [lifecycle](deployment-lifecycle.md#guardduty-telemetry-lifecycle) records the endpoint comparison and conditional adoption requirement.
 
@@ -16,13 +16,13 @@ There is no SSH provisioning, Compose deployment mode, NAT gateway, load balance
 
 ## Resource and billing identity
 
-The maintained catalog contains `stockholm-ecs` (primary) and `cape-town` (backup). Stockholm’s deployed stack names `GhostlineEcsTrial` / `GhostlineEcsTrialImages` and resource prefix `ghostline-ecs-stockholm` remain stable AWS identities. Their names do not select a different architecture. Adding another region instantiates the same stack class with explicit account/region/AZ/AMI/resource inputs; it does not introduce a new implementation.
+The maintained catalog contains `stockholm-ecs` (primary) and `cape-town` (backup). Stockholm’s deployed stack names `GhostlineEcsTrial` and resource prefix `ghostline-ecs-stockholm` remain stable AWS identities. Their names do not select a different architecture. Adding another region instantiates the same stack class with explicit account/region/AZ/AMI/resource inputs; it does not introduce a new implementation.
 
 Cost tags mirror personal-assistant: exact `Project=ghostline`, `Environment=prod`, and resource-owned `System`. Host/network/shared-task/initializer resources use `shared`; engine repositories and EIPs use `xray` or `amneziawg`. Region is already an AWS billing dimension. Global tags cannot override `System`. See [reference reuse](reference-reuse.md).
 
 ## Regional identity
 
-[Cape Town](launch-cape-town.md) uses `GhostlineCapeTown` / `GhostlineCapeTownImages`, with resource prefix `ghostline-cape-town`. Its existing EIPs and device credentials are preserved during migration into the same recipe. Each region has independent image repositories and parameters; there is no dependency on Stockholm for runtime or startup.
+[Cape Town](launch-cape-town.md) uses `GhostlineCapeTown`, with resource prefix `ghostline-cape-town`. Its existing EIPs and device credentials are preserved during migration into the same recipe. Each region has independent image repositories and parameters; there is no dependency on Stockholm for runtime or startup.
 
 ## Validation boundary
 

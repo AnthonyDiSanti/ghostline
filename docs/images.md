@@ -15,19 +15,17 @@ From `infra/`, with Node 24, Docker/buildx, curl and GitHub CLI (`gh`) authentic
 ```sh
 npm run images:build
 npm test
-npm run ecs stockholm-ecs publish
-npm run ecs stockholm-ecs deploy
-npm run ecs stockholm-ecs verify
-npm run ecs stockholm-ecs test
+npm run release publish primary
+npm run release status
 ```
 
 Build is AWS-free and does not change native VPN routing. It resolves once, tests an isolated candidate input file, and records the selection only on success. Failed downloads, ambiguous architectures, changed upstream policy, moved source tags or failed compatibility checks stop the build. The recorded selection remains usable for offline checks and publication. Review the resulting JSON diff; it records versions, revisions, source checksums and image/publication digests. Commit it with related recipe changes.
 
 Anthony approved authenticated public metadata reads on September 19. `upstream-download.ts` routes only the reviewed public repositories' release/tag/commit endpoints through explicit `gh api --hostname github.com --method GET` calls. Existing CLI credentials remain inside `gh`; the resolver never retrieves a token or passes authentication headers. Source archives/workflow files still use anonymous HTTPS curl. Inherited `GH_DEBUG`/legacy `DEBUG` HTTP logging and interactive prompts are disabled; captured failure output is withheld. A failed authenticated read stops resolution instead of falling back to the exhausted anonymous quota. [GitHub API CLI](https://cli.github.com/manual/gh_api), [environment controls](https://cli.github.com/manual/gh_help_environment).
 
-Publication uses this selection without rediscovering releases. It pulls existing regional immutable artifacts, builds missing ones, tests the entire exact set, then pushes missing artifacts by their tested local content IDs. Pull-back checks confirm published content. Existing images are tested too; a fresh local rebuild is not evidence about an already published image. Nonsecret publication metadata is saved under `.local/deployments/<target>/ecs/publication.json`.
+Publication consumes the successful central qualification record and its exact local image IDs. It performs transfer-identity checks only, then distributes the complete release through primary/DR native replication. Regional handlers validate local manifests/production aliases and force an ECS deployment. They do not rebuild or repeat image/protocol tests. [Release workflow](releases.md) owns topology, tags, history, lifecycle and recovery.
 
-Deploy/synth/start remain offline with respect to release discovery. A restart never updates software. Publish the selection to each region before its deployment; publication itself does not replace a gateway. Regional launch records, rather than the desired input file, describe deployed versions.
+Deployment/start do not rediscover upstream releases. Static task definitions reference local `keep-production` aliases; ECS captures their digests per deployment. Resuming a stopped endpoint resolves the validated local intended set. Regional launch records describe observed deployment state; the build-input file describes the selected central build.
 
 September 19 deployed selection: Xray **26.3.27**, AWG daemon **3.1.20260828**, tools **3.1.20260812**. Both [Stockholm](launch-stockholm-ecs.md) and [Cape Town](launch-cape-town.md) run gateway task revision 3 with this selection. Xray's official stable replaced prerelease 26.7.28; AWG's upstream versions are unchanged. Exact-artifact publication checks, live runtime/security verification and both encrypted HTTPS/assigned-EIP tests pass in each region. Credentials, hosts and EIPs are unchanged; native-device acceptance remains distinct.
 
@@ -46,11 +44,11 @@ Xray selection requires exactly one Linux ARM64 manifest from the versioned offi
 
 AWG source archives are downloaded from official GitHub commit URLs over HTTPS. Upstream does not publish independent checksums for these generated archives; the resolver computes and records SHA256, and BuildKit's `ADD --checksum` checks its separate download. This establishes recorded-byte integrity, not an independent publisher signature. Go modules are also verified. Daemon version output is stale; source commit and actual protocol behavior establish its selected release. Upstream licenses remain in the image; see [notice](../runtime/NOTICE.md).
 
-Transitive package repositories can change; immutable publication preserves a deployed artifact but does not promise byte-identical future rebuilds. The publisher therefore tests existing ECR bytes instead of assuming a new build is equivalent. `releaseFiles()` defines the exact nonsecret context; resolved source commits/checksums enter AWG's build arguments and content identity.
+Transitive package repositories can change; immutable publication preserves a deployed artifact but does not promise byte-identical future rebuilds. The central build records exact tested image IDs; the publisher transfers those bytes rather than rebuilding from equivalent inputs. `releaseFiles()` defines the exact nonsecret context; resolved source commits/checksums enter AWG's build arguments and content identity.
 
 ## Verification
 
-`npm run test:ecs-images` rebuilds/tests the recorded selection without rediscovery. It checks exact rendered bytes, private ownership, read-only handoff, engine startup, AWG in-place restart, invalid input rejection and both-protocol cleanup on partial failure. It also establishes real REALITY/VLESS and AWG sessions between disposable local Docker clients/servers and transfers a random HTTP response through each encrypted tunnel. AWG's handshake timestamp is checked. Synthetic credentials match our generated protocol settings; production secrets are unnecessary.
+`npm run test:ecs-images` rebuilds/tests the recorded selection without rediscovery. It checks per-renderer secret environments, exact rendered bytes, private ownership, read-only handoff, engine startup, AWG in-place restart, invalid input rejection and both-protocol cleanup on partial failure. It also establishes real REALITY/VLESS and AWG sessions between disposable local Docker clients/servers and transfers a random HTTP response through each encrypted tunnel. AWG's handshake timestamp is checked. Synthetic credentials match our generated protocol settings; production secrets are unnecessary.
 
 Local storage holders model a host-owned RAM mount; they are test fixtures, not production sidecars. REALITY still needs outbound access to its configured camouflage TLS destination. The local test does not change the Mac's routing. Failed synthetic probes retain private diagnostic logs under `.local/deployments/image-tests/`; tests remove their containers and RAM volumes.
 

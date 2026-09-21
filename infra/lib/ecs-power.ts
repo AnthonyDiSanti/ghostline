@@ -25,7 +25,11 @@ export function setEcsPower(action: 'start' | 'stop', stackName: string, outputs
   } else {
     if (state !== 'running') aws(['ec2', 'start-instances', '--instance-ids', id]);
     aws(['ec2', 'wait', 'instance-status-ok', '--instance-ids', id]);
-    scale('1'); waitServices();
+    // A stopped service can retain yesterday's captured digests. Resolve the ready local production set on resume.
+    const service = aws(['ecs', 'describe-services', '--cluster', cluster, '--services', gateway]).services?.[0];
+    if (!service || service.status !== 'ACTIVE') throw new Error('Expected an active gateway service before start.');
+    if (service.desiredCount === 0 || state !== 'running') aws(['ecs', 'update-service', '--cluster', cluster, '--service', gateway, '--desired-count', '1', '--force-new-deployment']);
+    waitServices();
   }
 }
 

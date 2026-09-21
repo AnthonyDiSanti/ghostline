@@ -12,8 +12,8 @@ import { generateAwgProfiles } from './awg.js';
 import { createTestRamStorage } from './ecs-test-storage.js';
 import { probeImageTunnel } from './ecs-image-probes.js';
 
-export async function testEcsImages(images?: Record<ImageArtifact, string>): Promise<void> {
-  // Publication can supply exact existing ECR image IDs; never test a rebuild and then deploy different bytes.
+export async function testEcsImages(images?: Record<ImageArtifact, string>): Promise<Record<ImageArtifact, string>> {
+  // Central qualification captures exact image IDs before tests; publication consumes those same bytes.
   const root = fileURLToPath(new URL('../../', import.meta.url));
   const parent = resolve(root, '.local/deployments/image-tests');
   mkdirSync(parent, { recursive: true, mode: 0o700 });
@@ -44,7 +44,10 @@ export async function testEcsImages(images?: Record<ImageArtifact, string>): Pro
   try {
     const selected: Record<ImageArtifact, string> = images
       ?? Object.fromEntries(imageArtifacts.map(artifact => [artifact, prepareImage(artifact, work, docker)])) as Record<ImageArtifact, string>;
-    for (const artifact of imageArtifacts) assertImagePlatform(selected[artifact], docker);
+    for (const artifact of imageArtifacts) {
+      selected[artifact] = docker(['image', 'inspect', selected[artifact], '--format', '{{.Id}}']);
+      assertImagePlatform(selected[artifact], docker);
+    }
     assertOfficialXray(selected.xray, docker);
     // Test-only probes remain ordinary shell files and are mounted read-only, outside the image release.
     const configProbe = resolve(work, 'image-config.sh');
@@ -53,6 +56,8 @@ export async function testEcsImages(images?: Record<ImageArtifact, string>): Pro
     const shared = selected['gateway-config'];
     const sharedProbe = resolve(work, 'gateway-config.sh');
     copyFileSync(new URL('../test/fixtures/gateway-config.sh', import.meta.url), sharedProbe);
+    const environmentProbe = resolve(work, 'config-environment.sh');
+    copyFileSync(new URL('../test/fixtures/config-environment.sh', import.meta.url), environmentProbe);
     const sharedVolume = `${stem}-shared`;
     const cleanupShared = createTestRamStorage(sharedVolume, shared, docker);
     const { bundle: sharedBundle } = generateXrayProfiles('127.0.0.1');
@@ -60,10 +65,18 @@ export async function testEcsImages(images?: Record<ImageArtifact, string>): Pro
     const sharedSecrets = { GHOSTLINE_XRAY_BUNDLE: JSON.stringify(sharedBundle), GHOSTLINE_AWG_BUNDLE: sharedAwg };
     const probe = (action: string) => docker(['run', '--rm', ...common, '--network', 'none', '--user', '65532:65532',
       '-v', `${sharedVolume}:/config`, '-v', `${sharedProbe}:/test/probe.sh:ro`, '--entrypoint', '/bin/sh', shared, '/test/probe.sh', action]);
-    const initialize = (secrets: Record<string, string>) => execute(['run', '--rm', ...common, '--network', 'none', '--user', '65532:65532',
-      '--env', 'GHOSTLINE_XRAY_BUNDLE', '--env', 'GHOSTLINE_AWG_BUNDLE', '-v', `${sharedVolume}:/config`, shared], false, secrets);
+    const initialize = (secrets: Record<string, string>, inspectEnvironment = false) => execute(['run', '--rm', ...common, '--network', 'none', '--user', '65532:65532',
+      '--env', 'GHOSTLINE_XRAY_BUNDLE', '--env', 'GHOSTLINE_AWG_BUNDLE', '-v', `${sharedVolume}:/config`,
+      ...(inspectEnvironment ? ['-v', `${environmentProbe}:/usr/local/bin/ghostline-config:ro`] : []), shared], false, secrets);
     try {
       probe('directories');
+      // The real entrypoint must strip sibling secrets before spawning either renderer or its helpers.
+      const inspected = initialize(sharedSecrets, true);
+      assert.equal(inspected.status, 0, 'Renderers must not inherit the original pair of secret variables');
+      assert.equal(inspected.stderr, '');
+      assert.deepEqual(inspected.stdout.trim().split('\n').map(line => line.split(' ')[0]),
+        Object.values(sharedSecrets).map(value => createHash('sha256').update(value).digest('hex')));
+      probe('empty');
       for (const invalid of [{ GHOSTLINE_XRAY_BUNDLE: '' }, { GHOSTLINE_AWG_BUNDLE: '' }, { GHOSTLINE_AWG_BUNDLE: '[invalid]' }]) {
         assert.equal(initialize(sharedSecrets).status, 0, 'Seed complete shared rendering');
         const failed = initialize({ ...sharedSecrets, ...invalid });
@@ -191,5 +204,6 @@ export async function testEcsImages(images?: Record<ImageArtifact, string>): Pro
         }
       }
     }
+    return selected;
   } finally { rmSync(work, { recursive: true, force: true }); }
 }

@@ -6,7 +6,7 @@ function fixture() {
   // Deliberately differ from source-derived release hashes to model an uncommitted image change.
   const config = getDeployment('stockholm-ecs');
   const outputs = { ClusterName: config.resourceName, GatewayServiceName: 'selected-gateway' };
-  const image = (artifact: string) => `${config.account}.dkr.ecr.${config.region}.amazonaws.com/${config.resourceName}/${artifact}:sha-${'a'.repeat(64)}`;
+  const image = (artifact: string) => `${config.account}.dkr.ecr.${config.region}.amazonaws.com/ghostline/prod/${artifact}:keep-production`;
   const tasks = { gateway: {
     family: `${config.resourceName}-gateway`, runtimePlatform: { cpuArchitecture: 'ARM64' },
     containerDefinitions: ['xray', 'awg', 'gateway-config'].map(name => ({ name, image: image(name) })),
@@ -14,17 +14,21 @@ function fixture() {
   const services = [{ serviceName: 'selected-gateway', status: 'ACTIVE', desiredCount: 1,
     runningCount: 1, pendingCount: 0, deployments: [{}], taskDefinition: 'gateway' }];
   const response = { services, failures: [] as object[] };
-  const aws = vi.fn((args: string[]) => args[1] === 'describe-services' ? response : { taskDefinition: tasks[args[3]! as 'gateway'] });
-  return { config, outputs, tasks, response, aws, image };
+  const running = { tasks: [{ taskDefinitionArn: 'gateway', containers: ['xray', 'awg', 'gateway-config'].map(name => ({ name, imageDigest: `sha256:${'b'.repeat(64)}` })) }] };
+  const aws = vi.fn((args: string[]) => args[1] === 'describe-services' ? response
+    : args[1] === 'list-tasks' ? { taskArns: ['running'] }
+    : args[1] === 'describe-tasks' ? running
+    : { taskDefinition: tasks[args[3]! as 'gateway'] });
+  return { config, outputs, tasks, response, aws, image, running };
 }
 
 it('selects the deployed engine and initializer releases independently of local source hashes', () => {
   const f = fixture();
-  expect(deployedClientImages(f.config, f.outputs, f.aws)).toEqual({ xray: f.image('xray'), awg: f.image('awg'),
-    'gateway-config': f.image('gateway-config') });
+  expect(deployedClientImages(f.config, f.outputs, f.aws)).toEqual({ xray: f.image('xray').replace(':keep-production', `@sha256:${'b'.repeat(64)}`), awg: f.image('awg').replace(':keep-production', `@sha256:${'b'.repeat(64)}`),
+    'gateway-config': f.image('gateway-config').replace(':keep-production', `@sha256:${'b'.repeat(64)}`) });
   expect(f.aws.mock.calls[0]![0]).toEqual(['ecs', 'describe-services', '--cluster', f.config.resourceName,
     '--services', 'selected-gateway']);
-  expect(f.aws.mock.calls.slice(1).every(([args]) => args[1] === 'describe-task-definition')).toBe(true);
+  expect(f.aws.mock.calls.some(([args]) => args[1] === 'describe-tasks')).toBe(true);
 });
 
 it('rejects a task without an explicit ARM64 runtime platform', () => {
@@ -58,7 +62,7 @@ it('rejects a foreign task, wrong architecture, missing initializer or unowned m
     if (mode === 'architecture') task.runtimePlatform.cpuArchitecture = 'X86_64';
     if (mode === 'initializer') task.containerDefinitions.pop();
     if (mode === 'registry') task.containerDefinitions[0]!.image = 'example.com/xray:latest';
-    if (mode === 'tag') task.containerDefinitions[0]!.image = f.image('xray').replace(/sha-.+$/, 'latest');
+    if (mode === 'tag') task.containerDefinitions[0]!.image = f.image('xray').replace('keep-production', 'latest');
     if (mode === 'duplicate') task.containerDefinitions.push(task.containerDefinitions[0]!);
     expect(() => deployedClientImages(f.config, f.outputs, f.aws), mode).toThrow(/image/);
   }

@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
@@ -11,9 +11,9 @@ import { ecsDeploymentCommand } from '../lib/commands.js';
 import { assertServerParameterMetadata, credentialParameters, importParameters, serverParameterNames } from '../lib/parameters.js';
 import { setEcsPower } from '../lib/ecs-power.js';
 import { deployedClientImages, testEcsClients } from '../lib/ecs-client-test.js';
-import { imageArchitecture, imageArtifacts, imagePlatform, releaseTag } from '../lib/ecs-release.js';
-import { assertOfficialXray, prepareImage, publishImageSet } from '../lib/ecs-images.js';
-import { testEcsImages } from '../lib/ecs-image-tests.js';
+import { imageArchitecture, imagePlatform } from '../lib/ecs-release.js';
+import { assertStartReady } from '../lib/releases/gate.js';
+import { operatorGate } from '../lib/releases/operator.js';
 import { ecsMemoryBudget } from '../lib/ecs-memory.js';
 import { ecsVerificationCommand } from '../lib/ecs-verification.js';
 import { parseJson } from '../lib/xray-config.js';
@@ -54,9 +54,9 @@ function state(): Record<string, string> {
   return Object.fromEntries(stack.Outputs.map((item: any) => [item.OutputKey, item.OutputValue]));
 }
 
-function cdk(action: 'diff' | 'deploy', component: 'endpoint' | 'images' = 'endpoint') {
+function cdk(action: 'diff' | 'deploy') {
   // Scope every synthesis/deployment explicitly; no wildcard stack selection or SSH launch inputs.
-  const command = ecsDeploymentCommand(action, config.id, resolve(root, 'infra'), component);
+  const command = ecsDeploymentCommand(action, config.id, resolve(root, 'infra'));
   run(process.execPath, [resolve(root, 'infra/node_modules/aws-cdk/bin/cdk'), ...command.args], undefined, true);
 }
 
@@ -64,48 +64,6 @@ async function parameter(name: string): Promise<string> {
   const result = await parameters.send(new GetParameterCommand({ Name: `/ghostline/prod/${name}`, WithDecryption: true }));
   if (result.Parameter?.Type !== 'SecureString' || !result.Parameter.Value) throw new Error('Expected nonempty SecureString.');
   return result.Parameter.Value;
-}
-
-async function publish() {
-  cdk('diff', 'images');
-  cdk('deploy', 'images');
-  // Keep registry authentication in an ignored task-local Docker config, never in process argv.
-  const dockerConfig = resolve(work, 'docker');
-  mkdirSync(dockerConfig, { recursive: true, mode: 0o700 });
-  const registry = `${config.account}.dkr.ecr.${config.region}.amazonaws.com`;
-  const password = run('aws', ['--profile', 'personal', '--region', config.region, 'ecr', 'get-login-password']);
-  run('docker', ['--config', dockerConfig, 'login', '--username', 'AWS', '--password-stdin', registry], password);
-  chmodSync(resolve(dockerConfig, 'config.json'), 0o600);
-  try {
-    const docker = (args: string[]) => run('docker', args);
-    // Prime the verified official source used to check a mirrored Xray image's exact content.
-    prepareImage('xray', resolve(work, 'build'), docker);
-    const tested = await publishImageSet({
-      existing: (artifact, tag) => {
-        const repository = `${config.resourceName}/${artifact}`;
-        const existing = aws(['ecr', 'list-images', '--repository-name', repository]).imageIds;
-        if (!existing.some((image: { imageTag?: string }) => image.imageTag === tag)) return undefined;
-        const image = `${registry}/${repository}:${tag}`;
-        run('docker', ['--config', dockerConfig, 'pull', '--platform', platform, image]);
-        return docker(['image', 'inspect', image, '--format', '{{.Id}}']).trim();
-      },
-      build: artifact => docker(['image', 'inspect', prepareImage(artifact, resolve(work, 'build'), docker), '--format', '{{.Id}}']).trim(),
-      test: testEcsImages,
-      push: (artifact, tag, imageId) => {
-        const image = `${registry}/${config.resourceName}/${artifact}:${tag}`;
-        docker(['tag', imageId, image]);
-        run('docker', ['--config', dockerConfig, 'push', image], undefined, true);
-        run('docker', ['--config', dockerConfig, 'pull', '--platform', platform, image]);
-        if (docker(['image', 'inspect', image, '--format', '{{.Id}}']).trim() !== imageId) throw new Error('Published image differs from tested content.');
-        if (artifact === 'xray') assertOfficialXray(image, docker);
-      },
-    });
-    writeFileSync(resolve(work, 'publication.json'), JSON.stringify({ testedAt: new Date().toISOString(),
-      images: imageArtifacts.map(artifact => ({ artifact, tag: releaseTag(artifact), imageId: tested[artifact] })) }, null, 2) + '\n');
-    console.log('All three regional images match the locally tested set.');
-  } finally {
-    run('docker', ['--config', dockerConfig, 'logout', registry]);
-  }
 }
 
 function power(action: 'start' | 'stop') {
@@ -185,15 +143,11 @@ try {
   if (aws(['sts', 'get-caller-identity']).Account !== config.account) throw new Error('AWS account mismatch.');
   switch (action) {
     case 'import': console.log(await importParameters(parameters, config, credentialParameters(resolve(extra[0]!)))); break;
-    case 'publish': await publish(); break;
     case 'deploy': {
       run(process.execPath, ['--import=tsx', 'scripts/deployment.ts', 'preflight', config.id], undefined, true);
       assertServerParameterMetadata(aws(['ssm', 'describe-parameters', '--parameter-filters',
         JSON.stringify([{ Key: 'Name', Option: 'Equals', Values: serverParameterNames }])]).Parameters);
-      for (const protocol of imageArtifacts) {
-        // Missing releases should fail here, not leave CloudFormation waiting on unstartable tasks.
-        aws(['ecr', 'describe-images', '--repository-name', `${config.resourceName}/${protocol}`, '--image-ids', `imageTag=${releaseTag(protocol)}`]);
-      }
+      await assertStartReady(operatorGate(config.id));
       const support = discoverGuardDuty(config);
       if (support.service) await guardDutyPreflight(guardDuty);
       cdk('diff');
@@ -203,7 +157,8 @@ try {
       if (protection.status !== 'RUNTIME_ENABLED') console.log(`GuardDuty: ${protection.status}; ${protection.reason}`);
       await monitoring(state()); break;
     }
-    case 'start': case 'stop': power(action); break;
+    case 'start': await assertStartReady(operatorGate(config.id)); power(action); break;
+    case 'stop': power(action); break;
     case 'status': {
       const outputs = state();
       if (!outputs.InstanceId) { console.log({ ...outputs, state: 'parked' }); break; }
@@ -218,7 +173,7 @@ try {
       await testEcsClients(config, root, work, outputs, images);
       break;
     }
-    default: throw new Error('Select import, publish, deploy, start, stop, status, verify, profiles or test.');
+    default: throw new Error('Select import, deploy, start, stop, status, verify, profiles or test.');
   }
 } catch (error) {
   // AWS SDK errors may carry request details; print only our fixed message or an error class.

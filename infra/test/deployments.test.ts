@@ -25,11 +25,11 @@ describe('regional gateway configuration', () => {
       '--outputs-file', '/repo/.local/deployments/stockholm-ecs/outputs.json']);
     expect(() => deploymentCommand('destroy', 'stockholm-ecs', '/repo/infra')).toThrow('Unsupported');
   });
-  it('keeps image and endpoint deployment scopes explicit and unattended', () => {
+  it('keeps endpoint deployment scope explicit and unattended', () => {
     // A cold rebuild must not strand an endpoint waiting for an unavailable terminal.
-    for (const component of ['endpoint', 'images'] as const) {
-      const command = ecsDeploymentCommand('deploy', 'stockholm-ecs', '/repo/infra', component);
-      expect(command.args.slice(0, 2)).toEqual(['deploy', component === 'images' ? 'GhostlineEcsTrialImages' : 'GhostlineEcsTrial']);
+    {
+      const command = ecsDeploymentCommand('deploy', 'stockholm-ecs', '/repo/infra');
+      expect(command.args.slice(0, 2)).toEqual(['deploy', 'GhostlineEcsTrial']);
       expect(command.args.slice(-2)).toEqual(['--require-approval', 'never']);
       expect(command.args).not.toContain('--all');
     }
