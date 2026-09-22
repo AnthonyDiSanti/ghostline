@@ -11,11 +11,13 @@ import { ecsDeploymentCommand } from '../lib/commands.js';
 import { assertServerParameterMetadata, credentialParameters, importParameters, serverParameterNames } from '../lib/parameters.js';
 import { setEcsPower } from '../lib/ecs-power.js';
 import { deployedClientImages, testEcsClients } from '../lib/ecs-client-test.js';
-import { imageArchitecture, imagePlatform } from '../lib/ecs-release.js';
+import { imagePlatform } from '../lib/ecs-release.js';
 import { assertStartReady } from '../lib/releases/gate.js';
 import { operatorGate } from '../lib/releases/operator.js';
 import { ecsMemoryBudget } from '../lib/ecs-memory.js';
-import { ecsVerificationCommand } from '../lib/ecs-verification.js';
+import { hostRemote, verifyHost } from '../lib/ecs-verification.js';
+import { networkDaemonMemory } from '../lib/gateway-platform.js';
+import { assertHostPlatform } from '../lib/platform-lifecycle.js';
 import { parseJson } from '../lib/xray-config.js';
 import { xrayLink } from '../lib/xray.js';
 import { profileQr, vpnLink } from '../lib/profile-share.js';
@@ -27,7 +29,6 @@ const config = getDeployment(target);
 if (action === 'import' ? extra.length !== 1 : extra.length !== 0) {
   throw new Error('Usage: npm run ecs <target> <action>; import requires a credential directory.');
 }
-const platform = imagePlatform;
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const work = resolve(root, '.local/deployments', config.id, 'ecs');
 mkdirSync(work, { recursive: true, mode: 0o700 });
@@ -73,24 +74,9 @@ function power(action: 'start' | 'stop') {
 
 async function verify() {
   const outputs = state();
-  const parametersFile = resolve(work, 'verify-command.json');
-  writeFileSync(parametersFile, JSON.stringify({ commands: [ecsVerificationCommand()], executionTimeout: ['120'] }));
-  const id = aws(['ssm', 'send-command', '--instance-ids', outputs.InstanceId!, '--document-name', 'AWS-RunShellScript',
-    '--parameters', `file://${parametersFile}`]).Command.CommandId;
-  // Poll bounded SSM invocations; errors contain only nonsecret diagnostics from the verification script.
-  let invocation: any;
-  for (let attempt = 0; attempt < 60; attempt++) {
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    invocation = aws(['ssm', 'get-command-invocation', '--instance-id', outputs.InstanceId!, '--command-id', id]);
-    if (['Success', 'Failed', 'TimedOut', 'Cancelled'].includes(invocation.Status)) break;
-  }
-  if (invocation.Status !== 'Success') {
-    console.log(invocation.StandardErrorContent);
-    throw new Error('Remote verification failed.');
-  }
-  const evidence = parseJson(invocation.StandardOutputContent);
+  const evidence = await verifyHost(hostRemote(outputs.InstanceId!, work, aws));
   const budget = ecsMemoryBudget(config.instanceType);
-  if (evidence.gatewayMemory.taskLimitMiB !== budget.task || evidence.gatewayMemory.agentReservedMiB !== budget.reserved) {
+  if (evidence.memory.taskMiB !== budget.task || evidence.agentReservedMiB !== budget.reserved - networkDaemonMemory) {
     throw new Error('Live task memory policy differs from IaC.');
   }
   // The verifier returns only hashes and selected metadata, never configuration or injected values.
@@ -98,13 +84,12 @@ async function verify() {
   for (const protocol of ['xray', 'awg'] as const) {
     const secret = await parameter(`server/${protocol}`);
     const bytes = protocol === 'xray' ? Buffer.from(parseJson(secret).files['server.json'], 'base64') : Buffer.from(secret);
-    if (evidence[protocol].architecture !== imageArchitecture
-      || evidence[protocol].configSha256 !== createHash('sha256').update(bytes).digest('hex')
+    if (evidence[protocol].configSha256 !== createHash('sha256').update(bytes).digest('hex')
       || evidence[protocol].publicIp !== outputs[protocol === 'xray' ? 'EndpointIp' : 'AwgEndpointIp']) throw new Error('Runtime identity or egress mismatch.');
     console.log(`${protocol}: preserved configuration, bridge isolation and EIP egress passed (${evidence[protocol].publicIp}).`);
     console.log(`${protocol}: private read-only tmpfs, absent engine secret environment and disabled host swap verified.`);
   }
-  console.log(`Gateway memory: ${budget.task} MiB enforced task limit; ${budget.reserved} MiB ECS reserve; no task OOM events.`);
+  console.log(`Gateway memory: ${budget.task} MiB enforced task limit; ${budget.reserved - networkDaemonMemory} MiB ECS reserve plus ${networkDaemonMemory} MiB daemon; no task OOM events.`);
   await monitoring(outputs);
 }
 
@@ -143,10 +128,13 @@ try {
   if (aws(['sts', 'get-caller-identity']).Account !== config.account) throw new Error('AWS account mismatch.');
   switch (action) {
     case 'import': console.log(await importParameters(parameters, config, credentialParameters(resolve(extra[0]!)))); break;
+    case 'unpark':
     case 'deploy': {
       run(process.execPath, ['--import=tsx', 'scripts/deployment.ts', 'preflight', config.id], undefined, true);
       assertServerParameterMetadata(aws(['ssm', 'describe-parameters', '--parameter-filters',
         JSON.stringify([{ Key: 'Name', Option: 'Equals', Values: serverParameterNames }])]).Parameters);
+      run(process.execPath, ['--import=tsx', 'scripts/platform.ts', config.id, 'check'], undefined, true);
+      assertHostPlatform(config, aws);
       await assertStartReady(operatorGate(config.id));
       const support = discoverGuardDuty(config);
       if (support.service) await guardDutyPreflight(guardDuty);
@@ -169,11 +157,16 @@ try {
     case 'test': {
       const outputs = state();
       const images = deployedClientImages(config, outputs, aws);
+      // A fresh machine/region has neither cached images nor a valid ECR login; do not depend on prior publication.
+      const password = run('aws', ['--profile', 'personal', '--region', config.region, 'ecr', 'get-login-password']);
+      run('docker', ['login', '--username', 'AWS', '--password-stdin', `${config.account}.dkr.ecr.${config.region}.amazonaws.com`], password);
+      // Download outside the short client-command timeout, preserving the actual deployed digest selections.
+      for (const image of Object.values(images)) run('docker', ['pull', '--platform', imagePlatform, image]);
       await profiles();
       await testEcsClients(config, root, work, outputs, images);
       break;
     }
-    default: throw new Error('Select import, deploy, start, stop, status, verify, profiles or test.');
+    default: throw new Error('Select import, deploy, unpark, start, stop, status, verify, profiles or test.');
   }
 } catch (error) {
   // AWS SDK errors may carry request details; print only our fixed message or an error class.

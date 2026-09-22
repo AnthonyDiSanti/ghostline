@@ -36,7 +36,7 @@ OpenVPN offers [client-connect/client-disconnect hooks](https://openvpn.net/comm
 
 ## Recommended control shape
 
-A small control stack persists independently of disposable exit stacks. One selected home region can hold the registry/lease table, heartbeat ingestion and controller; no always-running control host or global database is required for this PoC. Its region/availability dependency must be explicit. Keep lifecycle authorization in the controller, separate from observer/reporting authority.
+A small control stack persists independently of disposable exit stacks. One selected home region can hold the registry/lease table, heartbeat ingestion and controller; no always-running control host or global database is required for this product. Its region/availability dependency must be explicit. Keep lifecycle authorization in the controller, separate from observer/reporting authority.
 
 ```mermaid
 flowchart LR

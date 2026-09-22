@@ -15,7 +15,7 @@ describe('regional gateway configuration', () => {
     const config = getDeployment('stockholm-ecs');
     expect(() => validateDeployment({ ...config, availabilityZone: 'eu-central-1a' })).toThrow('matching region');
     expect(() => validateDeployment({ ...config, instanceType: 't3.small' })).toThrow('t4g');
-    expect(() => validateDeployment({ ...config, rootVolumeGiB: 20 })).toThrow('30 GiB');
+    expect(() => validateDeployment({ ...config, dataVolumeGiB: 20 })).toThrow('30 GiB');
     expect(() => validateDeployment({ ...config, alternateRuntime: true } as any)).toThrow('Unknown deployment');
   });
   it('scopes output paths and stack selection to one explicit target', () => {

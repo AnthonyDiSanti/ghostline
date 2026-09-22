@@ -11,6 +11,7 @@
     "watch": "tsc --noEmit --watch",
     "test:vitest": "vitest run",
     "test:ecs-images": "node --import=tsx scripts/ecs-image-test.ts",
+    "trial:bottlerocket": "node --import=tsx scripts/bottlerocket-trial.ts",
     "images:build": "node --import=tsx scripts/images-build.ts",
     "test:cdk": "node --import=tsx scripts/synth-test.ts",
     "test:assets": "python3 -B scripts/check-assets.py",
@@ -26,7 +27,8 @@
     "park": "node --import=tsx scripts/deployment.ts park",
     "destroy": "node --import=tsx scripts/destroy.ts",
     "ecs": "node --import=tsx scripts/ecs.ts",
-    "release": "node --import=tsx scripts/release.ts"
+    "release": "node --import=tsx scripts/release.ts",
+    "platform": "node --import=tsx scripts/platform.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "3.1129.0",
@@ -40,15 +42,16 @@
     "@ghostline/aws-notifications": "file:packages/notifications",
     "aws-cdk-lib": "2.268.0",
     "constructs": "10.8.1",
-    "qrcode": "1.5.4"
+    "qrcode": "1.5.4",
+    "yaml": "2.9.1"
   },
   "devDependencies": {
     "@types/node": "24.13.3",
     "@types/qrcode": "1.5.6",
     "aws-cdk": "2.1140.0",
+    "esbuild": "0.28.2",
     "tsx": "4.23.13",
     "typescript": "5.9.3",
-    "vitest": "5.0.0",
-    "esbuild": "0.28.2"
+    "vitest": "5.0.0"
   }
 }

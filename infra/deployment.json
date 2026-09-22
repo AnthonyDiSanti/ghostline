@@ -1,7 +1,7 @@
 {
   "account": "757999402784",
   "instanceType": "t4g.small",
-  "rootVolumeGiB": 30,
+  "dataVolumeGiB": 30,
   "globalTags": {
     "Project": "ghostline",
     "Environment": "prod"
@@ -10,14 +10,14 @@
     "stockholm-ecs": {
       "region": "eu-north-1",
       "availabilityZone": "eu-north-1a",
-      "amiId": "ami-06a77ee974da159b5",
+      "amiId": "ami-031cd08d96ffcdb37",
       "stackName": "GhostlineEcsTrial",
       "resourceName": "ghostline-ecs-stockholm"
     },
     "cape-town": {
       "region": "af-south-1",
       "availabilityZone": "af-south-1a",
-      "amiId": "ami-0898c17379c2509bd",
+      "amiId": "ami-0057bb1f922103530",
       "stackName": "GhostlineCapeTown",
       "resourceName": "ghostline-cape-town"
     }

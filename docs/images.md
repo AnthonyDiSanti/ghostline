@@ -1,6 +1,6 @@
 # Gateway images
 
-The gateway uses three Linux ARM64 artifacts. `npm run images:build` resolves official stable engine versions, builds the candidate images and runs local compatibility checks. Only success atomically updates [the recorded selection](../infra/image-inputs.json). `ecs-release.ts` combines those inputs with the exact recipes/fixtures into content-derived `sha-…` tags. Images contain no credentials.
+The application gateway uses three Linux ARM64 artifacts. A separate qualified host platform image supplies Bottlerocket bootstrap, the restricted network daemon and bounded diagnostics; its independent update/retention contract is in [platform workflow](platform.md). `npm run images:build` resolves official stable engine versions, builds the candidate images and runs local compatibility checks. Only success atomically updates [the recorded selection](../infra/image-inputs.json). `ecs-release.ts` combines those inputs with the exact recipes/fixtures into content-derived `sha-…` tags. Images contain no credentials.
 
 | Artifact | Packaging | Configuration |
 | --- | --- | --- |

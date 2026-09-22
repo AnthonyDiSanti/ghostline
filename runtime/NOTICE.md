@@ -22,6 +22,13 @@ follow those terms. See upstream
 - Shared initializer: Alpine 3.24.1, jq 1.8.2-r0 and Ghostline's renderers.
   It writes protocol-private RAM files; engines mount their own files read-only.
 
+- Host platform: `ecs/bottlerocket/host.Dockerfile` packages Ghostline bootstrap,
+  networking and diagnostic fixtures on Alpine 3.24.1, with explicitly versioned
+  Python, network utilities and Docker CLI. It is separate from the three
+  application artifacts; [platform inputs](../infra/platform-inputs.json) identify
+  the qualified bytes. AWS's official Bottlerocket AMI supplies the host OS/ECS
+  agent and default control container under their upstream terms.
+
 No image contains server credentials or desktop-client code. Regional ECR
 publication uses immutable content identities. [Image policy](../docs/images.md)
 describes stable resolution, verification and evidence limits; regional launch records own deployed versions.

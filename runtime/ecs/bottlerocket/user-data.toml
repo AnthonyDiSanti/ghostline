@@ -1,0 +1,28 @@
+[settings.kernel.modules.br_netfilter]
+allowed = true
+autoload = true
+
+[settings.kernel.sysctl]
+"net.bridge.bridge-nf-call-iptables" = "1"
+"net.bridge.bridge-nf-call-ip6tables" = "1"
+
+[settings.ecs]
+cluster = "@@CLUSTER@@"
+reserved-memory = @@RESERVED_MEMORY@@
+allow-privileged-containers = false
+logging-drivers = ["json-file"]
+
+[settings.host-containers.admin]
+enabled = false
+
+[settings.bootstrap-containers.ghostline]
+source = "@@IMAGE@@"
+mode = "always"
+essential = @@ESSENTIAL@@
+user-data = "@@BOOTSTRAP_CONFIG@@"
+
+[settings.host-containers.ghostline-diagnostics]
+source = "@@IMAGE@@"
+enabled = false
+superpowered = true
+user-data = "@@DIAGNOSTIC_CONFIG@@"

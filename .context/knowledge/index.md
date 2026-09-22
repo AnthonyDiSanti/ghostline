@@ -2,6 +2,8 @@
 
 Consult before infrastructure/vendor work. Current behavior belongs in `docs/`; git history owns superseded implementations.
 
+- [Production host platform](../../docs/platform.md) — qualified Bottlerocket OS/platform selection, durable regional image publication, bootstrap/daemon boundaries and diagnostic lockdown.
+- [Host OS evaluation](host-os-evaluation.md) — Bottlerocket versus AL2023/other hosts, current GuardDuty support, custom network/RAM security tradeoffs and validated isolated trial; blue-green follows.
 - [ECS gateway](../../docs/ecs.md) — shared task/initializer, per-engine restarts, private RAM, common memory budget, bridge identity and lifecycle constraints.
 - [GuardDuty](../../docs/guardduty.md) — live service/telemetry discovery, accepted capability gaps, enable-only defaults, tagged enrollment and bounded coverage checks.
 - [On-demand lifecycle research](on-demand-lifecycle.md) — protocol presence limits, exact-version Xray/AWG signals, renewable leases, controller strategies and reporting/IAM tradeoffs; proposal only.
@@ -9,6 +11,7 @@ Consult before infrastructure/vendor work. Current behavior belongs in `docs/`; 
 - [Image provenance and policy](../../docs/images.md) — stable build resolution, official Xray mirror, native AWG source build, exact-artifact publication tests and provenance limits.
 - [ECR placement, cost and retention](ecr-placement.md) — live inventory, completed cleanup, full regional price CSV, proposed reusable publisher pair, retention and regional-outage/cache limits.
 - [Event-driven releases](event-driven-releases.md) — AWS source findings and selected ownership/rollback/retention boundaries; implementation contract in [release workflow](../../docs/releases.md).
+- [ECR replication cluster plan](../scratch/2026-09-22-ecr-replication-cluster/plan.md) — next after Bottlerocket: any enrolled region can publish, full-mesh replication, explicit historical seeding and primary/DR migration; not implemented.
 - [Secret boundary](../../docs/secrets.md) — six regional parameters, portable import directory, exact execution-role scope, read-only mounts and residual environment metadata.
 - [Development fixtures](../../docs/development.md#typescript-and-npm) — native scripts, explicit rendering, recursive syntax/lint checks and real-file tests.
 - [Stockholm evidence](../../docs/launch-stockholm-ecs.md), [Cape Town evidence](../../docs/launch-cape-town.md) — actual resource identities and tested behavior; read before cloud changes.

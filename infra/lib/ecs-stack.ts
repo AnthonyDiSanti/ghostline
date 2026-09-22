@@ -5,17 +5,36 @@ import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { ecsMemoryBudget } from './ecs-memory.js';
-import { ecsUserData } from './ecs-user-data.js';
+import { addNetworkDaemon, gatewayPlatform } from './gateway-platform.js';
+import { platformImage, platformRepository } from './platform-image.js';
 import type { DeploymentConfig } from './config.js';
 import type { GuardDutySupport } from './guardduty-discovery.js';
 import { artifacts, production, repository } from './releases/model.js';
 
+export interface GatewayPlatform {
+  image: string;
+  imageRepository: string;
+  userData: string;
+  configDirectory: string;
+  disks: ec2.CfnInstance.BlockDeviceMappingProperty[];
+  pullRepositoryArns: string[];
+}
+
+export interface GatewayInputs {
+  platform?: GatewayPlatform;
+  parameterPrefix?: string;
+  images?: Record<(typeof artifacts)[number], string>;
+}
+
 export class EcsEndpointStack extends Stack {
   constructor(scope: Construct, id: string, props: StackProps & {
     deployment: DeploymentConfig; lifecycle: 'active' | 'parked'; guardDuty: GuardDutySupport;
+    gateway?: GatewayInputs;
   }) {
     super(scope, id, props);
     const config = props.deployment;
+    // Isolated host experiments reuse the application graph without touching regional production inputs.
+    const parameterPrefix = props.gateway?.parameterPrefix ?? '/ghostline/prod';
     // Durable regional repositories are activated separately and never owned by the disposable endpoint.
     const repositories = Object.fromEntries(artifacts.map(name => [name, ecr.Repository.fromRepositoryName(this, `${name}Repository`, repository(name))]));
     const addresses = Object.fromEntries((['xray', 'awg'] as const).map(protocol => {
@@ -28,6 +47,10 @@ export class EcsEndpointStack extends Stack {
     })) as Record<'xray' | 'awg', ec2.CfnEIP>;
     // Park preserves tracked addresses and the separate image stack without retaining the host/disk.
     if (props.lifecycle === 'parked') return;
+    const image = props.gateway?.platform?.image ?? platformImage(config);
+    const imageRepository = props.gateway?.platform?.imageRepository ?? platformRepository;
+    const platform = props.gateway?.platform ?? gatewayPlatform(config, image, imageRepository, props.guardDuty.runtime);
+    const configDirectory = platform.configDirectory;
     const vpc = new ec2.CfnVPC(this, 'Vpc', { cidrBlock: '10.79.0.0/24', enableDnsHostnames: true, enableDnsSupport: true });
     const gateway = new ec2.CfnInternetGateway(this, 'InternetGateway');
     const attachment = new ec2.CfnVPCGatewayAttachment(this, 'InternetAttachment', { vpcId: vpc.ref, internetGatewayId: gateway.ref });
@@ -86,15 +109,18 @@ export class EcsEndpointStack extends Stack {
         resources: [`arn:aws:ssm:${config.region}::document/AmazonGuardDuty-RuntimeMonitoringSsmPlugin`] }));
     }
     for (const repository of Object.values(repositories)) repository.grantPull(hostRole);
+    if (platform.pullRepositoryArns.length) hostRole.addToPolicy(new iam.PolicyStatement({
+      actions: ['ecr:BatchCheckLayerAvailability', 'ecr:GetDownloadUrlForLayer', 'ecr:BatchGetImage'],
+      resources: platform.pullRepositoryArns,
+    }));
     const profile = new iam.CfnInstanceProfile(this, 'InstanceProfile', { roles: [hostRole.roleName] });
     const instance = new ec2.CfnInstance(this, 'Instance', {
       imageId: config.amiId, instanceType: config.instanceType, iamInstanceProfile: profile.ref,
       networkInterfaces: [{ deviceIndex: '0', networkInterfaceId: nic.ref }],
       metadataOptions: { httpTokens: 'required', httpPutResponseHopLimit: 1 },
-      blockDeviceMappings: [{ deviceName: '/dev/xvda', ebs: { volumeSize: config.rootVolumeGiB,
-        volumeType: 'gp3', encrypted: true, deleteOnTermination: true } }],
+      blockDeviceMappings: platform.disks,
       propagateTagsToVolumeOnCreation: true, creditSpecification: { cpuCredits: 'unlimited' },
-      userData: Fn.base64(ecsUserData(config, config.resourceName)),
+      userData: Fn.base64(platform.userData),
     });
     // The host must terminate (and deregister) before CloudFormation deletes its ECS cluster.
     instance.addResourceDependency(cluster);
@@ -117,9 +143,9 @@ export class EcsEndpointStack extends Stack {
     const execution = new iam.Role(this, 'GatewayExecutionRole', { assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com') });
     for (const repository of Object.values(repositories)) repository.grantPull(execution);
     execution.addToPolicy(new iam.PolicyStatement({ actions: ['ssm:GetParameters'],
-      resources: ['xray', 'awg'].map(protocol => `arn:aws:ssm:${config.region}:${config.account}:parameter/ghostline/prod/server/${protocol}`) }));
+      resources: ['xray', 'awg'].map(protocol => `arn:aws:ssm:${config.region}:${config.account}:parameter${parameterPrefix}/server/${protocol}`) }));
     const engines = (['xray', 'awg'] as const).map(protocol => ({ name: protocol, essential: true,
-      image: `${repositories[protocol]!.repositoryUri}:${production}`,
+      image: props.gateway?.images?.[protocol] ?? `${repositories[protocol]!.repositoryUri}:${production}`,
       versionConsistency: 'enabled', cpu: 256, readonlyRootFilesystem: true,
       restartPolicy: { enabled: true, restartAttemptPeriod: 60 },
       dnsServers: ['1.1.1.1', '1.0.0.1'],
@@ -143,16 +169,16 @@ export class EcsEndpointStack extends Stack {
       family: `${config.resourceName}-gateway`, networkMode: 'bridge', requiresCompatibilities: ['EC2'],
       memory: String(memory.task), executionRoleArn: execution.roleArn,
       runtimePlatform: { cpuArchitecture: 'ARM64', operatingSystemFamily: 'LINUX' },
-      volumes: [{ name: 'gateway-config', host: { sourcePath: '/run/ghostline-config' } },
-        ...(['xray', 'awg'] as const).map(protocol => ({ name: `${protocol}-config`, host: { sourcePath: `/run/ghostline-config/${protocol}` } }))],
+      volumes: [{ name: 'gateway-config', host: { sourcePath: configDirectory } },
+        ...(['xray', 'awg'] as const).map(protocol => ({ name: `${protocol}-config`, host: { sourcePath: `${configDirectory}/${protocol}` } }))],
       containerDefinitions: [...engines, {
         // Only the short-lived writer receives credentials. Both engines wait for the entire configuration set.
         name: 'gateway-config', essential: false, startTimeout: 60,
-        image: `${repositories['gateway-config']!.repositoryUri}:${production}`,
+        image: props.gateway?.images?.['gateway-config'] ?? `${repositories['gateway-config']!.repositoryUri}:${production}`,
         versionConsistency: 'enabled', memory: 64, cpu: 16, user: '65532:65532', readonlyRootFilesystem: true, disableNetworking: true,
         dockerSecurityOptions: ['no-new-privileges'],
         secrets: ['xray', 'awg'].map(protocol => ({ name: `GHOSTLINE_${protocol.toUpperCase()}_BUNDLE`,
-          valueFrom: `arn:aws:ssm:${config.region}:${config.account}:parameter/ghostline/prod/server/${protocol}` })),
+          valueFrom: `arn:aws:ssm:${config.region}:${config.account}:parameter${parameterPrefix}/server/${protocol}` })),
         mountPoints: [{ sourceVolume: 'gateway-config', containerPath: '/config', readOnly: false }],
         linuxParameters: { initProcessEnabled: true, capabilities: { drop: ['ALL'] } },
         logConfiguration: { logDriver: 'json-file', options: { 'max-size': '1m', 'max-file': '1' } },
@@ -166,6 +192,9 @@ export class EcsEndpointStack extends Stack {
       deploymentConfiguration: { minimumHealthyPercent: 0, maximumPercent: 100, deploymentCircuitBreaker: { enable: true, rollback: true } }, propagateTags: 'TASK_DEFINITION' });
     associations.forEach(association => service.addResourceDependency(association));
     service.node.addDependency(execution.node.findChild('DefaultPolicy'));
+    const daemon = addNetworkDaemon(this, config, image, imageRepository);
+    // Keep agent internet access until the last service is deleted; an IP-less host cannot acknowledge daemon stop.
+    associations.forEach(association => daemon.addResourceDependency(association));
     new CfnOutput(this, 'GatewayServiceName', { value: service.attrName });
     new CfnOutput(this, 'InstanceId', { value: instance.ref });
     new CfnOutput(this, 'ClusterName', { value: config.resourceName });

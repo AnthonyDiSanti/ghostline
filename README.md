@@ -1,8 +1,8 @@
 # Ghostline
 
-A personal connectivity PoC for browsing and video from Dubai under current internet filtering. Stockholm is the primary exit and Cape Town is the backup. Clients manually choose Xray / VLESS / REALITY or AmneziaWG.
+A personal connectivity product for browsing and video from Dubai under current internet filtering. Stockholm is the primary exit and Cape Town is the backup. Clients manually choose Xray / VLESS / REALITY or AmneziaWG.
 
-The repo has one regional deployment model: **one AL2023 Graviton EC2 host, one ECS gateway task, three images and two EIPs**. A shared initializer prepares protocol-private RAM configuration; separate engines mount it read-only, share a formula-derived memory budget and restart independently when eligible. ECR retains images, regional Parameter Store retains credentials, and SSM supplies SSH-free administration.
+The repo has one regional deployment model: **one Bottlerocket Graviton EC2 host, one ECS gateway task with three application images, a restricted network daemon and two EIPs**. A separate platform image supplies finite host bootstrap and the daemon. A shared initializer prepares protocol-private RAM configuration; separate engines mount it read-only, share a formula-derived memory budget and restart independently when eligible. ECR retains images, regional Parameter Store retains credentials, and SSM supplies SSH-free administration.
 
 [Architecture](docs/architecture.md) and [ECS runtime](docs/ecs.md) define the model. [Stockholm](docs/launch-stockholm-ecs.md) and [Cape Town](docs/launch-cape-town.md) record live state and validation. Mac REALITY uses OneXraySE; AWG remains in Amnezia. Repeated Mac sleep/wake validation remains open.
 

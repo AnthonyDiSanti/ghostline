@@ -41,7 +41,7 @@ def discover(root):
 
 
 def check_syntax(root, assets):
-    # Use the declared shell and AL2023's Python 3.9 grammar, without executing scripts or writing bytecode.
+    # Use the declared shell and the minimum Python 3.9 grammar supported by our portable fixtures, without executing scripts or writing bytecode.
     for name in assets['shell']:
         source = (root / name).read_text()
         shell = 'bash' if 'bash' in source.splitlines()[0] else 'sh'

@@ -17,7 +17,7 @@ Use Node 24 and the strict TypeScript package under `infra/`, including its reus
 | `infra/lib/parameters.ts`, `infra/lib/xray-config.ts` | Portable credential validation and regional SecureString import |
 | `infra/lib/ecs-power.ts`, `infra/lib/lifecycle.ts` | Scoped start/stop, deletion and retained-address release |
 | `infra/lib/guardduty-discovery.ts`, `infra/lib/guardduty.ts` | Live regional availability, enable-only reconciliation and bounded coverage verification |
-| `infra/lib/ecs-user-data.ts`, `runtime/ecs/` | Host fixtures, shared initializer, engine startup and bridge policy |
+| `infra/lib/gateway-platform.ts`, `runtime/ecs/` | Host fixtures, shared initializer, engine startup and bridge policy |
 | `infra/lib/ecs-client-test.ts`, `infra/lib/ecs-verification.ts` | Real client probes and redacted SSM verification |
 | `infra/lib/fixtures.ts`, `infra/test/fixtures/` | Explicit fixture rendering and standalone test programs |
 
@@ -25,9 +25,9 @@ Use Node 24 and the strict TypeScript package under `infra/`, including its reus
 
 From `infra/`, run `npm ci` then `npm test`. Typecheck without emitting files; keep cloud operations outside tests. Use explicit subprocess argument arrays. Never put secret values in command-line arguments, templates, user data, image build contexts or logs.
 
-Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra/test/fixtures/`, including nested programs. Systemd units live under `runtime/ecs/systemd/`. `renderFixture()` replaces exact `@@NAME@@` slots once and rejects missing/unused inputs; it does not perform shell escaping or recursive expansion. Validate identifiers and encode transported files before rendering.
+Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra/test/fixtures/`, including nested programs. Bottlerocket TOML settings live beside the platform fixtures. `renderFixture()` replaces exact `@@NAME@@` slots once and rejects missing/unused inputs; it does not perform shell escaping or recursive expansion. Validate identifiers and encode transported files before rendering.
 
-`ecsUserData()` assembles nonsecret host fixtures. Changes to those fixtures need a retained-IP cold rebuild because cloud-init does not replay them on ordinary reboot. Verification separately transports `verify.py` and `network-probe.py` through `verify.sh`, cleaning its temporary code directory on exit.
+`gatewayPlatform()` renders nonsecret Bottlerocket settings. The separately published platform image carries native bootstrap, daemon and verification fixtures. OS/platform changes require a retained-IP cold rebuild; normal application releases remain independent. [Platform workflow](platform.md).
 
 ## Commands
 
@@ -41,14 +41,17 @@ Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra
 | `npm test` | Full local gate: typecheck, asset checks, synth and Vitest |
 | `npm run images:build` | Resolve official stable engines, build/test locally, then record the successful selection |
 | `npm run test:ecs-images` | Build/test the recorded three ARM64 artifacts and real local encrypted tunnels with synthetic credentials |
+| `npm run platform <target> build` | Build/publish a platform candidate without selecting it or changing hosts |
+| `npm run platform <target> seed <source-region> <source-repository>` | Copy the selected qualified platform artifact exactly into the regional durable repository |
+| `npm run platform <target> check` | Require the selected local platform image before deployment |
 | `npm run deployments` | List maintained targets; allocate nothing |
-| `npm run preflight <target>` | Verify AWS account, enabled region, AWS AL2023 ARM64 AMI, AZ, instance capacity/offering |
+| `npm run preflight <target>` | Verify AWS account, enabled region, selected official Bottlerocket ECS-3 ARM64 AMI, AZ, instance capacity/offering |
 | `npm run synth <target>` / `npm run diff <target>` | Discover live GuardDuty availability and synthesize / compare the selected endpoint |
 | `npm run ecs <target> import <directory>` | Import six validated protected credential files; refuse conflicting values |
 | `npm run release publish [primary|dr]` | Publish centrally qualified bytes once; native replication and regional gates handle rollout |
 | `npm run release status [target]` / `reconcile <target>` / `retry <target>` | Inspect, reconcile or explicitly retry a release |
 | `npm run release activate <target>` / `retire <target>` | Manage regional release subscription and explicit seeding |
-| `npm run ecs <target> deploy` | Check parameter metadata/images/live support, diff/deploy gateway, enable available protection and verify its reported coverage |
+| `npm run ecs <target> deploy` / `unpark` | Check parameter metadata/images/live support, diff/deploy gateway, enable available protection and verify its reported coverage |
 | `npm run ecs <target> start` / `stop` | Start/stop the selected host and service in lifecycle order |
 | `npm run ecs <target> status` | Read selected stack outputs and EC2 state |
 | `npm run ecs <target> verify` | Check live configuration hashes, security, memory, architecture, EIP egress and GuardDuty coverage |
@@ -63,13 +66,13 @@ Use `images:build` for a new official stable selection with `gh` authenticated t
 
 ## Asset verification
 
-`infra/scripts/check-assets.py` recursively discovers maintained shell, Python and Dockerfile files under `runtime/`, `infra/scripts/` and `infra/test/fixtures/`, including new untracked files. It rejects missing roots/empty categories and skips symlinks. Shell parsing follows the shebang; Python parsing uses AL2023's Python 3.9 grammar without execution or bytecode output.
+`infra/scripts/check-assets.py` recursively discovers maintained shell, Python and Dockerfile files under `runtime/`, `infra/scripts/` and `infra/test/fixtures/`, including new untracked files. It rejects missing roots/empty categories and skips symlinks. Shell parsing follows the shebang; Python parsing uses the portable Python 3.9 grammar without execution or bytecode output.
 
 Use native Bash/Python and `brew install shellcheck hadolint`, or Docker for missing linters. Docker fallbacks are version/digest-pinned ShellCheck 0.11.0 and Hadolint 2.14.0; `npm run test:assets -- --docker` forces them. Only disposable copies of exact source inputs are mounted read-only, with networking disabled at runtime. The repository and recovery files are never mounted into linters.
 
 All diagnostic severities fail. ShellCheck ignores home configuration; Hadolint uses `infra/hadolint.yaml`; inherited lint exclusions are removed. Fix findings or document a narrow exception beside the relevant instruction. Use real fixtures with synthetic inputs and replace only external command boundaries in tests. Do not recreate EC2/systemd in a mock framework.
 
-Offline synthesis covers **two named regional configurations, each with its disposable endpoint stack; separate assertions synthesize regional release infrastructure**. These offline synths use explicit synthetic GuardDuty support; named CLI synth/diff/deploy commands discover support live. Regional GuardDuty settings are outside the application CloudFormation lifecycle. Stack count is independent of the three container images. Independent synthetic-region tests verify reuse without making abandoned regions deployable. Static checks do not establish connectivity. Disconnect a native VPN before regional tunnel probes so nesting does not distort direct-path results; the local image suite keeps both protocol peers inside Docker.
+Offline synthesis covers **two named regional configurations, each with its disposable endpoint stack; separate assertions synthesize regional release infrastructure**. These offline synths use explicit synthetic GuardDuty support; named CLI synth/diff/deploy commands discover support live. Regional GuardDuty settings are outside the application CloudFormation lifecycle. Stack count is independent of the three application images and separate platform image. Independent synthetic-region tests verify reuse without making abandoned regions deployable. Static checks do not establish connectivity. Disconnect a native VPN before regional tunnel probes so nesting does not distort direct-path results; the local image suite keeps both protocol peers inside Docker.
 
 ## On-demand regional lifecycle
 
@@ -77,4 +80,4 @@ Read [lifecycle](deployment-lifecycle.md) and the selected launch record before 
 
 The destroy helper records exact CloudFormation ownership in ignored `.local/deployments/<target>/pending-release.json`, waits for deletion, rechecks tags/attachment and releases only captured allocations. Retry resumes that exact stack ARN; completion renames the record to `last-release.json`. Do not bypass ownership refusals or release unrelated addresses.
 
-For a host AMI or bootstrap change, publish required images, park, deploy, then run `verify` and `test`. The existing ENI cannot be attached to a replacement host while the first host still owns it. This cold rebuild has an outage; an unchanged-image task deployment does not require rebuilding the host.
+For a host AMI or bootstrap change, publish required images, park, deploy, then run `verify` and `test`. The deployment preflight refuses changed OS/bootstrap/size settings on an active host; explicitly park first. The existing ENI cannot be attached to a replacement host while the first host still owns it. This cold rebuild has an outage; an unchanged-image task deployment does not require rebuilding the host.

@@ -37,5 +37,60 @@ it('deregisters a stopped empty host before cluster deletion but rejects unrelat
   expect(aws.mock.calls.at(-1)![0]).toContain('deregister-container-instance');
   instance.ec2InstanceId = 'i-other'; aws.mockClear();
   expect(() => prepareEcsRemoval(outputs, aws)).toThrow('Unexpected host');
-  expect(aws).toHaveBeenCalledTimes(2);
+  expect(aws).toHaveBeenCalledTimes(3);
+});
+
+it('stops replicas before draining the daemon and reactivates it before resuming the gateway', () => {
+  let instanceState = 'running', hostStatus = 'ACTIVE';
+  const calls: string[][] = [];
+  const aws = (args: string[]): any => {
+    calls.push(args);
+    if (args[1] === 'describe-instances') return { Reservations: [{ Instances: [{ State: { Name: instanceState },
+      Tags: [{ Key: 'aws:cloudformation:stack-name', Value: 'gateway' }] }] }] };
+    if (args[1] === 'list-container-instances') return { containerInstanceArns: args.at(-1) === hostStatus ? ['arn:host'] : [] };
+    if (args[1] === 'describe-container-instances') return { containerInstances: [{ ec2InstanceId: outputs.InstanceId,
+      containerInstanceArn: 'arn:host', status: hostStatus, agentConnected: true }] };
+    if (args[1] === 'update-container-instances-state') hostStatus = args.at(-1)!;
+    if (args[1] === 'list-tasks') return { taskArns: [args.at(-1) === 'network' ? 'task-daemon' : 'task-gateway'] };
+    if (args[1] === 'describe-tasks') return { tasks: [{ containerInstanceArn: 'arn:host', lastStatus: 'RUNNING', healthStatus: 'HEALTHY' }] };
+    if (args[1] === 'describe-services') return { services: [{ status: 'ACTIVE', desiredCount: 0 }] };
+    return {};
+  };
+  const withDaemon = { ...outputs, NetworkDaemonServiceName: 'network' };
+  setEcsPower('stop', 'gateway', withDaemon, aws);
+  let joined = calls.map(args => args.join(' '));
+  const position = (part: string) => joined.findIndex(call => call.includes(part));
+  expect(position('--tasks task-gateway')).toBeLessThan(position('--status DRAINING'));
+  expect(position('--tasks task-daemon')).toBeLessThan(position('stop-instances'));
+  expect(calls.filter(args => args[1] === 'update-service').every(args => args.includes('gateway'))).toBe(true);
+  calls.length = 0; instanceState = 'stopped';
+  setEcsPower('start', 'gateway', withDaemon, aws);
+  joined = calls.map(args => args.join(' '));
+  expect(position('update-container-instances-state')).toBeLessThan(position('describe-tasks'));
+  expect(position('describe-tasks')).toBeLessThan(position('update-service'));
+  expect(hostStatus).toBe('ACTIVE');
+});
+
+it('removes an empty drained registration without force but refuses one with live tasks', () => {
+  // A stopped Bottlerocket host can still appear agentConnected briefly; DRAINING remains authoritative.
+  const instance = { ec2InstanceId: outputs.InstanceId, containerInstanceArn: 'arn:host', status: 'DRAINING',
+    agentConnected: true, runningTasksCount: 0, pendingTasksCount: 0 };
+  const aws = vi.fn((args: string[]) => args[1] === 'list-container-instances'
+    ? { containerInstanceArns: args.at(-1) === 'DRAINING' ? ['arn:host'] : [] }
+    : args[1] === 'describe-container-instances' ? { containerInstances: [instance] } : {});
+  const withDaemon = { ...outputs, NetworkDaemonServiceName: 'network' };
+  prepareEcsRemoval(withDaemon, aws);
+  expect(aws.mock.calls.at(-1)![0]).toEqual(['ecs', 'deregister-container-instance', '--cluster', 'gateway', '--container-instance', 'arn:host']);
+  instance.runningTasksCount = 1; aws.mockClear();
+  expect(() => prepareEcsRemoval(withDaemon, aws)).toThrow('still has tasks');
+  expect(aws.mock.calls.some(([args]) => args[1] === 'deregister-container-instance')).toBe(false);
+});
+
+it('leaves an already-running service deployment unchanged on repeated start', () => {
+  // Idempotent power requests must not interrupt working client sessions with a forced rollout.
+  const base = mock('running');
+  const aws = vi.fn((args: string[]) => args[1] === 'describe-services'
+    ? { services: [{ status: 'ACTIVE', desiredCount: 1 }] } : base(args));
+  setEcsPower('start', 'gateway', outputs, aws);
+  expect(aws.mock.calls.some(([args]) => ['update-service', 'start-instances'].includes(args[1]!))).toBe(false);
 });

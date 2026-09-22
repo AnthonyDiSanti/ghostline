@@ -24,7 +24,7 @@ class AssetChecks(unittest.TestCase):
             (self.root / name).mkdir(parents=True)
         self.shell = 'infra/test/fixtures/nested path/probe.sh'
         self.write(self.shell, (REPO / 'infra/test/fixtures/render.sh').read_text())
-        self.write('runtime/example.py', (REPO / 'runtime/ecs/verify.py').read_text())
+        self.write('runtime/example.py', (REPO / 'runtime/ecs/bottlerocket/diagnostics.py').read_text())
         self.write('runtime/ARM.Dockerfile', (REPO / 'runtime/ecs/awg.Dockerfile').read_text())
         self.write('infra/hadolint.yaml', (REPO / 'infra/hadolint.yaml').read_text())
 

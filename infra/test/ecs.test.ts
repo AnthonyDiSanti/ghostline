@@ -3,7 +3,8 @@ import { Template } from 'aws-cdk-lib/assertions';
 import { CloudAssembly } from 'aws-cdk-lib/cx-api';
 import { buildApp } from '../lib/app.js';
 import { getDeployment } from '../lib/config.js';
-import { ecsUserData } from '../lib/ecs-user-data.js';
+import { gatewayPlatform } from '../lib/gateway-platform.js';
+import { platformImage, platformRepository } from '../lib/platform-image.js';
 import { imageArtifacts, officialXrayImage, releaseFiles, releaseTag } from '../lib/ecs-release.js';
 
 afterAll(() => CloudAssembly.cleanupTemporaryDirectories());
@@ -12,7 +13,7 @@ const { app, stack } = buildApp(config, { service: true, runtime: true });
 const template = Template.fromStack(stack);
 const resources = template.toJSON().Resources as Record<string, any>;
 
-it('uses one SSH-free AL2023 host with retained dual addresses and no paid gateways', () => {
+it('uses one SSH-free Bottlerocket host with retained dual addresses and no paid gateways', () => {
   template.resourceCountIs('AWS::EC2::Instance', 1);
   template.resourceCountIs('AWS::EC2::NetworkInterface', 1);
   template.resourceCountIs('AWS::EC2::EIP', 2);
@@ -23,7 +24,7 @@ it('uses one SSH-free AL2023 host with retained dual addresses and no paid gatew
   expect(resources.Instance.DependsOn).toContain(Object.keys(resources).find(key => key.startsWith('HostRoleDefaultPolicy')));
   expect(host.ImageId).toBe(config.amiId);
   expect(host.MetadataOptions).toMatchObject({ HttpTokens: 'required', HttpPutResponseHopLimit: 1 });
-  expect(host.BlockDeviceMappings[0]).toMatchObject({ DeviceName: '/dev/xvda', Ebs: { Encrypted: true, VolumeSize: 30, DeleteOnTermination: true } });
+  expect(host.BlockDeviceMappings[0]).toMatchObject({ DeviceName: '/dev/xvda', Ebs: { Encrypted: true, VolumeSize: 2, DeleteOnTermination: true } });
   expect(Object.values(resources).find(r => r.Type === 'AWS::EC2::SecurityGroup').Properties.SecurityGroupIngress.map((r: any) => r.FromPort)).toEqual([443, 443]);
 });
 
@@ -63,8 +64,8 @@ it('owns GuardDuty transport for the full host lifetime with private, account-sc
 });
 
 it('runs one bridge task with isolated engines, one secret recipient and shared memory', () => {
-  template.resourceCountIs('AWS::ECS::Service', 1);
-  template.resourceCountIs('AWS::ECS::TaskDefinition', 1);
+  template.resourceCountIs('AWS::ECS::Service', 2);
+  template.resourceCountIs('AWS::ECS::TaskDefinition', 2);
   const task = resources.GatewayTask.Properties;
   expect(task).toMatchObject({ NetworkMode: 'bridge', Memory: '1126' });
   expect(task.TaskRoleArn).toBeUndefined();
@@ -93,8 +94,8 @@ it('runs one bridge task with isolated engines, one secret recipient and shared 
     if (protocol === 'awg') expect(engine.LinuxParameters.Devices[0].HostPath).toBe('/dev/net/tun');
     else expect(engine.Command).toEqual(['run', '-config', '/usr/local/etc/xray/server.json']);
   }
-  expect(task.Volumes).toEqual([{ Name: 'gateway-config', Host: { SourcePath: '/run/ghostline-config' } },
-    ...['xray', 'awg'].map(protocol => ({ Name: `${protocol}-config`, Host: { SourcePath: `/run/ghostline-config/${protocol}` } }))]);
+  expect(task.Volumes).toEqual([{ Name: 'gateway-config', Host: { SourcePath: '/mnt/ghostline/config' } },
+    ...['xray', 'awg'].map(protocol => ({ Name: `${protocol}-config`, Host: { SourcePath: `/mnt/ghostline/config/${protocol}` } }))]);
   expect(resources.GatewayService.Properties).toMatchObject({ DesiredCount: 1,
     DeploymentConfiguration: { MinimumHealthyPercent: 0, MaximumPercent: 100, DeploymentCircuitBreaker: { Enable: true, Rollback: true } } });
   expect(resources.GatewayService.DependsOn).toContain(Object.keys(resources).find(key => key.startsWith('GatewayExecutionRoleDefaultPolicy')));
@@ -102,17 +103,17 @@ it('runs one bridge task with isolated engines, one secret recipient and shared 
   const reads = statements.filter(s => [].concat(s.Action).some((a: string) => a.startsWith('ssm:GetParameter')));
   expect(reads).toHaveLength(1);
   expect(reads[0].Resource).toEqual(['awg', 'xray'].map(protocol => `arn:aws:ssm:eu-north-1:000000000000:parameter/ghostline/prod/server/${protocol}`));
-  const bootstrap = ecsUserData(config, 'cluster');
-  expect(bootstrap).toContain('ECS_RESERVED_MEMORY=666');
-  expect(bootstrap).toContain('ECS_ENABLE_TASK_CPU_MEM_LIMIT=true');
-  expect(bootstrap).toContain('Before=docker.service ecs.service');
+  const bootstrap = gatewayPlatform(config, platformImage(config), platformRepository, true).userData;
+  expect(bootstrap).toContain('reserved-memory = 602');
+  expect(bootstrap).toContain('essential = true');
+  expect(resources.GatewayService.DependsOn).toContain('NetworkService');
   expect(releaseFiles('xray')).toEqual({});
   expect(officialXrayImage).toMatch(/^ghcr.io\/xtls\/xray-core@sha256:[a-f0-9]{64}$/);
 });
 
 it('keeps build identities separate from static deployment aliases', () => {
-  expect(ecsUserData(config, 'cluster').length).toBeLessThan(16_384);
-  expect(ecsUserData(config, 'cluster')).not.toContain('PrivateKey');
+  expect(gatewayPlatform(config, platformImage(config), platformRepository, true).userData.length).toBeLessThan(16_384);
+  expect(gatewayPlatform(config, platformImage(config), platformRepository, true).userData).not.toContain('PrivateKey');
   for (const protocol of imageArtifacts) {
     expect(releaseTag(protocol)).toMatch(/^sha-[a-f0-9]{64}$/);
     expect(Object.keys(releaseFiles(protocol))).not.toContain('server.json');

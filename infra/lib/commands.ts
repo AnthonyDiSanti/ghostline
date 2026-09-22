@@ -3,12 +3,14 @@ import { getDeployment } from './config.js';
 
 export function deploymentCommand(action: string, target: string | undefined, infraDir: string) {
   // A command owns exactly one stack and one output directory; caller flags cannot widen scope.
-  if (!['synth', 'diff', 'deploy'].includes(action)) throw new Error('Unsupported CDK action.');
+  if (!['synth', 'diff', 'deploy', 'park'].includes(action)) throw new Error('Unsupported CDK action.');
   const config = getDeployment(target);
   const artifactDir = resolve(infraDir, '../.local/deployments', config.id);
-  const args = [action, config.stackName, '--profile', 'personal', '--region', config.region,
+  const args = [action === 'park' ? 'deploy' : action, config.stackName, '--profile', 'personal', '--region', config.region,
     '--output', resolve(artifactDir, 'cdk.out')];
-  if (action === 'deploy') args.push('--outputs-file', resolve(artifactDir, 'outputs.json'));
+  if (action === 'deploy' || action === 'park') args.push('--outputs-file', resolve(artifactDir, 'outputs.json'));
+  // Explicit park authorization removes this target's IAM resources; never hang on CDK's interactive prompt.
+  if (action === 'park') args.push('--require-approval', 'never');
   return { config, artifactDir, args };
 }
 

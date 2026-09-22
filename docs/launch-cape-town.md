@@ -2,6 +2,23 @@
 
 Backup target `cape-town`; profile `personal`; account `757999402784`; region `af-south-1`, AZ `af-south-1a`. Endpoint stack `GhostlineCapeTown`, release repositories `GhostlineRelease`, resource prefix `ghostline-cape-town`. It uses the same [gateway recipe](ecs.md) as Stockholm, with independent regional images and credential parameters.
 
+One official ECS-3 Bottlerocket ARM64 `t4g.small`, version `1.65.0-0be31b34`, AMI `ami-0057bb1f922103530`, encrypted 2 GiB OS and 30 GiB data disks. Current host `i-0caf363c8ad24923d`, ENI `eni-09ab55e864950649b`. The separately retained `GhostlinePlatform` repository supplies the qualified bootstrap/network image.
+
+| Protocol | Preserved EIP | Allocation | Private address |
+| --- | --- | --- | --- |
+| Xray | `16.28.130.178` | `eipalloc-09b530775698d23bb` | `10.79.0.11` |
+| AWG | `15.240.94.162` | `eipalloc-0d22c628c5fde384e` | `10.79.0.10` |
+
+## Bottlerocket production promotion — 2026-09-22
+
+After Stockholm passed, normal target-scoped park/unpark replaced the old host and VPC resources while retaining both original EIPs. All six server/client parameter versions/timestamps and the three application image selections are unchanged. Private config-hash comparisons and real encrypted REALITY/AWG HTTPS checks passed through the original endpoints. Existing device profiles need no edits.
+
+The new host passes native ARM64, enforcing SELinux, engine/daemon confinement, read-only private RAM, absent engine secret environments, no swap and host/metadata/peer isolation. The task remains limited to 1,126 MiB, with 602 MiB ECS reserve plus 64 MiB for the network daemon. GuardDuty v1.17.1 is HEALTHY. Verification disables temporary diagnostics and checks administrative lockdown before returning.
+
+The first local client attempt failed before creating a tunnel because Docker lacked regional ECR authorization. The maintained test command now authenticates privately and fetches actual deployed digests before using its short probe timeout; both protocols then passed. Final CDK diff is clean, the live platform guard accepts unchanged settings and rejects a changed AMI, and release reconciliation returns `already-running` without redeployment. A subsequent dependency-only correction preserves management IPs until daemon deletion; direct-update readback confirms it without replacing the host, gateway task or daemon task. No new native iPhone or sleep/wake acceptance is claimed.
+
+Platform image: `ghostline/platform/host@sha256:106cae158df489c3168722175cb82f11237049cf8658f18fd0e99ddb391c7b3c`. [Update/lifecycle contract](platform.md). Evidence: `.local/bottlerocket/promotion-cape-town.json`, `production-promotion-audit.json`, `.local/deployments/cape-town/ecs/{verification,guardduty}.json`, `/tmp/ghostline-promote-cape-town.log` and `/tmp/ghostline-cape-town-clients-retry.log`.
+
 ## Fresh initializer release — 2026-09-21
 
 Current production is `65dc6a00-595a-4493-9601-cffc2de80a7e`, document `sha256:b591df0898e0a46d255e22203a6a883df27bc033404bfb964dd8c9ba4cf10b3a`. A small initializer improvement limits each renderer's inherited environment to its own protocol bundle. Central qualification passed the synthetic regression, both encrypted protocols and configuration/security checks before publishing from Virginia. Stable upstream versions are unchanged; this does not change credential values or the existing IAM/container boundary.
@@ -57,7 +74,7 @@ Both original protocols passed real encrypted HTTPS/assigned-exit checks from di
 
 The two EIPs were retained, detached from the source stack's ownership and imported under standard `xrayAddress` / `awgAddress` logical IDs. The first active deployment correctly refused existing old associations. CloudFormation rolled it back; explicitly detaching those associations allows the unmodified common template to own the new bindings. Import cannot add outputs; the active deployment adds the standard outputs. No compatibility mode or migration provisioner remains in maintained code. [Migration contract](deployment-lifecycle.md#replacement-and-validation).
 
-Current host `i-051df0fea044a47a5`, ENI `eni-0c7ebd6fa3f17a3c7`, root disk `vol-057899a82b5ffa196`. Migration completed on task definition `ghostline-cape-town-gateway:2`; the current revision is recorded above. Initial deployment and unattended stop/start both pass runtime verification and real encrypted protocol tests. The old source stack and its host/network are retired.
+The September 18 host was `i-051df0fea044a47a5`, ENI `eni-0c7ebd6fa3f17a3c7`, root disk `vol-057899a82b5ffa196`. Migration completed on task definition `ghostline-cape-town-gateway:2`; the current revision is recorded above. Initial deployment and unattended stop/start both pass runtime verification and real encrypted protocol tests. The old source stack and its host/network are retired.
 
 The running gateway enforces the 1126 MiB shared task budget and 666 MiB ECS scheduling reserve. Both protocol files match their preserved Parameter Store values, live read-only on private tmpfs mounts, and run natively as ARM64 with no engine secret environment or task role. Host swap is disabled; bridge/metadata isolation and each assigned EIP’s egress pass. No task OOM events were observed.
 
@@ -68,6 +85,6 @@ Private migration evidence lives in `.local/diagnostics/cape-town-gateway-2026-0
 - Stop/start preserved host, disk, ENI, both original allocations and all six parameter values/versions. The task changed from `6f47fb437bac4a20a9a487b4ba1a2fe1` to `e5f557aa55d346f9a5615d96bf6aa9e6`; the shared initializer reran and exited zero. Both protocol file hashes remained identical and both engines passed their encrypted HTTPS checks afterward.
 - The preserved iOS Xray and AWG credentials separately passed real disposable-client HTTPS tests through their original EIPs. This verifies credentials and server compatibility, not the physical iPhone app. Existing profiles need no endpoint or credential edits.
 - A final read-only Parameter Store comparison confirmed six exact values, all SecureString version 1. Cost tags and CloudFormation EIP ownership match the new stack. Endpoint and image-stack diffs are clean.
-- Source stack `GhostlinePoc` is `DELETE_COMPLETE`; old instance `i-017247cce7d2bf84f` is terminated. Its disk, ENI, VPC and SSH key are absent. Cape Town has exactly one active Ghostline host, one encrypted root volume, two original EIPs and one running gateway task. No temporary EIPs were allocated.
+- The original source stack is `DELETE_COMPLETE`; old instance `i-017247cce7d2bf84f` is terminated. Its disk, ENI, VPC and SSH key are absent. Cape Town has exactly one active Ghostline host, one encrypted root volume, two original EIPs and one running gateway task. No temporary EIPs were allocated.
 
 All three content release tags match Stockholm. Current manifest digests are recorded above. Local builds are not claimed byte-identical across regional publication; [image provenance](images.md) defines the distinction.

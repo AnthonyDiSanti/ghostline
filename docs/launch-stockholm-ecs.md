@@ -2,7 +2,7 @@
 
 Primary target `stockholm-ecs`; profile `personal`; account `757999402784`; region `eu-north-1`, AZ `eu-north-1a`. Endpoint stack `GhostlineEcsTrial`, release repositories `GhostlineRelease`, resource prefix `ghostline-ecs-stockholm`. These are stable cloud identities for the common [gateway recipe](ecs.md).
 
-One ECS-optimized AL2023 ARM64 `t4g.small`, AMI `ami-06a77ee974da159b5`, encrypted 30 GiB gp3. ECS agent 1.106.2, Docker 25.0.16. Current host `i-0e591a05b9eac9221`, ENI `eni-04f7468459396df35`, disk `vol-04400b40a19db4f2b`.
+One official ECS-3 Bottlerocket ARM64 `t4g.small`, version `1.65.0-0be31b34`, AMI `ami-031cd08d96ffcdb37`, encrypted 2 GiB OS and 30 GiB data disks. Current host `i-0a754b73d3a3dafcb`, ENI `eni-0d263da2996d1d9ce`. The restricted ECS network daemon uses the separately retained `GhostlinePlatform` image.
 
 | Protocol | EIP | Allocation | Private address |
 | --- | --- | --- | --- |
@@ -10,6 +10,14 @@ One ECS-optimized AL2023 ARM64 `t4g.small`, AMI `ami-06a77ee974da159b5`, encrypt
 | AWG | `16.16.73.146` | `eipalloc-07627e295d844e8de` | `10.79.0.10` |
 
 Original client identities and existing primary profiles remain valid. Anthony accepted both iOS ARM64 protocols on September 15; the current recovery evidence below uses real automated clients. Mac REALITY uses OneXraySE, AWG uses Amnezia. Repeated sleep/wake remains separate in [client stability](mac-client-stability.md).
+
+## Bottlerocket production promotion — 2026-09-22
+
+Normal target-scoped park/unpark replaced the AL2023 host and regional networking while retaining both original EIP allocations. The new common platform uses a finite essential bootstrap and restricted ECS network daemon, with the same qualified three-image application release. All six server/client parameter versions and timestamps are unchanged. Config hash comparisons and real encrypted REALITY/AWG HTTPS checks passed through the original endpoints; no profile import or credential rotation is needed.
+
+Runtime checks passed for native ARM64, enforcing SELinux, engine/daemon confinement, private read-only RAM, absent engine secret environments, no swap, blocked host/metadata/peer traffic, the 1,126 MiB gateway limit and 602 MiB ECS reserve plus 64 MiB daemon. GuardDuty v1.17.1 is HEALTHY. Temporary diagnostics were disabled and the administrative state verified before the coverage wait. The existing OneXraySE Stockholm profile also passed a native Mac HTTPS check through `51.20.163.146` over `utun7`; its original Disconnected / `en0` state was restored. No new iOS or sleep/wake acceptance is inferred.
+
+Platform image: `ghostline/platform/host@sha256:106cae158df489c3168722175cb82f11237049cf8658f18fd0e99ddb391c7b3c`. [Update/lifecycle contract](platform.md). Evidence: `.local/bottlerocket/promotion-stockholm-ecs.json`, `.local/deployments/stockholm-ecs/ecs/{verification,guardduty}.json`, `/tmp/ghostline-promote-stockholm.log`. Cape Town subsequently passed the same promotion. Both endpoint diffs are clean and both release reconcilers report `already-running`; production EIPs and credentials remain unchanged. A subsequent dependency-only correction preserves management IPs until daemon deletion; direct-update readback confirms it without replacing the host, gateway task or daemon task.
 
 ## Fresh initializer release — 2026-09-21
 

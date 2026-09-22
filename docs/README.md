@@ -7,6 +7,7 @@ Current specifications describe one regional ECS gateway architecture. Git histo
 | Understand product intent and evidence limits | [Product](product.md) |
 | Change regional topology, ownership or cost tags | [Architecture](architecture.md) |
 | Understand containers, RAM, networking, memory and recovery | [ECS gateway](ecs.md) |
+| Build/update the host platform or validate an isolated candidate | [Platform](platform.md), [isolated validation](bottlerocket-trial.md) |
 | Build, test, deploy or add another region | [Development](development.md) |
 | Inspect image provenance and release policy | [Images](images.md), [runtime notice](../runtime/NOTICE.md) |
 | Publish, replicate, retain or recover application releases | [Release workflow](releases.md) |

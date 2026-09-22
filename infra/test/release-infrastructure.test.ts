@@ -5,7 +5,8 @@ import { CloudAssembly } from 'aws-cdk-lib/cx-api';
 import { RegionalReleaseStack } from '../lib/releases/stack.js';
 afterAll(() => CloudAssembly.cleanupTemporaryDirectories());
 
-it('keeps the regional gate restricted to manifest reads, attempt state, alerts and one service update', () => {
+// This integration check runs two real esbuild bundles; allow CPU contention from parallel synth tests.
+it('keeps the regional gate restricted to manifest reads, attempt state, alerts and one service update', { timeout: 15_000 }, () => {
   const app = new App();
   const stack = new RegionalReleaseStack(app, 'ReleaseTest', { env: { account: '000000000000', region: 'eu-north-1' },
     gateway: 'test-gateway', automation: true });

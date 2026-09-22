@@ -9,6 +9,7 @@ import { operatorGate } from '../lib/releases/operator.js';
 import { prepareEcsRemoval } from '../lib/ecs-power.js';
 import { assertDeploymentAmi } from '../lib/deployment-ami.js';
 import { assertInstanceMemory } from '../lib/ecs-memory.js';
+import { assertHostPlatform } from '../lib/platform-lifecycle.js';
 
 const infraDir = fileURLToPath(new URL('../', import.meta.url));
 
@@ -51,9 +52,12 @@ if (action === 'list') {
 } else if (action === 'preflight') {
   preflight(getDeployment(target));
 } else {
-  const command = deploymentCommand(action === 'park' ? 'deploy' : action ?? '', target, infraDir);
+  const command = deploymentCommand(action ?? '', target, infraDir);
   if (action !== 'synth') preflight(command.config);
-  if (action === 'deploy') await assertStartReady(operatorGate(command.config.id));
+  if (action === 'deploy') {
+    assertHostPlatform(command.config, args => aws(command.config, args));
+    await assertStartReady(operatorGate(command.config.id));
+  }
   mkdirSync(command.artifactDir, { recursive: true, mode: 0o700 });
   console.log(`Target: ${command.config.id} (${command.config.account}/${command.config.region}/${command.config.stackName})`);
   const environment = { ...process.env, GHOSTLINE_DEPLOYMENT: command.config.id, GHOSTLINE_LIFECYCLE: action === 'park' ? 'parked' : 'active' };

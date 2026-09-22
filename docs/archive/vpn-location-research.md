@@ -188,7 +188,7 @@ to:
 
 **`af-south-1 / Cape Town`**
 
-and keep the architecture otherwise unchanged for the PoC:
+and keep the architecture otherwise unchanged for the initial deployment:
 
 ```text
 Dubai

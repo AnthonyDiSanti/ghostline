@@ -41,7 +41,7 @@ export function deployedClientImages(config: DeploymentConfig, outputs: Record<s
   return images;
 }
 
-export type ClientExercise = (client: { protocol: Protocol; request: () => string; container: string }) => Promise<void>;
+export type ClientExercise = (client: { protocol: Protocol; request: (timeoutSeconds?: number) => string; container: string }) => Promise<void>;
 
 export async function testEcsClients(config: DeploymentConfig, root: string, work: string, outputs: Record<string, string>,
   images: Record<ImageArtifact, string>, exercise?: ClientExercise) {
@@ -55,6 +55,13 @@ export async function testEcsClients(config: DeploymentConfig, root: string, wor
   }
   const cleanupClients: Array<() => void> = [];
   try {
+    if (process.platform === 'darwin') {
+      // Native VPN state can change during a long deployment; never report a nested probe as direct-path evidence.
+      for (const endpoint of [outputs.EndpointIp!, outputs.AwgEndpointIp!]) {
+        const networkInterface = command('/sbin/route', ['-n', 'get', endpoint]).match(/interface:\s*(\S+)/)?.[1];
+        if (!networkInterface || networkInterface.startsWith('utun')) throw new Error('Disconnect the native VPN before direct regional client tests.');
+      }
+    }
     for (const protocol of ['xray', 'awg'] as Protocol[]) {
       const name = `ghostline-ecs-test-${randomUUID()}`;
       const folder = resolve(root, '.local/recovery', `${config.id}-clients`);
@@ -91,9 +98,13 @@ export async function testEcsClients(config: DeploymentConfig, root: string, wor
             '-v', `${temporary}:/test:ro`, '--entrypoint', '/bin/bash', image, '/test/client.sh']);
         }
         // A real HTTPS request must traverse each encrypted protocol and emerge from its assigned EIP.
-        const request = () => protocol === 'xray'
-          ? command('curl', ['-fsS', '--max-time', '15', '--socks5-hostname', command('docker', ['port', name, '1080/tcp']), 'https://checkip.amazonaws.com'], false)
-          : command('docker', ['exec', name, 'wget', '-T', '15', '-qO-', 'https://checkip.amazonaws.com'], false);
+        const request = (timeoutSeconds = 15) => {
+          // Short failure probes must finish before ECS replaces an intentionally stalled daemon.
+          if (!Number.isInteger(timeoutSeconds) || timeoutSeconds < 1 || timeoutSeconds > 15) throw new Error('Invalid probe timeout.');
+          return protocol === 'xray'
+            ? command('curl', ['-fsS', '--max-time', String(timeoutSeconds), '--socks5-hostname', command('docker', ['port', name, '1080/tcp']), 'https://checkip.amazonaws.com'], false)
+            : command('docker', ['exec', name, 'wget', '-T', String(timeoutSeconds), '-qO-', 'https://checkip.amazonaws.com'], false);
+        };
         let passed = false;
         for (let attempt = 0; attempt < 8; attempt++) {
           await new Promise(resolve => setTimeout(resolve, 2000));

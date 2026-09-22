@@ -2,7 +2,7 @@
 
 ## Scope
 
-Ghostline is a personal connectivity PoC with one regional architecture: ECS-optimized AL2023 ARM64, one Graviton host, one shared gateway task/service, separate Xray/AWG engines, one initializer and two EIPs. Stockholm is primary and Cape Town is backup. Read each launch record for observed deployment state before cloud changes.
+Ghostline is a personal connectivity product with one regional architecture: official ECS-3 Bottlerocket ARM64, one Graviton host, one shared gateway task/service, separate Xray/AWG engines, one initializer, a restricted ECS network daemon and two EIPs. Stockholm is primary and Cape Town is backup. Read each launch record for observed deployment state before cloud changes.
 
 Preserve protocol choices, device credentials and existing endpoints during runtime work. Clients switch manually; no HA, automatic protocol failover, custom rollback framework or custom client is required. Product scope and evidence limits live in `docs/product.md`. Keep secrets out of git and preserve production-account controls. Anthony intermediates LastPass activity and has deferred vault closeout.
 
@@ -27,7 +27,7 @@ Use `npm run ecs <target> <action>` for deployment, images, regional secret impo
 
 Use strict TypeScript, a thin CLI and the shared testable app builder. The catalog contains maintained endpoints only. Test regional reuse with synthetic configurations instead of creating deployable abandoned recipes. Keep account/region/AMI/resource inputs explicit and reject unknown configuration fields. Preserve exact Project/Environment/System cost-tag conventions.
 
-Keep initializer and engines in one ECS task. Only the initializer receives server secrets through the execution role; engines have no task role and mount protocol-private RAM configuration read-only. Host fixtures supply generic storage/networking, not application secret retrieval. A changed bootstrap fixture needs a retained-IP cold rebuild; ordinary reboot does not replay cloud-init.
+Keep initializer and engines in one ECS task. Only the initializer receives server secrets through the execution role; engines have no task role and mount protocol-private RAM configuration read-only. Host fixtures supply generic storage/networking, not application secret retrieval. Platform source changes require a qualified platform image and a retained-IP cold rebuild. Bottlerocket replays its finite essential bootstrap on each boot; ordinary application releases do not alter host settings.
 
 For nontrivial changes:
 - Add short intent comments around non-obvious logic.
@@ -41,7 +41,7 @@ For releases, read `docs/releases.md`: CDK owns static local `keep-production` r
 
 For new protocol releases, use `npm run images:build`: resolve official stable channels, verify artifacts, pass local encrypted/image checks and record `infra/image-inputs.json`. Publish/deploy reuse that selection without rediscovery. Exclude prereleases/drafts/nightly/main; `latest` alone is not evidence of stability. Read `docs/images.md` for AWG's tag-based channel and provenance limits. Local compatibility is not native-client or regional acceptance.
 
-Immediately before real-client probes on macOS, check `scutil --nc list` and `route -n get <test-IP>`; a native VPN can connect after the initial session check. Disconnect with existing authorization before claiming direct-path results, then restore the prior connection.
+Immediately before real-client probes on macOS, check `scutil --nc list` and `route -n get <test-IP>`; a native VPN can connect after the initial session check. OneXraySE's System Extension can also remain connected while `scutil` reports Disconnected; verify the app and actual route. Disconnect with existing authorization before claiming direct-path results, then restore the prior connection.
 
 Before native Mac recovery/sleep testing, read `docs/mac-client-stability.md`. The Amnezia raw daemon-socket watchdog is retired after a correlated service crash; do not reuse its ignored scripts as recovery.
 

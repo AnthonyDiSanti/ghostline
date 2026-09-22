@@ -1,6 +1,6 @@
 # Product scope
 
-Ghostline gives Anthony a usable private connection from Dubai for ordinary browsing and video under the filtering on his actual Wi-Fi/mobile networks. It is a personal PoC, with accepted downtime and manual debugging rather than an SLA.
+Ghostline gives Anthony a usable private connection from Dubai for ordinary browsing and video under the filtering on his actual Wi-Fi/mobile networks. It is a functioning personal connectivity product. This release ends the experimental product phase; public-source release preparation remains separate work. Brief deployment downtime and owner-led debugging remain accepted, with no SLA.
 
 ## Selected scope
 
@@ -8,7 +8,7 @@ Ghostline gives Anthony a usable private connection from Dubai for ordinary brow
 | --- | --- |
 | Owner/devices | Anthony, macOS and iOS, including concurrent use |
 | Exits | Stockholm primary; Cape Town backup |
-| Deployment | AWS CDK/TypeScript; one AL2023 ARM64 host/shared ECS gateway task/two EIPs per region |
+| Deployment | AWS CDK/TypeScript; one Bottlerocket ARM64 host/shared ECS gateway task/restricted network daemon/two EIPs per region |
 | Protocols | Xray / VLESS / REALITY TCP 443 and independently credentialed AmneziaWG UDP 443 |
 | Clients | Off-the-shelf apps; manual protocol/exit selection |
 | Credentials | Regional Parameter Store; separate server/device values; identity-preserving rebuilds |
@@ -32,6 +32,6 @@ Keep production-account controls intact. One host per exit, ordinary project sep
 
 ## Later work
 
-Representative throughput/CPU-credit sizing, optional Bottlerocket evaluation, stronger diagnostic controls and a performance-oriented protocol remain possible follow-ups. Stable-release automation is implemented; see [images](images.md). Add Windows/Android, independent guest access or phone-accessible launch/expiration only when selected. A third protocol needs explicit port/IP and resource design; shared task budgeting does not promise unlimited capacity.
+Representative throughput/CPU-credit sizing, blue-green deployment evaluation, stronger diagnostic controls and a performance-oriented protocol remain possible follow-ups. Stable-release automation is implemented; see [images](images.md). Add Windows/Android, independent guest access or phone-accessible launch/expiration only when selected. A third protocol needs explicit port/IP and resource design; shared task budgeting does not promise unlimited capacity.
 
 There is no automatic protocol failover, public service, user portal, automatic credential rotation or expiration controller in the current scope.

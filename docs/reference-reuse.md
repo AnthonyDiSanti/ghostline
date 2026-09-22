@@ -25,7 +25,7 @@ The reference applies `Project=personal-assistant`, `Environment=prod` and defau
 
 ## Fixture validation
 
-Ghostline uses one stdlib Python runner for recursive shell/Python/Dockerfile discovery. ShellCheck and Hadolint Docker fallbacks are digest-pinned and mount only selected source copies read-only, with networking disabled. All severities fail. Python syntax targets AL2023’s grammar. Tests execute real fixtures with synthetic credentials and verify failure propagation and cleanup. [Development](development.md#asset-verification) owns the current commands and prerequisites.
+Ghostline uses one stdlib Python runner for recursive shell/Python/Dockerfile discovery. ShellCheck and Hadolint Docker fallbacks are digest-pinned and mount only selected source copies read-only, with networking disabled. All severities fail. Python syntax targets the portable Python 3.9 grammar. Tests execute real fixtures with synthetic credentials and verify failure propagation and cleanup. [Development](development.md#asset-verification) owns the current commands and prerequisites.
 
 ## Extraction boundary
 

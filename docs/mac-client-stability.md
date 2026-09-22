@@ -42,6 +42,8 @@ Next proposed bounded check: one full Mac restart, with the VPN disconnected, to
 
 Anthony authorized all VPN connect/disconnect actions during this and future testing cycles on September 20. Check actual OS state/routes immediately before probes, avoid nested tunnels and restore the connection active before testing. This does not authorize forced sleep or reboot.
 
+Observed September 21 during Bottlerocket testing: `scutil --nc list` reported OneXraySE Disconnected while the app showed Connected and the destination route used `utun7`. Treat app state plus `route -n get <IP>` as authoritative for direct-path probes. Flutter accessibility snapshots can lag a successful click; verify a fresh screenshot/route before repeating an action, which can reconnect the VPN. Always-on and on-demand were both off. Restore the connection state observed at the beginning of each test window.
+
 Observed 2026-09-13: OneXraySE **26.9.2, build 444**, bundle `net.yuandev.onexray.se`, reports **Xray-core 26.9.9**. Its signed network extension `net.yuandev.onexray.se.tun` is activated/enabled. Anthony authorized configuring Stockholm and Cape Town; scope remains Mac REALITY, retaining AWG in Amnezia and all deployed server settings.
 
 | Imported local node | Endpoint | Identity verification |
