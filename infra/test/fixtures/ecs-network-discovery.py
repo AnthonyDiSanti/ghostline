@@ -4,7 +4,7 @@ from pathlib import Path
 import importlib.util
 import json
 
-spec = importlib.util.spec_from_file_location('network', Path(__file__).resolve().parents[3] / 'runtime/ecs/network.py')
+spec = importlib.util.spec_from_file_location('host_support', Path(__file__).resolve().parents[3] / 'runtime/ecs/bottlerocket/host_support.py')
 n = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(n)
 results = {}
@@ -26,7 +26,7 @@ for scenario in ['initial', 'restart', 'duplicate', 'foreign-network', 'same-add
 
     n.command = command
     try:
-        peers = n.discover({'family': 'selected'})
+        peers = n.diagnostic_peers({'family': 'selected'})
         results[scenario] = peers
     except (ValueError, RuntimeError):
         results[scenario] = False

@@ -5,7 +5,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { imageArtifacts, imagePlatform, type ImageArtifact } from './ecs-release.js';
+import { imageArtifacts, imagePlatform, platformArtifacts, type ImageArtifact } from './ecs-release.js';
 import { assertImagePlatform, assertOfficialXray, prepareImage } from './ecs-images.js';
 import { generateXrayProfiles } from './xray.js';
 import { generateAwgProfiles } from './awg.js';
@@ -49,6 +49,13 @@ export async function testEcsImages(images?: Record<ImageArtifact, string>): Pro
       assertImagePlatform(selected[artifact], docker);
     }
     assertOfficialXray(selected.xray, docker);
+    const packagingProbe = resolve(work, 'platform-image.py');
+    copyFileSync(new URL('../test/fixtures/platform-image.py', import.meta.url), packagingProbe);
+    for (const artifact of platformArtifacts) {
+      // This checks actual package contents without privileges; native boot/lease qualification remains a separate central gate.
+      console.log(docker(['run', '--rm', ...common, '--network', 'none', '--user', '65532:65532',
+        '-v', `${packagingProbe}:/test/probe.py:ro`, '--entrypoint', 'python3', selected[artifact], '-B', '/test/probe.py', artifact]));
+    }
     // Test-only probes remain ordinary shell files and are mounted read-only, outside the image release.
     const configProbe = resolve(work, 'image-config.sh');
     copyFileSync(new URL('../test/fixtures/image-config.sh', import.meta.url), configProbe);

@@ -1,15 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
-import { artifacts, digest, lifecyclePolicy, parseRelease, production, repository, releaseManifest, releaseSelector,
+import { artifacts, releaseRepository, digest, lifecyclePolicy, parseRelease, production, repository, releaseManifest, releaseSelector,
   retainHistory, type Release } from '../lib/releases/model.js';
-import { publicationProfile, replicationRules } from '../lib/releases/topology.js';
-import { applyPromotion, planPromotion } from '../lib/releases/publication.js';
+import { publicationProfile } from '../lib/releases/topology.js';
+import { applyPromotion, cleanPublicationProtection, planPromotion, assertPublicationOrigin } from '../lib/releases/publication.js';
 import { type Manifest, type Registry } from '../lib/releases/registry.js';
-import { assertStartReady, matches, reconcile, type Attempt, type GatePorts, type ServiceSnapshot } from '../lib/releases/gate.js';
+import { readiness } from '../lib/releases/gate.js';
 
 function release(letter: string): Release {
   const hash = `sha256:${letter.repeat(64)}`;
-  return { schemaVersion: 1, promotionId: `release-${letter.repeat(8)}`, promotedAt: '2026-09-21T00:00:00Z', origin: 'us-east-1',
-    platform: 'linux/arm64', images: Object.fromEntries(artifacts.map(name => [name,
+  return { schemaVersion: 2, promotionId: `release-${letter.repeat(8)}`, promotedAt: '2026-09-21T00:00:00Z', origin: 'us-east-1',
+    platform: 'linux/arm64', os: { variant: 'aws-ecs-3', architecture: 'arm64', compatibleVersions: ['1.65.0'] }, images: Object.fromEntries(artifacts.map(name => [name,
       { repository: repository(name), digest: hash, runtimeDigest: hash, buildTag: `sha-${letter.repeat(64)}` }])) as Release['images'], history: [] };
 }
 class MemoryRegistry implements Registry {
@@ -25,7 +25,7 @@ class MemoryRegistry implements Registry {
     for (const name of artifacts) await this.put(repository(name), { digest: r.images[name].digest, manifest: '{}', mediaType: 'test' }, r.images[name].buildTag);
     const text = releaseManifest(r);
     const doc = { digest: digest(text), manifest: text, mediaType: 'application/vnd.oci.image.manifest.v1+json' };
-    await this.put(repository('gateway-config'), doc, `release-${r.promotionId}`);
+    await this.put(releaseRepository, doc, `release-${r.promotionId}`);
     if (select) await applyPromotion(this, doc);
     return doc;
   }
@@ -44,14 +44,14 @@ describe('app release history', () => {
     for (const [index, letter] of ['e', 'd', 'c', 'b'].entries()) {
       const tag = index ? `keep-mru-${index}` : production;
       expect((await registry.get(repository('xray'), tag))!.digest).toBe(release(letter).images.xray.digest);
-      const doc = await registry.get(repository('gateway-config'), `${tag}-release`);
+      const doc = await registry.get(releaseRepository, `${tag}-release`);
       expect(doc).toBeDefined();
       expect(JSON.parse(doc!.manifest).subject).toBeUndefined();
     }
     const older = (await planPromotion(registry, originals[2]!))!;
     expect(older.history).toHaveLength(3);
     expect(new Set(older.history).size).toBe(3);
-    expect(registry.writes.at(-1)).toBe(`${repository('gateway-config')}/${releaseSelector}`);
+    expect(registry.writes.at(-1)).toBe(`${releaseRepository}/${releaseSelector}`);
   });
   it('requires a complete set before any alias moves and safely resumes interruption', async () => {
     const registry = new MemoryRegistry();
@@ -70,119 +70,103 @@ describe('app release history', () => {
       await original(repo, image, tag);
     };
     await expect(applyPromotion(registry, doc)).rejects.toThrow('network');
-    expect(await registry.get(repository('gateway-config'), 'keep-publishing-release')).toEqual(doc);
+    expect(await registry.get(releaseRepository, 'keep-publishing-release')).toEqual(doc);
     await applyPromotion(registry, doc);
-    expect(await registry.get(repository('gateway-config'), releaseSelector)).toEqual(doc);
+    expect(await registry.get(releaseRepository, releaseSelector)).toEqual(doc);
   });
-  it('uses exact protection aliases followed by seven-day cleanup of tagged and untagged garbage', () => {
+  it('protects exact aliases and leaves tagged cleanup to the observation-aware publisher', () => {
     for (const name of artifacts) {
       const rules = lifecyclePolicy(name).rules;
-      expect(rules.at(-1)?.selection).toEqual({ tagStatus: 'any', countType: 'sinceImagePushed', countUnit: 'days', countNumber: 7 });
+      expect(rules.at(-1)?.selection).toEqual({ tagStatus: 'untagged', countType: 'sinceImagePushed', countUnit: 'days', countNumber: 7 });
       expect(rules.slice(0, -1).every(r => r.selection.countNumber === 1)).toBe(true);
       expect(JSON.stringify(rules)).not.toContain('keep-region');
     }
-    expect(lifecyclePolicy('gateway-config').rules).toHaveLength(11);
+    expect(lifecyclePolicy('gateway-config').rules).toHaveLength(6);
+    expect(lifecyclePolicy('releases').rules).toHaveLength(6);
+  });
+  it('clears destination-only obsolete slots after the complete new window lands', async () => {
+    const registry = new MemoryRegistry();
+    const old = await registry.add(release('a'));
+    const current = await registry.add(release('b'), true);
+    // ECR replicates puts, never deletion of aliases from the origin's longer prior window.
+    await registry.put(releaseRepository, old, 'keep-mru-3-release');
+    for (const name of artifacts) await registry.put(repository(name), (await registry.get(repository(name), release('a').images[name].digest))!, 'keep-mru-3');
+    await registry.removeTag(repository('bootstrap'), production);
+    expect(await cleanPublicationProtection(registry)).toBe(false);
+    expect(await registry.get(releaseRepository, 'keep-mru-3-release')).toEqual(old);
+    await registry.put(repository('bootstrap'), (await registry.get(repository('bootstrap'), release('b').images.bootstrap.digest))!, production);
+    expect(await cleanPublicationProtection(registry)).toBe(true);
+    expect(await registry.get(releaseRepository, 'keep-mru-3-release')).toBeUndefined();
+    for (const name of artifacts) expect(await registry.get(repository(name), 'keep-mru-3')).toBeUndefined();
+    expect(await registry.get(releaseRepository, releaseSelector)).toEqual(current);
+    expect(await cleanPublicationProtection(registry)).toBe(false);
+  });
+  it('keeps staged protection while a newer publication has not completed', async () => {
+    const registry = new MemoryRegistry(); await registry.add(release('a'), true);
+    const next = { ...release('b'), promotedAt: '2026-09-22T00:00:00Z' };
+    const staged = await registry.add(next);
+    await registry.put(releaseRepository, staged, 'keep-publishing-release');
+    expect(await cleanPublicationProtection(registry)).toBe(false);
+    expect(await registry.get(releaseRepository, 'keep-publishing-release')).toEqual(staged);
+  });
+  it('retains dedicated whole-stack documents and shared platform components across distinct application releases', async () => {
+    const registry = new MemoryRegistry();
+    const old = release('a'); const next = release('b');
+    next.images.bootstrap = old.images.bootstrap; next.images['network-daemon'] = old.images['network-daemon'];
+    const original = await registry.add(old, true);
+    next.history = [original.digest]; const current = await registry.add(next, true);
+    expect(await registry.get(releaseRepository, releaseSelector)).toEqual(current);
+    expect(await registry.get(releaseRepository, 'keep-mru-1-release')).toEqual(original);
+    expect((await registry.get(repository('bootstrap'), production))?.digest).toBe(old.images.bootstrap.digest);
+    expect((await registry.get(repository('bootstrap'), 'keep-mru-1'))?.digest).toBe(old.images.bootstrap.digest);
+    expect(await registry.get(repository('gateway-config'), releaseSelector)).toBeUndefined();
   });
   it('rejects documents that redirect a container to unowned images or unsupported platforms', () => {
     const bad = release('a'); bad.images.awg.repository = 'foreign/awg';
     expect(() => parseRelease(bad)).toThrow();
     expect(() => parseRelease({ ...release('a'), platform: 'linux/amd64' })).toThrow();
+    expect(() => parseRelease({ ...release('a'), unexpected: 'untracked input' })).toThrow('Unknown');
+  });
+  it('does not consume history for changed index provenance around identical runtime children', async () => {
+    const registry = new MemoryRegistry(); const first = release('a'); await registry.add(first, true);
+    const next = release('b');
+    for (const name of artifacts) next.images[name].runtimeDigest = first.images[name].runtimeDigest;
+    expect(await planPromotion(registry, next)).toBeUndefined();
   });
 });
 
-async function fixture() {
-  const registry = new MemoryRegistry();
-  const selected = release('a'); const doc = await registry.add(selected, true);
-  let snapshot: ServiceSnapshot | undefined = { incarnation: 'service/created-1', desired: 1, stable: true, busy: false,
-    images: Object.fromEntries(artifacts.map(n => [n, release('b').images[n].digest])), deployments: [{ id: 'old', status: 'SUCCESSFUL', createdAt: 1 }] };
-  let record: Attempt | undefined;
-  let now = 100_000;
-  const ports: GatePorts = { registry, service: vi.fn(async () => snapshot), attempt: async () => record,
-    save: vi.fn(async (next, previous) => {
-      if (record?.version !== previous?.version) return false;
-      record = structuredClone(next); return true;
-    }), force: vi.fn(async () => {}), alert: vi.fn(async () => {}), now: () => now };
-  return { ports, registry, selected, doc, snapshot: () => snapshot!, setSnapshot: (s: ServiceSnapshot | undefined) => { snapshot = s; },
-    record: () => record!, setRecord: (r: Attempt) => { record = r; }, advance: () => { now += 180_000; } };
-}
-describe('regional readiness gate', () => {
-  it('normalizes ECS index identities without accepting an unrelated ARM64 child', () => {
-    const r = release('a'); r.images.awg.runtimeDigest = release('b').images.awg.digest;
-    const images = Object.fromEntries(artifacts.map(n => [n, r.images[n].digest]));
-    expect(matches(images, r)).toBe(true);
-    images.awg = r.images.awg.runtimeDigest; expect(matches(images, r)).toBe(true);
-    images.awg = release('c').images.awg.digest; expect(matches(images, r)).toBe(false);
-  });
-  it('forces once and observes completion on a later event/hourly tick', async () => {
-    const f = await fixture();
-    expect(await reconcile(f.ports)).toBe('deployment-requested');
-    expect(await reconcile(f.ports)).toBe('deployment-in-progress');
-    f.snapshot().images = Object.fromEntries(artifacts.map(n => [n, f.selected.images[n].runtimeDigest]));
-    expect(await reconcile(f.ports)).toBe('already-running');
-    expect(f.record().state).toBe('completed');
-    expect(f.ports.force).toHaveBeenCalledTimes(1);
-  });
-  it.each(['stopped', 'absent', 'busy', 'partial', 'already-running'])('does not deploy %s state', async mode => {
-    const f = await fixture();
-    if (mode === 'stopped') f.snapshot().desired = 0;
-    if (mode === 'absent') f.setSnapshot(undefined);
-    if (mode === 'busy') f.snapshot().busy = true;
-    if (mode === 'partial') await f.registry.removeTag(repository('awg'), production);
-    if (mode === 'already-running') f.snapshot().images = Object.fromEntries(artifacts.map(n => [n, f.selected.images[n].runtimeDigest]));
-    await reconcile(f.ports); expect(f.ports.force).not.toHaveBeenCalled();
-  });
-  it('cancels when an alias changes after the claim, before the force request', async () => {
-    const f = await fixture();
-    const save = f.ports.save;
-    f.ports.save = async (next, previous) => {
-      const saved = await save(next, previous);
-      if (next.state === 'claimed') await f.registry.removeTag(repository('xray'), production);
-      return saved;
-    };
-    expect(await reconcile(f.ports)).toBe('state-changed'); expect(f.record().state).toBe('cancelled');
-    expect(f.ports.force).not.toHaveBeenCalled();
-  });
-  it('suppresses native rollback retries even after service recreation', async () => {
-    const f = await fixture(); await reconcile(f.ports);
-    f.snapshot().deployments.push({ id: 'new', status: 'ROLLBACK_SUCCESSFUL', createdAt: 100_005 });
-    expect(await reconcile(f.ports)).toBe('paused-failed');
-    f.snapshot().incarnation = 'service/created-2';
-    expect(await reconcile(f.ports)).toBe('paused-failed');
-    await expect(assertStartReady(f.ports)).rejects.toThrow('unresolved');
-    expect(f.ports.force).toHaveBeenCalledTimes(1);
-  });
-  it('pauses ambiguous calls rather than blindly retrying', async () => {
-    const f = await fixture(); f.ports.force = vi.fn(async () => { throw new Error('timeout'); });
-    expect(await reconcile(f.ports)).toBe('paused-ambiguous');
-    expect(await reconcile(f.ports)).toBe('paused-ambiguous');
-    expect(f.ports.force).toHaveBeenCalledTimes(1);
-  });
-  it('detects a lost acknowledgement or mismatched completed digest', async () => {
-    const f = await fixture(); await reconcile(f.ports); f.advance();
-    expect(await reconcile(f.ports)).toBe('paused-ambiguous');
-    expect(f.ports.force).toHaveBeenCalledTimes(1);
-  });
-  it('allows a newer release despite an older ambiguous attempt', async () => {
-    const f = await fixture();
-    f.ports.attempt = async hash => hash === f.doc.digest ? undefined : { ...f.record(), state: 'ambiguous' };
-    expect(await reconcile(f.ports)).toBe('deployment-requested');
+it('requires every local alias and exact ARM64 child before deliberate promotion', async () => {
+  const registry = new MemoryRegistry(); const r = release('a');
+  await registry.add(r, true); expect((await readiness(registry)).ready).toBe(true);
+  await registry.removeTag(repository('bootstrap'), production);
+  expect(await readiness(registry)).toMatchObject({ready:false,reason:'bootstrap production alias is not ready.'});
+});
+
+describe('publication profile', () => {
+  it('defaults to retained NVA/London and preserves explicit membership overrides', () => {
+    expect(publicationProfile({}).members).toEqual(['us-east-1', 'eu-west-2']);
+    expect(publicationProfile({}).retainedMembers).toEqual(['us-east-1', 'eu-west-2']);
+    expect(publicationProfile({ members: ['eu-north-1'], retainedMembers: [] }).members).toEqual(['eu-north-1']);
+    expect(() => publicationProfile({ members: ['eu-north-1'] })).toThrow();
   });
 });
 
-describe('publication topology', () => {
-  it('defaults to NVA/London and preserves overrides', () => {
-    expect(publicationProfile({}).primaryRegion).toBe('us-east-1');
-    expect(publicationProfile({}).disasterRecoveryRegion).toBe('eu-west-2');
-    expect(publicationProfile({ primaryRegion: 'eu-north-1' }).primaryRegion).toBe('eu-north-1');
-    expect(() => publicationProfile({ disasterRecoveryRegion: 'us-east-1' })).toThrow();
+describe('any-member origin freshness', () => {
+  it('rejects a stale or divergent origin and permits a known newer complete source', async () => {
+    const source = new MemoryRegistry(); const peer = new MemoryRegistry();
+    const first = release('a'); await source.add(first,true); await peer.add(first,true);
+    const next = (await planPromotion(peer,release('b')))!; await peer.add(next,true);
+    await expect(assertPublicationOrigin(source,[{region:'eu-west-2',registry:peer}],()=>{})).rejects.toThrow('stale or divergent');
+    await expect(assertPublicationOrigin(peer,[{region:'us-east-1',registry:source}],()=>{})).resolves.toBeUndefined();
+    const divergent = new MemoryRegistry(); await divergent.add(release('c'),true);
+    await expect(assertPublicationOrigin(peer,[{region:'eu-north-1',registry:divergent}],()=>{})).rejects.toThrow('divergent');
   });
-  it('gives both origins direct peers/subscribers and preserves unrelated registry filters', () => {
-    const profile = publicationProfile({ subscribers: ['eu-north-1', 'af-south-1'] });
-    const other = { destinations: [{ region: 'us-west-2', registryId: '111111111111' }], repositoryFilters: [
-      { filter: 'personal-assistant/', filterType: 'PREFIX_MATCH' as const }, { filter: 'ghostline/prod/', filterType: 'PREFIX_MATCH' as const }] };
-    const rules = replicationRules([other], profile, '111111111111', profile.primaryRegion, 'ghostline/prod/');
-    expect(rules[0]?.repositoryFilters).toEqual([other.repositoryFilters[0]]);
-    expect(rules[1]?.destinations.map(d => d.region)).toEqual(['af-south-1', 'eu-north-1', 'eu-west-2']);
-    expect(replicationRules(rules, profile, '111111111111', profile.primaryRegion, 'ghostline/prod/')).toEqual(rules);
+  it('reports unreachable peers without pretending global freshness and requires locally complete history', async () => {
+    const source = new MemoryRegistry(); const peer = new MemoryRegistry(); await source.add(release('a'),true);
+    peer.get = async () => { throw new Error('unreachable'); }; const report = vi.fn();
+    await assertPublicationOrigin(source,[{region:'eu-west-2',registry:peer}],report);
+    expect(report).toHaveBeenCalledWith(expect.stringContaining('freshness is unknown'));
+    source.manifests.delete(`${repository('awg')}/${release('a').images.awg.digest}`);
+    await expect(assertPublicationOrigin(source,[],report)).rejects.toThrow('incomplete protected history');
   });
 });

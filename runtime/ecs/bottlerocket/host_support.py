@@ -9,9 +9,9 @@ from pathlib import Path
 ROOT = Path('/.bottlerocket/rootfs')
 STORAGE = ROOT / 'mnt/ghostline/config'
 
-def command(args, data=None):
+def command(args, data=None, timeout=90):
     # Only selected metadata leaves this process; commands that inspect keys never print their output.
-    result = subprocess.run(args, input=data, text=True, capture_output=True, check=False)
+    result = subprocess.run(args, input=data, text=True, capture_output=True, timeout=timeout, check=False)
     if result.returncode:
         # These platform tools receive only public networking/mount inputs, so their errors are diagnostic-safe.
         detail = result.stderr.strip()[:500] if args[0] in {'ip', 'ipset', 'iptables', 'iptables-restore', 'mount'} else 'details withheld'
@@ -48,4 +48,32 @@ def prepare_tools():
             link.symlink_to(executable)
     os.environ['PATH'] = f'{folder}:{os.environ["PATH"]}'
     os.environ['DOCKER_HOST'] = f'unix://{ROOT}/run/docker.sock'
+
+
+def diagnostic_peers(config):
+    # Exact gateway family and container names keep platform/foreign containers out of the rules.
+    peers = {}
+    for name in ['xray', 'awg']:
+        ids = command(['docker', 'ps', '--filter', f'label=com.amazonaws.ecs.task-definition-family={config["family"]}-gateway',
+                       '--filter', f'label=com.amazonaws.ecs.container-name={name}', '--format', '{{.ID}}']).split()
+        if len(ids) > 1:
+            raise RuntimeError('Multiple containers for a single protocol; refuse ambiguous routing')
+        if ids:
+            # One inspection avoids mixing network and process generations across an in-place restart.
+            metadata = json.loads(command(['docker', 'inspect', '--format',
+                                           '{"state":{{json .State}},"networks":{{json .NetworkSettings.Networks}}}', ids[0]]))
+            state, networks = metadata['state'], metadata['networks']
+            address = networks.get('bridge', {}).get('IPAddress', '')
+            if networks and set(networks) != {'bridge'}:
+                raise RuntimeError('Unexpected container network')
+            if not state['Running'] or state['Pid'] <= 0 or not address:
+                continue  # Restart in progress: quarantine this peer without withdrawing its healthy sibling.
+            import ipaddress
+            if not ipaddress.ip_address(address).is_private or set(networks) != {'bridge'}:
+                raise RuntimeError('Unexpected container network')
+            # A native restart may reuse the container ID/IP; StartedAt distinguishes its network generation.
+            peers[name] = {'ip': address, 'id': ids[0], 'started': state['StartedAt']}
+    if len({peer['ip'] for peer in peers.values()}) != len(peers):
+        raise RuntimeError('Duplicate protocol addresses')
+    return peers
 

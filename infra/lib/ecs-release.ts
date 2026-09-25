@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { loadImageInputs, type ImageInputs } from './image-inputs.js';
+import type { ImageArtifact } from './image-artifacts.js';
+export { applicationArtifacts, platformArtifacts, imageArtifacts, type ApplicationArtifact, type ImageArtifact } from './image-artifacts.js';
 
 export type Protocol = 'xray' | 'awg';
-export const imageArtifacts = ['xray', 'awg', 'gateway-config'] as const;
-export type ImageArtifact = typeof imageArtifacts[number];
 export const imageArchitecture = 'arm64';
 export const imagePlatform = 'linux/arm64';
 export const imageInputs = loadImageInputs();
@@ -22,6 +22,17 @@ export function localImage(artifact: ImageArtifact): string { return `ghostline-
 export function releaseFiles(protocol: ImageArtifact): Record<string, Buffer> {
   // Xray is mirrored byte-for-byte; it has no Ghostline Dockerfile or build context.
   if (protocol === 'xray') return {};
+  if (protocol === 'bootstrap' || protocol === 'network-daemon') {
+    // Explicit file allowlists keep host-only diagnostics out of the steady-state image.
+    const names = protocol === 'bootstrap'
+      ? ['bootstrap.py', 'storage.py', 'boot_observation.py', 'host_support.py', 'diagnostics.py', 'isolation.py', 'guard.py']
+      : ['daemon.py', 'discovery.py', 'guard.py'];
+    const files = Object.fromEntries(names.map(name => [name, readFileSync(new URL(`../../runtime/ecs/bottlerocket/${name}`, import.meta.url))]));
+    files.Dockerfile = readFileSync(new URL(`../../runtime/ecs/bottlerocket/${protocol}.Dockerfile`, import.meta.url));
+    files['network.py'] = readFileSync(new URL('../../runtime/ecs/network.py', import.meta.url));
+    if (protocol === 'bootstrap') files['network-probe.py'] = readFileSync(new URL('../../runtime/ecs/network-probe.py', import.meta.url));
+    return files;
+  }
   // The same bytes identify the release and populate its disposable build context; no local secrets.
   const files: Record<string, Buffer> = {
     Dockerfile: readFileSync(new URL(`../../runtime/ecs/${protocol}.Dockerfile`, import.meta.url)),

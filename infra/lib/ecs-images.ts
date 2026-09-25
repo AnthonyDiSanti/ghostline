@@ -1,6 +1,6 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { imageArchitecture, imageArtifacts, imageInputs, imagePlatform, localImage, officialXrayImage, releaseBuildArgs, releaseFiles, releaseTag, type ImageArtifact } from './ecs-release.js';
+import { imageArchitecture, imageInputs, imagePlatform, localImage, officialXrayImage, releaseBuildArgs, releaseFiles, releaseTag, type ImageArtifact } from './ecs-release.js';
 
 export type DockerCommand = (args: string[]) => string;
 

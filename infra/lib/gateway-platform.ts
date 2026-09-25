@@ -6,6 +6,7 @@ import type { DeploymentConfig } from './config.js';
 import type { GatewayPlatform } from './ecs-stack.js';
 import { ecsMemoryBudget } from './ecs-memory.js';
 import { renderFixture } from './fixtures.js';
+import { production, repository } from './releases/model.js';
 import publishers from '../platform-publishers.json' with { type: 'json' };
 
 export const networkDaemonMemory = 64;
@@ -17,24 +18,25 @@ function publisher(region: string, kind: 'control' | 'guardDuty'): string {
   return account;
 }
 
-export function gatewayPlatform(config: DeploymentConfig, image: string, imageRepository: string, guardDuty: boolean, diagnostic = false): GatewayPlatform {
+export function gatewayPlatform(config: DeploymentConfig, guardDuty: boolean): GatewayPlatform {
   if (!/^[a-z][a-z0-9-]{0,100}$/.test(config.resourceName)) throw new Error('Invalid gateway identity.');
+  const registry = `${config.account}.dkr.ecr.${config.region}.amazonaws.com`;
+  // Publication owns these aliases; ordinary image promotion never rewrites native host settings.
+  const imageRepository = repository('bootstrap');
+  const image = `${registry}/${imageRepository}:${production}`;
   const repositoryArn = `arn:aws:ecr:${config.region}:${config.account}:repository/${imageRepository}`;
-  // Only a digest from the account-owned platform repository may prepare the host.
-  const expected = `${config.account}.dkr.ecr.${config.region}.amazonaws.com/${imageRepository}@sha256:`;
-  if (!image.startsWith(expected) || !/^[a-f0-9]{64}$/.test(image.slice(expected.length))) throw new Error('Invalid Bottlerocket support image.');
   const memory = ecsMemoryBudget(config.instanceType);
   const settings = { family: config.resourceName, xray: '10.79.0.11', awg: '10.79.0.10',
     taskMemory: memory.task, reservedMemory: memory.reserved };
   const encoded = (phase: string) => Buffer.from(JSON.stringify({ ...settings, phase })).toString('base64');
   return {
-    image, imageRepository,
+    bootstrapImage: image, daemonImage: `${registry}/${repository('network-daemon')}:${production}`,
+    daemonRepository: repository('network-daemon'),
     configDirectory: '/mnt/ghostline/config',
     userData: renderFixture(new URL('../../runtime/ecs/bottlerocket/user-data.toml', import.meta.url), {
       // Move controller capacity into ECS accounting rather than reserving the same bytes twice.
       CLUSTER: config.resourceName, RESERVED_MEMORY: String(memory.reserved - networkDaemonMemory), IMAGE: image,
       BOOTSTRAP_CONFIG: encoded('bootstrap'), DIAGNOSTIC_CONFIG: encoded('diagnostic'),
-      ESSENTIAL: String(!diagnostic),
     }),
     // Bottlerocket separates its verified OS disk from writable container/data storage; encrypt both.
     disks: [{ deviceName: '/dev/xvda', ebs: { volumeSize: 2, volumeType: 'gp3', encrypted: true, deleteOnTermination: true } },
@@ -58,7 +60,7 @@ export function addNetworkDaemon(stack: Stack, config: DeploymentConfig, image: 
     family: `${config.resourceName}-network`, networkMode: 'host', requiresCompatibilities: ['EC2'],
     runtimePlatform: { cpuArchitecture: 'ARM64', operatingSystemFamily: 'LINUX' },
     memory: String(networkDaemonMemory), executionRoleArn: execution.roleArn,
-    containerDefinitions: [{ name: 'network', essential: true, image: image,
+    containerDefinitions: [{ name: 'network', essential: true, image: image, versionConsistency: 'enabled',
       // UID 0 retains the explicitly bounded capability across iptables subprocess exec; it has no host mounts.
       user: '0:0', cpu: 32, readonlyRootFilesystem: true, privileged: false,
       entryPoint: ['python3', '/opt/ghostline/daemon.py'],

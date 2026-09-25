@@ -1,3 +1,4 @@
+import { withLifecycle } from '../lib/lifecycle-operator.js';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -126,48 +127,52 @@ async function profiles() {
 
 try {
   if (aws(['sts', 'get-caller-identity']).Account !== config.account) throw new Error('AWS account mismatch.');
-  switch (action) {
-    case 'import': console.log(await importParameters(parameters, config, credentialParameters(resolve(extra[0]!)))); break;
-    case 'unpark':
-    case 'deploy': {
-      run(process.execPath, ['--import=tsx', 'scripts/deployment.ts', 'preflight', config.id], undefined, true);
-      assertServerParameterMetadata(aws(['ssm', 'describe-parameters', '--parameter-filters',
-        JSON.stringify([{ Key: 'Name', Option: 'Equals', Values: serverParameterNames }])]).Parameters);
-      run(process.execPath, ['--import=tsx', 'scripts/platform.ts', config.id, 'check'], undefined, true);
-      assertHostPlatform(config, aws);
-      await assertStartReady(operatorGate(config.id));
-      const support = discoverGuardDuty(config);
-      if (support.service) await guardDutyPreflight(guardDuty);
-      cdk('diff');
-      // Transport and host permissions must exist before a new detector begins automatic installation.
-      cdk('deploy');
-      const protection = await ensureGuardDuty(guardDuty, support, { tags: { ...config.globalTags, System: 'shared' }, report: console.log });
-      if (protection.status !== 'RUNTIME_ENABLED') console.log(`GuardDuty: ${protection.status}; ${protection.reason}`);
-      await monitoring(state()); break;
+  const operation = async () => {
+    switch (action) {
+      case 'import': console.log(await importParameters(parameters, config, credentialParameters(resolve(extra[0]!)))); break;
+      case 'unpark':
+      case 'deploy': {
+        run(process.execPath, ['--import=tsx', 'scripts/deployment.ts', 'preflight', config.id], undefined, true);
+        assertServerParameterMetadata(aws(['ssm', 'describe-parameters', '--parameter-filters',
+          JSON.stringify([{ Key: 'Name', Option: 'Equals', Values: serverParameterNames }])]).Parameters);
+        assertHostPlatform(config, aws);
+        await assertStartReady(operatorGate(config.id));
+        const support = discoverGuardDuty(config);
+        if (support.service) await guardDutyPreflight(guardDuty);
+        cdk('diff');
+        // Transport and host permissions must exist before a new detector begins automatic installation.
+        cdk('deploy');
+        const protection = await ensureGuardDuty(guardDuty, support, { tags: { ...config.globalTags, System: 'shared' }, report: console.log });
+        if (protection.status !== 'RUNTIME_ENABLED') console.log(`GuardDuty: ${protection.status}; ${protection.reason}`);
+        await monitoring(state()); break;
+      }
+      case 'start': await assertStartReady(operatorGate(config.id)); power(action); break;
+      case 'stop': power(action); break;
+      case 'status': {
+        const outputs = state();
+        if (!outputs.InstanceId) { console.log({ ...outputs, state: 'parked' }); break; }
+        console.log({ ...outputs, state: aws(['ec2', 'describe-instances', '--instance-ids', outputs.InstanceId!]).Reservations[0].Instances[0].State.Name }); break;
+      }
+      case 'verify': await verify(); break;
+      case 'profiles': await profiles(); break;
+      case 'test': {
+        const outputs = state();
+        const images = deployedClientImages(config, outputs, aws);
+        // A fresh machine/region has neither cached images nor a valid ECR login; do not depend on prior publication.
+        const password = run('aws', ['--profile', 'personal', '--region', config.region, 'ecr', 'get-login-password']);
+        run('docker', ['login', '--username', 'AWS', '--password-stdin', `${config.account}.dkr.ecr.${config.region}.amazonaws.com`], password);
+        // Download outside the short client-command timeout, preserving the actual deployed digest selections.
+        for (const image of Object.values(images)) run('docker', ['pull', '--platform', imagePlatform, image]);
+        await profiles();
+        await testEcsClients(config, root, work, outputs, images);
+        break;
+      }
+      default: throw new Error('Select import, deploy, unpark, start, stop, status, verify, profiles or test.');
     }
-    case 'start': await assertStartReady(operatorGate(config.id)); power(action); break;
-    case 'stop': power(action); break;
-    case 'status': {
-      const outputs = state();
-      if (!outputs.InstanceId) { console.log({ ...outputs, state: 'parked' }); break; }
-      console.log({ ...outputs, state: aws(['ec2', 'describe-instances', '--instance-ids', outputs.InstanceId!]).Reservations[0].Instances[0].State.Name }); break;
-    }
-    case 'verify': await verify(); break;
-    case 'profiles': await profiles(); break;
-    case 'test': {
-      const outputs = state();
-      const images = deployedClientImages(config, outputs, aws);
-      // A fresh machine/region has neither cached images nor a valid ECR login; do not depend on prior publication.
-      const password = run('aws', ['--profile', 'personal', '--region', config.region, 'ecr', 'get-login-password']);
-      run('docker', ['login', '--username', 'AWS', '--password-stdin', `${config.account}.dkr.ecr.${config.region}.amazonaws.com`], password);
-      // Download outside the short client-command timeout, preserving the actual deployed digest selections.
-      for (const image of Object.values(images)) run('docker', ['pull', '--platform', imagePlatform, image]);
-      await profiles();
-      await testEcsClients(config, root, work, outputs, images);
-      break;
-    }
-    default: throw new Error('Select import, deploy, unpark, start, stop, status, verify, profiles or test.');
-  }
+  };
+  if (['deploy', 'unpark', 'start', 'stop'].includes(action ?? '')) {
+    await withLifecycle(config, action!, operation, action === 'stop' ? 'stopped' : 'active');
+  } else await operation();
 } catch (error) {
   // AWS SDK errors may carry request details; print only our fixed message or an error class.
   console.error(error instanceof Error && error.constructor === Error ? error.message : `ECS operation failed (${(error as { name?: string }).name ?? 'unknown'}); details withheld.`);

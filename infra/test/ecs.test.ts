@@ -4,7 +4,6 @@ import { CloudAssembly } from 'aws-cdk-lib/cx-api';
 import { buildApp } from '../lib/app.js';
 import { getDeployment } from '../lib/config.js';
 import { gatewayPlatform } from '../lib/gateway-platform.js';
-import { platformImage, platformRepository } from '../lib/platform-image.js';
 import { imageArtifacts, officialXrayImage, releaseFiles, releaseTag } from '../lib/ecs-release.js';
 
 afterAll(() => CloudAssembly.cleanupTemporaryDirectories());
@@ -12,6 +11,11 @@ const config = { ...getDeployment('stockholm-ecs'), account: '000000000000' };
 const { app, stack } = buildApp(config, { service: true, runtime: true });
 const template = Template.fromStack(stack);
 const resources = template.toJSON().Resources as Record<string, any>;
+
+it('tags the CloudFormation owner explicitly as well as its billable resources', () => {
+  // Resource-level aspects alone do not establish stack ownership with explicitStackTags enabled.
+  expect(app.synth().getStackArtifact(stack.artifactId).tags).toMatchObject({ Project: 'ghostline', Environment: 'prod', System: 'shared' });
+});
 
 it('uses one SSH-free Bottlerocket host with retained dual addresses and no paid gateways', () => {
   template.resourceCountIs('AWS::EC2::Instance', 1);
@@ -22,7 +26,8 @@ it('uses one SSH-free Bottlerocket host with retained dual addresses and no paid
   expect(host.KeyName).toBeUndefined();
   expect(Object.values(resources).find(r => r.Type === 'AWS::EC2::Instance').DependsOn).toContain('Cluster');
   expect(resources.Instance.DependsOn).toContain(Object.keys(resources).find(key => key.startsWith('HostRoleDefaultPolicy')));
-  expect(host.ImageId).toBe(config.amiId);
+  expect(host.ImageId).toBeUndefined();
+  expect(resources.HostLaunchTemplate.Properties.LaunchTemplateData.ImageId).toBe('resolve:ssm:/aws/service/bottlerocket/aws-ecs-3/arm64/latest/image_id');
   expect(host.MetadataOptions).toMatchObject({ HttpTokens: 'required', HttpPutResponseHopLimit: 1 });
   expect(host.BlockDeviceMappings[0]).toMatchObject({ DeviceName: '/dev/xvda', Ebs: { Encrypted: true, VolumeSize: 2, DeleteOnTermination: true } });
   expect(Object.values(resources).find(r => r.Type === 'AWS::EC2::SecurityGroup').Properties.SecurityGroupIngress.map((r: any) => r.FromPort)).toEqual([443, 443]);
@@ -103,7 +108,7 @@ it('runs one bridge task with isolated engines, one secret recipient and shared 
   const reads = statements.filter(s => [].concat(s.Action).some((a: string) => a.startsWith('ssm:GetParameter')));
   expect(reads).toHaveLength(1);
   expect(reads[0].Resource).toEqual(['awg', 'xray'].map(protocol => `arn:aws:ssm:eu-north-1:000000000000:parameter/ghostline/prod/server/${protocol}`));
-  const bootstrap = gatewayPlatform(config, platformImage(config), platformRepository, true).userData;
+  const bootstrap = gatewayPlatform(config, true).userData;
   expect(bootstrap).toContain('reserved-memory = 602');
   expect(bootstrap).toContain('essential = true');
   expect(resources.GatewayService.DependsOn).toContain('NetworkService');
@@ -112,8 +117,8 @@ it('runs one bridge task with isolated engines, one secret recipient and shared 
 });
 
 it('keeps build identities separate from static deployment aliases', () => {
-  expect(gatewayPlatform(config, platformImage(config), platformRepository, true).userData.length).toBeLessThan(16_384);
-  expect(gatewayPlatform(config, platformImage(config), platformRepository, true).userData).not.toContain('PrivateKey');
+  expect(gatewayPlatform(config, true).userData.length).toBeLessThan(16_384);
+  expect(gatewayPlatform(config, true).userData).not.toContain('PrivateKey');
   for (const protocol of imageArtifacts) {
     expect(releaseTag(protocol)).toMatch(/^sha-[a-f0-9]{64}$/);
     expect(Object.keys(releaseFiles(protocol))).not.toContain('server.json');

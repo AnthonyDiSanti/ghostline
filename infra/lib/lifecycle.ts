@@ -26,7 +26,7 @@ export function deleteEndpointStack(stack: any, aws: AwsMetadata): void {
 export function captureRelease(config: DeploymentConfig, stack: any, resources: any[]): ReleaseRecord {
   // Capture CloudFormation-owned allocations before deleting the stack, never from a regional tag search.
   const prefix = `arn:aws:cloudformation:${config.region}:${config.account}:stack/${config.stackName}/`;
-  if (!stack.StackId?.startsWith(prefix) || !['CREATE_COMPLETE', 'UPDATE_COMPLETE', 'UPDATE_ROLLBACK_COMPLETE'].includes(stack.StackStatus)) {
+  if (!stack.StackId?.startsWith(prefix) || !['CREATE_COMPLETE', 'UPDATE_COMPLETE', 'UPDATE_ROLLBACK_COMPLETE', 'DELETE_IN_PROGRESS', 'DELETE_FAILED'].includes(stack.StackStatus)) {
     throw new Error('Release requires a stable stack in the selected account and region.');
   }
   const addresses = resources.filter(r => r.ResourceType === 'AWS::EC2::EIP').map(r => r.PhysicalResourceId);
@@ -48,8 +48,10 @@ export function releaseAfterDeletion(config: DeploymentConfig, record: ReleaseRe
     || !record.allocations.length || record.allocations.some(id => !/^eipalloc-[a-f0-9]+$/.test(id))) {
     throw new Error('Release record does not belong to the selected deployment.');
   }
-  const stack = aws(['cloudformation', 'describe-stacks', '--stack-name', record.stackId]).Stacks[0];
-  if (stack.StackStatus !== 'DELETE_COMPLETE') throw new Error('Stack deletion must finish before releasing addresses.');
+  const stacks = aws(['cloudformation', 'describe-stacks', '--stack-name', record.stackId]).Stacks;
+  if (!Array.isArray(stacks)) throw new Error('Stack deletion status is unreadable.');
+  // A recorded deleted stack can age out of CloudFormation; the adapter must distinguish known absence from an API failure.
+  if (stacks[0] && stacks[0].StackStatus !== 'DELETE_COMPLETE') throw new Error('Stack deletion must finish before releasing addresses.');
   const addresses = aws(['ec2', 'describe-addresses']).Addresses.filter((address: any) => record.allocations.includes(address.AllocationId));
   // Validate the entire remaining set before releasing any; never disassociate an unexpectedly reused IP.
   for (const address of addresses) {

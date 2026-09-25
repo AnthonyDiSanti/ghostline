@@ -1,24 +1,42 @@
 # Bottlerocket platform
 
-Every regional gateway uses AWS's official ECS-3 ARM64 Bottlerocket image. The ECS agent and restricted SSM control container are part of the supported OS integration. `infra/deployment.json` selects each regional AMI; `infra/platform-inputs.json` records the qualified OS version, platform-image digest and source hash. Preflight requires the exact AWS-owned image/version. This is separate from the three-image application release document and its production/MRU aliases.
+Every regional gateway uses AWS's official ECS-3 ARM64 Bottlerocket OS. The supported image includes the ECS agent and restricted SSM control container. **Migration is in progress; launch records and the [handoff](../.context/handoff.md) distinguish deployed versions from this implementation contract.**
 
-## Images, ownership and updates
+## AL2023 bridge evaluation
 
-`GhostlinePlatform` owns immutable, encrypted, scan-on-push `ghostline/platform/host` in each active region. It is retained independently of endpoint park/destroy. Bootstrap, diagnostics and the ECS network daemon use the same explicitly selected local digest. No remote publication region is required at host startup. Tags use the common `Project`, `Environment` and `System=shared` convention.
+The [isolated AL2023 boot-gate trials](../.context/scratch/2026-09-24-al2023-bridge/plan.md) **rejected shell-user-data installation as a serving host path**: Docker started before user data installed quarantine. Anthony then selected a derivative of the official ECS-optimized ARM64 AMI with the early gate preinstalled. Its fresh-host first boot, reboot/restored-container safety, missing-image fail-closed recovery and EC2 stop/start passed in Ireland. The AMI contains systemd ordering, RAM/quarantine host fixtures and a synthetic public-image selection; the finite bootstrap remains a **separate container run on every boot before ECS**. ECS enrolls only after an explicit cluster is supplied at launch. The synthetic AMI and snapshot were removed after the trial. This qualifies the boot boundary, not the actual five-image AL2023 gateway, its hardening, OS updates or production migration. Stockholm/Cape Town remain unchanged on Bottlerocket pending a full port and qualification.
 
-From `infra/`:
+## Images and ownership
+
+The common pipeline builds, qualifies and publishes five images: bootstrap, network-daemon, gateway-config, Xray and AWG. `GhostlineRelease` owns their local `ghostline/prod/` repositories plus the non-runnable `releases` metadata repository. There is no independent helper release cadence. CDK owns static local `keep-production` references and native settings; publication owns their targets and the authoritative whole-stack document. [Release workflow](releases.md).
+
+The finite bootstrap image contains host preparation and explicitly invoked diagnostics. The separate daemon image excludes Docker CLI, mount tools, diagnostic fixtures and bootstrap-only dependencies. They share pure guard/network primitives in source, not authority or lifecycle. A successful `infra/platform-qualification.json` binds reusable native evidence to exact platform runtime manifests and build inputs; local image checks remain mandatory for each build. **The candidate's native proof is currently withheld after the replay failure below.**
+
+## OS policy
+
+New hosts use a launch template with `resolve:ssm:/aws/service/bottlerocket/aws-ecs-3/arm64/latest/image_id`. **EC2 resolves it for each new launch**, unlike a CloudFormation dynamic reference resolved during stack operations. Preflight reads the live official channel and validates Amazon ownership, available state, exact ECS-3 image name/version and ARM64. No regional AMI ID is embedded in the global release document or deployment catalog.
+
+An existing host does not change AMI or OS simply because it reboots. Its native verified TUF updater stages an inactive partition and explicitly activates/reboots into it. `updates.version-lock=latest` keeps AWS rollout waves; it schedules nothing. Ordinary image publication never invokes the OS updater. From `infra/`:
 
 ```sh
-npm run platform stockholm-ecs build
-npm run platform cape-town seed eu-north-1 ghostline/platform/host
-npm run platform cape-town check
+npm run platform stockholm-ecs status
+npm run platform stockholm-ecs update
+npm run platform <qualification-target> qualify /absolute/path/to/qualified.json
 ```
 
-`build` publishes a source-hash-tagged candidate and saves its metadata under ignored `.local/deployments/<target>/platform/candidate.json`. It changes neither committed selection nor running hosts. Qualify the candidate on an isolated gateway, review its digest/source hash in `platform-inputs.json`, then seed the selected bytes into each destination. Seeding copies OCI manifests, index children and layers without rebuilding or converting them. Do not select a candidate solely because it builds.
+`update` is an explicit operator action under the same regional lifecycle exclusion. It checks the native latest candidate against the qualified release compatibility set, stops gateway then daemon, stages the verified update, reboots once, observes the actual new OS/bootstrap/daemon and restores the gateway. A journal makes uncertain apply/reboot acknowledgements non-repeatable; failures require inspection/resumption. Qualify a newly offered incompatible OS on a disposable target first. Neither ignoring rollout waves nor automatic boot-time upgrades is selected.
 
-For an OS update, read AWS's `/aws/service/bottlerocket/aws-ecs-3/arm64/latest/image_id` and `image_version` public parameters in each destination, qualify the returned version with the selected platform image, then update the explicit catalog AMIs and `bottlerocketVersion`. Host updates use a fresh diff and retained-IP `park` followed by `ecs <target> unpark`, `verify` and `test`. Normal deploy/unpark reads the deployed CloudFormation template (JSON or YAML) and refuses changed settings on an existing host before making cloud changes; first park it to remove the old bootstrap state. This intentionally causes downtime. Application releases still use the normal release gate and do not rebuild the host.
+Changes to native settings, storage layout, instance size or launch-template policy use a reviewed retained-IP park/unpark. A bootstrap **image-content** update uses the release controller's controlled reboot and does not replace EC2. A daemon-only update replaces its ECS task; an application-only update replaces the gateway task.
 
-The platform repository has no automatic tagged-image expiration: a host digest must remain pullable after a long park. Remove obsolete platform candidates only after checking deployed templates and the committed selection; application MRU retention does not cover platform artifacts. Automated platform garbage collection is a separate follow-up.
+## Recovery and evidence limits
+
+Unexpected native boot does not fetch a release document or wait for a perfect version match. Essential swap/capacity/private-RAM/quarantine checks still apply. Bootstrap records its successful digest, OS and current boot ID through a constrained nonsecret native API operation; observation failure does not block otherwise safe boot. The fixed read-only observer checks the current kernel boot ID and native settings, since ECS registration attributes can remain stale after reboot.
+
+**Bottlerocket 1.65 did not fall back to a cached bootstrap image after an ECR 403.** A bounded Ireland fault test found repeated pulls and essential bootstrap failure; restoring access and rebooting recovered the same host/endpoints. Release-metadata tolerance is not an offline-image guarantee. Retain required artifacts and local copies, but do not make bootstrap optional or bypass verification for availability.
+
+Ireland also passed signed TUF preparation, reboot before activation, cancellation, boot into 1.64.0 and normal-wave return to 1.65.0. The updater lock hid exact write progress, so this is not proof of a precise mid-write interruption. [Native updater](https://bottlerocket.dev/en/os/1.64.x/update/methods/in-place/), [bootstrap settings](https://bottlerocket.dev/en/os/1.64.x/api/settings/bootstrap-containers/); exact-version claims above come from live evidence, not older documentation alone.
+
+The subsequent deployed-controller experiment passed application-only, daemon-only and combined changes, but one bootstrap-only transition failed in native host-containerd before our entrypoint ran: a parent filesystem snapshot was missing after successful pull/unpack. The controller issued one reboot, timed out and paused without retrying. One explicit diagnostic reboot recovered the same host; this is recovery evidence, not successful unattended rollout. A later controlled test reproduced the missing-parent failure with the selected client and server, then with Ireland's actual native overlayfs snapshotter. The standard containerd pull-and-unpack path survived the same forced GC. This is strong evidence for an upstream client-path defect, although the original boot's exact GC timing was not captured. The [supported-pattern audit](../.context/scratch/2026-09-22-coordinated-release/bootstrap-pattern-audit.md) found no invalid bootstrap setting explaining the failure; [core-kit issue #1059](https://github.com/bottlerocket-os/bottlerocket-core-kit/issues/1059) reports the bounded evidence. Native `host-ctr` is OS software, so a Ghostline bootstrap image cannot repair it. Production migration and bootstrap replay qualification remain blocked until an official ECS-3 ARM64 release contains a reviewed fix **and** the isolated A→B/repeated-boot/central checks pass. A newer version or issue closure alone is insufficient. See the [investigation and candidate source patch](../.context/scratch/2026-09-22-coordinated-release/native-bootstrap-failure.md).
 
 ## Boot and runtime boundaries
 
@@ -36,7 +54,7 @@ Bottlerocket's read-only verified OS and enforcing SELinux remain enabled. The a
 
 CloudFormation retains both EIP associations until the gateway and network-daemon services are deleted. This preserves the host agent’s internet connection while it acknowledges the final task stop; removing the IPs first can leave an empty-looking service stuck draining.
 
-Stop scales down the gateway, drains the exact registered host, waits for its daemon to stop and then stops EC2. Start waits for host/agent health, reactivates placement, waits for a healthy daemon and starts a new gateway task. Park deletes both disks, compute and VPC resources, retaining the two tracked EIPs; unpark rebuilds using the same image selection and Parameter Store identities. See [lifecycle](deployment-lifecycle.md) and [isolated validation](bottlerocket-trial.md).
+Stop scales down the gateway, drains the exact registered host, waits for its daemon to stop and then stops EC2. Start waits for host/agent health, reactivates placement, waits for a healthy daemon and starts a new gateway task. Park deletes both disks, compute and VPC resources, retaining the two tracked EIPs; unpark rebuilds using the same image selection and Parameter Store identities. See [lifecycle](deployment-lifecycle.md) and [central qualification](bottlerocket-trial.md).
 
 ## AWS image publisher references
 

@@ -4,7 +4,7 @@ Current implementation and operator contract: [release workflow](../../docs/rele
 
 ## Selected release contract
 
-- Self-contained primary/DR publication with direct regional replication; defaults NVA/London, persisted overrides and one shared subscriber list.
+- September 22 supersession: any-member direct replication with explicit retained NVA/London members; union-based retirement and historical seeding. Local implementation is in progress; see the handoff for cloud state.
 - Central qualification once. Distribution validates identity/completeness, without rebuilding or re-testing protocols.
 - Static local `keep-production` image references owned by CDK. The release artifact lives beside the initializer under `keep-production-release`; SHA256 manifest identities already exist in ECR.
 - One regional gate, reserved concurrency one, ECR wakeups and hourly reconciliation. Minimal conditional attempt state, independent destination progress and explicit retry; no task-definition registration/selection or desired-count mutation by the gate.
@@ -69,3 +69,15 @@ Both direct publishers replicated runnable images, OCI documents and moved alias
 The live CloudTrail call audit recorded exactly two successful gate UpdateService requests per region. Records include `dryrun: false` in addition to the three intended fields; adapter regression tests continue to require the exact SDK input `{cluster, service, forceNewDeployment: true}`. Do not mistake this observed audit metadata for a task-definition mutation.
 
 A subsequent fresh-build publication exercised the normal qualified-image path: the initializer subprocess-environment improvement passed a failing-before/passing-after central regression and both encrypted protocols, then automatically deployed once per gateway. The build reused the same AWG runtime child but produced a different OCI index (build metadata); distinguish root/index identity from actual runtime bytes when reporting changes. Production and two prior sets agree across all four registries. [Fresh-build evidence](../handoff.md#completed-fresh-initializer-release--september-21).
+
+## Replication readback equality — September 22
+
+AWS returns destination objects with field ordering that differs from request construction. Compare normalized destination/filter sets, not raw JSON serialization, or idempotent activation falsely reports pending cleanup and repeatedly rewrites unchanged policies. The isolated four-region native exercise caught this; `replicationRulesEqual` and its actual-shape regression now cover it. Both Stockholm and Cape Town originated immutable probe artifacts that reached all four registries; production aliases were untouched. The experimental prefix and repositories were removed afterward.
+
+## Read-audit feedback loop found during Ireland activation
+
+September 22: enabling the shared read/write management trail made the former source-only `aws.ecr` arrival rule unsafe. The controller's own `BatchGetImage` reads appeared as CloudTrail events and retriggered it; Ireland's lifecycle claim remained busy and direct invocation was throttled. This was not a new image publication. Narrow the native rule to successful `ECR Image Action` PUSH / `ECR Replication Action` REPLICATE events for owned repositories, with a separate CloudTrail `PutImage` write rule for aliases. The Lambda also drops irrelevant ECR events **before any AWS call**, because queued events survive a rule update. Keep hourly reconciliation for missed delivery. [AWS event examples](https://docs.aws.amazon.com/AmazonECR/latest/userguide/ecr-eventbridge.html).
+
+When adding an account audit baseline, review consumers of AWS API events: broader auditing can expose self-triggering control loops in existing source-only rules. Preserve the stronger audit baseline and correct the consumer, rather than removing read audit coverage. Targeted tests cover read rejection, native publication/replication, alias writes, unrelated repositories and queued-event short circuiting. Live correction/evidence is tracked in the handoff.
+
+The fix is now deployed in Stockholm, Cape Town and disposable Ireland. AWS TestEventPattern checks pass for all four event classes (PUSH, REPLICATE, PutImage, rejected BatchGetImage); all publication/alias/hourly rules remain enabled. Production task ARNs and address associations are unchanged. The Ireland controller became idle and normal host deployment acquired its lifecycle claim without bypassing exclusion. Evidence: `.local/coordinated-release/arrival-fix-verification.json` and `shared-audit-migration.json`.

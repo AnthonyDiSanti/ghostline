@@ -9,7 +9,6 @@ export interface DeploymentConfig {
   account: string;
   region: string;
   availabilityZone: string;
-  amiId: string;
   instanceType: string;
   dataVolumeGiB: number;
   globalTags: Record<string, string>;
@@ -54,13 +53,13 @@ export function validateDeployment(config: DeploymentConfig): DeploymentConfig {
     || !new RegExp(`^${config.region}[a-z]$`).test(config.availabilityZone)) {
     throw new Error('Deployment requires an account and matching region/availability zone.');
   }
-  if (!/^ami-[a-f0-9]{17}$/.test(config.amiId) || !/^t4g\.(small|medium|large|xlarge|2xlarge)$/.test(config.instanceType)
+  if (!/^t4g\.(small|medium|large|xlarge|2xlarge)$/.test(config.instanceType)
     || !Number.isInteger(config.dataVolumeGiB) || config.dataVolumeGiB < 30) {
-    throw new Error('Deployment requires a Bottlerocket ECS-3 ARM64 AMI, supported t4g instance and at least 30 GiB.');
+    throw new Error('Deployment requires a supported t4g instance and at least 30 GiB.');
   }
   // Reject unsupported configuration instead of retaining an implicit alternative deployment mode.
   const fields = new Set(['id', 'stackName', 'resourceName', 'account', 'region', 'availabilityZone',
-    'amiId', 'instanceType', 'dataVolumeGiB', 'globalTags']);
+    'instanceType', 'dataVolumeGiB', 'globalTags']);
   if (Object.keys(config).some(key => !fields.has(key))) throw new Error('Unknown deployment configuration field.');
   return { ...config, globalTags: validateGlobalTags(config.globalTags) };
 }

@@ -21,13 +21,13 @@ The reference repo is `../personal-assistant`, with working memory under `contex
 
 ## Code and verification
 
-The executable package is `infra/`; use Node 24 and `npm ci`. `npm test` runs typecheck, asset syntax/ShellCheck/Hadolint, fresh offline CDK synthesis and Vitest. Native linters or Docker are required. `npm run test:ecs-images` tests the three ARM64 artifacts with disposable synthetic credentials.
+The executable package is `infra/`; use Node 24 and `npm ci`. `npm test` runs typecheck, asset syntax/ShellCheck/Hadolint, fresh offline CDK synthesis and Vitest. Native linters or Docker are required. `npm run test:ecs-images` checks the ARM64 application artifacts with disposable synthetic credentials and the split bootstrap/daemon package contents. Native platform qualification is a separate central gate; package checks do not prove host behavior.
 
-Use `npm run ecs <target> <action>` for deployment, images, regional secret import, start/stop, profiles and real-client verification. Read `docs/development.md` for argument contracts. `park <target>` retains tracked billable EIPs; `destroy <target>` releases only owned allocations. Images and Parameter Store credentials survive both.
+Use `npm run ecs <target> <action>` for deployment, images, regional secret import, start/stop, profiles and real-client verification. Read `docs/development.md` for argument contracts. `park <target>` retains tracked billable EIPs; `destroy <target>` releases only owned allocations. Park retains images and release support; destroy retires registry membership and removes owned regional repositories/control-plane resources. Standard Parameter Store credentials, expiring logs and independent security controls survive.
 
-Use strict TypeScript, a thin CLI and the shared testable app builder. The catalog contains maintained endpoints only. Test regional reuse with synthetic configurations instead of creating deployable abandoned recipes. Keep account/region/AMI/resource inputs explicit and reject unknown configuration fields. Preserve exact Project/Environment/System cost-tag conventions.
+Use strict TypeScript, a thin CLI and the shared testable app builder. The catalog contains maintained endpoints only. Test regional reuse with synthetic configurations instead of creating deployable abandoned recipes. Keep account/region/resource inputs explicit; resolve the official latest Bottlerocket AMI at each new launch and reject unknown configuration fields. Preserve exact Project/Environment/System cost-tag conventions.
 
-Keep initializer and engines in one ECS task. Only the initializer receives server secrets through the execution role; engines have no task role and mount protocol-private RAM configuration read-only. Host fixtures supply generic storage/networking, not application secret retrieval. Platform source changes require a qualified platform image and a retained-IP cold rebuild. Bottlerocket replays its finite essential bootstrap on each boot; ordinary application releases do not alter host settings.
+Keep initializer and engines in one ECS task. Only the initializer receives server secrets through the execution role; engines have no task role and mount protocol-private RAM configuration read-only. Host fixtures supply generic storage/networking, not application secret retrieval. Platform source changes require centrally qualified artifacts. Bootstrap content updates use a controlled reboot; native settings/layout changes require a retained-IP cold rebuild. Bottlerocket replays its finite essential bootstrap on each boot; ordinary application releases do not alter host settings.
 
 For nontrivial changes:
 - Add short intent comments around non-obvious logic.
@@ -37,7 +37,7 @@ For nontrivial changes:
 - Never print decrypted parameters, client profiles, private keys or injected environment values. Emit selected metadata, hashes and equality results only.
 - Do not stage, unstage, commit or amend unless explicitly requested.
 
-For releases, read `docs/releases.md`: CDK owns static local `keep-production` references; publication owns global production/MRU aliases. Qualify once centrally, preserve fixed production plus three prior releases, and never add per-region fallback pins or retest protocols as a delivery gate. Regional release resources survive endpoint stop/park/destroy.
+For releases, read `docs/releases.md`: CDK owns static local `keep-production` references; publication owns global production/MRU aliases. Qualify once centrally, preserve fixed production plus three prior releases, and never add per-region fallback pins or retest protocols as a delivery gate. Regional release resources survive stop/park; complete destroy removes them. NVA/London publication members are explicitly retained. Read the handoff for migration state before using newly changed lifecycle commands.
 
 For new protocol releases, use `npm run images:build`: resolve official stable channels, verify artifacts, pass local encrypted/image checks and record `infra/image-inputs.json`. Publish/deploy reuse that selection without rediscovery. Exclude prereleases/drafts/nightly/main; `latest` alone is not evidence of stability. Read `docs/images.md` for AWG's tag-based channel and provenance limits. Local compatibility is not native-client or regional acceptance.
 
@@ -49,7 +49,7 @@ Before native Mac recovery/sleep testing, read `docs/mac-client-stability.md`. T
 
 `docs/` owns current specifications and workflows; `.context/` owns live state, decisions and compact supplemental knowledge. Keep both current after substantial work. Remove superseded architectural instructions rather than retaining competing versions. Preserve source provenance, licenses, current resource inventory and observed evidence.
 
-At major work-unit transitions or To Do reviews, perform the Amnezia issue/release check in `.context/tasks.md` until a fixed Mac release has been locally validated. Record date and result; issue closure alone is insufficient.
+At major work-unit transitions or To Do reviews, perform both upstream issue/release checks in `.context/tasks.md`: Amnezia #2933 until a fixed Mac build passes a coordinated trial, and Bottlerocket core-kit #1059 until an official ECS-3 ARM64 fix passes isolated bootstrap replay and recovery. Record the date and result of each check; issue closure or a merged fix alone is insufficient.
 
 Inspect the full dirty state, including staged/untracked files, at work-unit close. Preserve the user's index. State what changed, verification and remaining inputs. Propose a commit message for all uncommitted work unless scope is explicitly narrowed: imperative sentence-case title, blank line, capitalized imperative bullets. Mention pre-existing changes; do not imply synth success proves connectivity.
 

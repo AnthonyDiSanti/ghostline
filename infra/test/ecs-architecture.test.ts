@@ -4,8 +4,6 @@ import { CloudAssembly } from 'aws-cdk-lib/cx-api';
 import { buildApp } from '../lib/app.js';
 import { getDeployment } from '../lib/config.js';
 import { assertImagePlatform } from '../lib/ecs-images.js';
-import { platformInputs } from '../lib/platform-image.js';
-import { assertDeploymentAmi } from '../lib/deployment-ami.js';
 
 afterAll(() => CloudAssembly.cleanupTemporaryDirectories());
 
@@ -24,16 +22,6 @@ it('instantiates the same ARM64 gateway in independent regions without adding li
     const policies = JSON.stringify(template.findResources('AWS::IAM::Policy'));
     expect(policies).toContain(`arn:aws:ssm:${region}:000000000000:parameter/ghostline/prod/server/`);
     expect(policies).not.toContain('ssm:PutParameter');
-  }
-});
-
-it('requires available AWS-owned Bottlerocket ARM64 host images', () => {
-  const image = { State: 'available', ImageOwnerAlias: 'amazon', RootDeviceName: '/dev/xvda',
-    Name: `bottlerocket-aws-ecs-3-aarch64-v${platformInputs.bottlerocketVersion}`, Architecture: 'arm64' };
-  expect(() => assertDeploymentAmi(image)).not.toThrow();
-  for (const altered of [undefined, { ...image, ImageOwnerAlias: 'aws-marketplace' }, { ...image, State: 'pending' },
-    { ...image, Name: 'other-image' }, { ...image, Architecture: 'x86_64' }]) {
-    expect(() => assertDeploymentAmi(altered)).toThrow('AWS Bottlerocket ECS-3 ARM64');
   }
 });
 

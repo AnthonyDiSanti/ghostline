@@ -11,7 +11,7 @@ Use Node 24 and the strict TypeScript package under `infra/`, including its reus
 | `infra/lib/ecs-stack.ts` | Reusable disposable endpoint stack |
 | `infra/lib/releases/`, `infra/lambda/release-gate.ts`, `infra/scripts/release.ts` | Global publication, regional image infrastructure and static-task deployment gate |
 | `infra/packages/notifications/` | Independent SNS event/alarm routing and private-parameter email subscription |
-| `infra/lib/ecs-memory.ts`, `infra/lib/deployment-ami.ts` | Memory budget and AWS host-image checks |
+| `infra/lib/ecs-memory.ts`, `infra/lib/bottlerocket-os.ts` | Memory budget and AWS host-image checks |
 | `infra/lib/ecs-release.ts`, `infra/lib/ecs-images.ts` | Three ARM64 image artifacts, content identities and publication |
 | `infra/lib/stable-images.ts`, `infra/lib/upstream-download.ts`, `infra/image-inputs.json` | Stable resolution, scoped authenticated metadata reads and recorded verified build inputs |
 | `infra/lib/parameters.ts`, `infra/lib/xray-config.ts` | Portable credential validation and regional SecureString import |
@@ -27,7 +27,7 @@ From `infra/`, run `npm ci` then `npm test`. Typecheck without emitting files; k
 
 Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra/test/fixtures/`, including nested programs. Bottlerocket TOML settings live beside the platform fixtures. `renderFixture()` replaces exact `@@NAME@@` slots once and rejects missing/unused inputs; it does not perform shell escaping or recursive expansion. Validate identifiers and encode transported files before rendering.
 
-`gatewayPlatform()` renders nonsecret Bottlerocket settings. The separately published platform image carries native bootstrap, daemon and verification fixtures. OS/platform changes require a retained-IP cold rebuild; normal application releases remain independent. [Platform workflow](platform.md).
+`gatewayPlatform()` renders nonsecret Bottlerocket settings. The common five-image pipeline publishes distinct bootstrap/diagnostic and restricted daemon artifacts. Bootstrap content changes use a controlled reboot; native settings/layout changes use retained-IP cold rebuilds. App and daemon updates select only the necessary task restart. [Platform workflow](platform.md).
 
 ## Commands
 
@@ -40,17 +40,17 @@ Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra
 | `npm run test:cdk` | Fresh offline synthesis of the maintained catalog |
 | `npm test` | Full local gate: typecheck, asset checks, synth and Vitest |
 | `npm run images:build` | Resolve official stable engines, build/test locally, then record the successful selection |
-| `npm run test:ecs-images` | Build/test the recorded three ARM64 artifacts and real local encrypted tunnels with synthetic credentials |
-| `npm run platform <target> build` | Build/publish a platform candidate without selecting it or changing hosts |
-| `npm run platform <target> seed <source-region> <source-repository>` | Copy the selected qualified platform artifact exactly into the regional durable repository |
-| `npm run platform <target> check` | Require the selected local platform image before deployment |
+| `npm run test:ecs-images` | Build/test five ARM64 artifacts, platform package boundaries and real local encrypted tunnels with synthetic credentials |
+| `npm run platform <target> status` | Observe actual boot, OS and component identities |
+| `npm run platform <target> update` | Explicitly apply a qualified latest native OS update under lifecycle exclusion |
+| `npm run platform <target> qualify <qualified-file>` | Close central native qualification after the documented experiment; verify runtime and record exact platform/OS compatibility |
 | `npm run deployments` | List maintained targets; allocate nothing |
-| `npm run preflight <target>` | Verify AWS account, enabled region, selected official Bottlerocket ECS-3 ARM64 AMI, AZ, instance capacity/offering |
+| `npm run preflight <target>` | Verify AWS account, enabled region, live official latest Bottlerocket ECS-3 ARM64 launch channel, AZ, instance capacity/offering |
 | `npm run synth <target>` / `npm run diff <target>` | Discover live GuardDuty availability and synthesize / compare the selected endpoint |
 | `npm run ecs <target> import <directory>` | Import six validated protected credential files; refuse conflicting values |
-| `npm run release publish [primary|dr]` | Publish centrally qualified bytes once; native replication and regional gates handle rollout |
+| `npm run release publish <target-or-region>` | Publish centrally qualified bytes once; native replication and regional gates handle rollout |
 | `npm run release status [target]` / `reconcile <target>` / `retry <target>` | Inspect, reconcile or explicitly retry a release |
-| `npm run release activate <target>` / `retire <target>` | Manage regional release subscription and explicit seeding |
+| `npm run release activate <target>` | Prepare/seed a member before enabling outbound replication and automation |
 | `npm run ecs <target> deploy` / `unpark` | Check parameter metadata/images/live support, diff/deploy gateway, enable available protection and verify its reported coverage |
 | `npm run ecs <target> start` / `stop` | Start/stop the selected host and service in lifecycle order |
 | `npm run ecs <target> status` | Read selected stack outputs and EC2 state |
@@ -58,7 +58,7 @@ Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra
 | `npm run ecs <target> profiles` | Write protected client profiles/links/QRs with current addresses |
 | `npm run ecs <target> test` | Test real encrypted HTTPS through both protocols using disposable local clients |
 | `npm run park <target>` | Remove endpoint compute/disk/networking while retaining its two tracked EIPs |
-| `npm run destroy <target>` | Remove the endpoint and explicitly release its two owned EIPs |
+| `npm run destroy <target>` | Remove owned endpoint and regional release/runtime support, local images and EIPs; retain deliberate security/credential/expiring-log classes |
 
 The primary target is `stockholm-ecs`; the backup target is `cape-town`. Npm accepts these positional arguments without `--`; the delimiter is only useful when forwarding options such as `npm run test:assets -- --docker`. AWS commands use profile `personal`. CDK receives `GHOSTLINE_DEPLOYMENT` from the wrapper; only explicit `active`/`parked` lifecycle modes are supported. No SSH key or operator CIDR input exists.
 
@@ -72,12 +72,12 @@ Use native Bash/Python and `brew install shellcheck hadolint`, or Docker for mis
 
 All diagnostic severities fail. ShellCheck ignores home configuration; Hadolint uses `infra/hadolint.yaml`; inherited lint exclusions are removed. Fix findings or document a narrow exception beside the relevant instruction. Use real fixtures with synthetic inputs and replace only external command boundaries in tests. Do not recreate EC2/systemd in a mock framework.
 
-Offline synthesis covers **two named regional configurations, each with its disposable endpoint stack; separate assertions synthesize regional release infrastructure**. These offline synths use explicit synthetic GuardDuty support; named CLI synth/diff/deploy commands discover support live. Regional GuardDuty settings are outside the application CloudFormation lifecycle. Stack count is independent of the three application images and separate platform image. Independent synthetic-region tests verify reuse without making abandoned regions deployable. Static checks do not establish connectivity. Disconnect a native VPN before regional tunnel probes so nesting does not distort direct-path results; the local image suite keeps both protocol peers inside Docker.
+Offline synthesis covers **two named regional configurations, each with its disposable endpoint stack; separate assertions synthesize regional release infrastructure**. These offline synths use explicit synthetic GuardDuty support; named CLI synth/diff/deploy commands discover support live. Regional GuardDuty settings are outside the application CloudFormation lifecycle. Stack count is independent of the five runnable images and non-runnable release document. Independent synthetic-region tests verify reuse without making abandoned regions deployable. Static checks do not establish connectivity. Disconnect a native VPN before regional tunnel probes so nesting does not distort direct-path results; the local image suite keeps both protocol peers inside Docker.
 
 ## On-demand regional lifecycle
 
-Read [lifecycle](deployment-lifecycle.md) and the selected launch record before changes. Stop keeps the host/disk/IPs; park removes host/disk/networking but retains tracked IPs; destroy also releases them. Durable images and regional parameters survive both park and destroy. New allocations require fresh client endpoint exports.
+Read [lifecycle](deployment-lifecycle.md) and the selected launch record before changes. Stop keeps the host/disk/IPs; park removes host/disk/networking but retains tracked IPs; destroy also releases them. Park retains images and release support; destroy removes them. Standard regional credentials survive both. New allocations require fresh client endpoint exports.
 
-The destroy helper records exact CloudFormation ownership in ignored `.local/deployments/<target>/pending-release.json`, waits for deletion, rechecks tags/attachment and releases only captured allocations. Retry resumes that exact stack ARN; completion renames the record to `last-release.json`. Do not bypass ownership refusals or release unrelated addresses.
+The destroy helper records exact regional ownership and resumable phases in ignored `.local/deployments/<target>/regional-cleanup.json`. Read [lifecycle](deployment-lifecycle.md#exclusion-and-resumable-destroy) for exclusion, replication retirement, retained resource classes and incomplete-cleanup reporting. Ireland passed complete destroy, repeat-destroy and reseeded redeployment. The final expanded whole-stack cleanup remains in the active work item; see the handoff for its current checkpoint.
 
-For a host AMI or bootstrap change, publish required images, park, deploy, then run `verify` and `test`. The deployment preflight refuses changed OS/bootstrap/size settings on an active host; explicitly park first. The existing ENI cannot be attached to a replacement host while the first host still owns it. This cold rebuild has an outage; an unchanged-image task deployment does not require rebuilding the host.
+For native host settings/layout/size changes, prepare the complete local release, park, unpark, then run `verify` and `test`. Deployment refuses changed static host settings on an active host; explicitly park first. Bootstrap image content updates use the controller's controlled reboot; OS updates use the separate native TUF workflow. The existing ENI cannot be attached to a replacement host while the first host still owns it. This cold rebuild has an outage; an unchanged-image task deployment does not require rebuilding the host.

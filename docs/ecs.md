@@ -1,10 +1,10 @@
 # ECS gateway runtime
 
-The regional architecture is one official ECS-3 Bottlerocket ARM64 host, one application service/task with three images, and one restricted ECS DAEMON task using a fourth platform image. [Architecture](architecture.md) owns resource/billing boundaries; [Stockholm evidence](launch-stockholm-ecs.md) owns live identities and validation; [development](development.md) owns command syntax.
+The regional architecture is one official ECS-3 Bottlerocket ARM64 host, one application service/task with three images, and one restricted ECS DAEMON task and a separate finite native bootstrap image. [Architecture](architecture.md) owns resource/billing boundaries; [Stockholm evidence](launch-stockholm-ecs.md) owns live identities and validation; [development](development.md) owns command syntax.
 
 ## Task and images
 
-`EcsEndpointStack` creates a `t4g.small`, encrypted 2 GiB OS and 30 GiB data disks, public subnet, one ENI, two retained EIPs and one gateway task. The separate `RegionalReleaseStack` retains the three common-name repositories and regional release handling. [Release workflow](releases.md) owns static production aliases, digest readiness, native rollback and history. [Images](images.md) owns provenance and update policy.
+`EcsEndpointStack` creates a `t4g.small`, encrypted 2 GiB OS and 30 GiB data disks, public subnet, one ENI, two retained EIPs and one gateway task. The separate `RegionalReleaseStack` owns the five component repositories and release-document repository and regional release handling. [Release workflow](releases.md) owns static production aliases, digest readiness, native rollback and history. [Images](images.md) owns provenance and update policy.
 
 The task contains essential `xray` and `awg` engines and a nonessential `gateway-config` initializer. ECS injects exactly the two server parameters into the initializer using the execution role. There is no application task role. The initializer is network-disabled, runs as UID/GID 65532, drops all capabilities, has a read-only root and a 64 MiB limit. Both engines depend on its [SUCCESS](https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDependency.html). It removes the original bundle environment variables before spawning helpers, holds them temporarily in unexported shell variables, and passes only the selected bundle to each renderer. This reduces child-process inheritance; it does not erase ECS/Docker metadata or isolate the two secrets from the initializer itself.
 

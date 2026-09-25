@@ -15,10 +15,13 @@ logging-drivers = ["json-file"]
 [settings.host-containers.admin]
 enabled = false
 
+[settings.updates]
+version-lock = "latest"
+
 [settings.bootstrap-containers.ghostline]
 source = "@@IMAGE@@"
 mode = "always"
-essential = @@ESSENTIAL@@
+essential = true
 user-data = "@@BOOTSTRAP_CONFIG@@"
 
 [settings.host-containers.ghostline-diagnostics]

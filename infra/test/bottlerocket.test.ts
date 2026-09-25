@@ -1,24 +1,14 @@
 import { spawnSync } from 'node:child_process';
 import { Template } from 'aws-cdk-lib/assertions';
 import { describe, expect, it } from 'vitest';
-import { buildBottlerocketTrial, bottlerocketParameterPrefix, bottlerocketPlatform, bottlerocketConfig } from '../lib/bottlerocket.js';
-
-const registry = '757999402784.dkr.ecr.eu-north-1.amazonaws.com';
-const digest = `sha256:${'a'.repeat(64)}`;
-const trial = { amiId: 'ami-031cd08d96ffcdb37', version: '1.65.0-test',
-  supportImage: `${registry}/ghostline/experiments/bottlerocket-host@${digest}`,
-  images: { xray: `${registry}/ghostline/prod/xray@${digest}`, awg: `${registry}/ghostline/prod/awg@${digest}`,
-    'gateway-config': `${registry}/ghostline/prod/gateway-config@${digest}` } };
-
-describe('isolated Bottlerocket gateway', () => {
-  it('allows bootstrap diagnostics only with no gateway tasks or public ingress', () => {
-    const template = Template.fromStack(buildBottlerocketTrial({ ...trial, diagnostic: true }, { service: true, runtime: true }).stack);
-    template.hasResourceProperties('AWS::ECS::Service', { DesiredCount: 0 });
-    expect(template.toJSON().Resources.SecurityGroup.Properties.SecurityGroupIngress).toEqual([]);
-    expect(bottlerocketPlatform(bottlerocketConfig(trial.amiId), trial.supportImage, true).userData).toContain('essential = false');
-  });
+import { buildApp } from '../lib/app.js';
+import { getDeployment } from '../lib/config.js';
+import { gatewayPlatform } from '../lib/gateway-platform.js';
+const config = getDeployment('stockholm-ecs');
+const registry = `${config.account}.dkr.ecr.${config.region}.amazonaws.com`;
+describe('Bottlerocket gateway boundaries', () => {
   it('preserves ECS initialization and secret boundaries on the supported host mount', () => {
-    const template = Template.fromStack(buildBottlerocketTrial(trial, { service: true, runtime: true }).stack).toJSON();
+    const template = Template.fromStack(buildApp(config, { service: true, runtime: true }).stack).toJSON();
     const resources = Object.values(template.Resources) as any[];
     const task = resources.find(r => r.Type === 'AWS::ECS::TaskDefinition').Properties;
     expect(task.TaskRoleArn).toBeUndefined();
@@ -26,32 +16,30 @@ describe('isolated Bottlerocket gateway', () => {
     const initializer = task.ContainerDefinitions.find((c: any) => c.Name === 'gateway-config');
     expect(initializer.DisableNetworking).toBe(true);
     expect(initializer.Secrets.map((s: any) => s.ValueFrom)).toEqual(['xray', 'awg'].map(name =>
-      `arn:aws:ssm:eu-north-1:757999402784:parameter${bottlerocketParameterPrefix}/server/${name}`));
+      `arn:aws:ssm:eu-north-1:757999402784:parameter/ghostline/prod/server/${name}`));
     for (const engine of task.ContainerDefinitions.filter((c: any) => c.Name !== 'gateway-config')) {
       expect(engine.DependsOn).toEqual([{ ContainerName: 'gateway-config', Condition: 'SUCCESS' }]);
       expect(engine.Secrets).toBeUndefined();
       expect(engine.Privileged).not.toBe(true);
       expect(engine.MountPoints).toEqual([expect.objectContaining({ ReadOnly: true })]);
-      expect(engine.Image).toBe(trial.images[engine.Name as 'awg' | 'xray']);
+      expect(engine.Image).toEqual({ 'Fn::Join': ['', [`${config.account}.dkr.ecr.${config.region}.`, { Ref: 'AWS::URLSuffix' }, `/ghostline/prod/${engine.Name}:keep-production`]] });
     }
     expect(task.Volumes.map((v: any) => v.Host.SourcePath)).toEqual([
       '/mnt/ghostline/config', '/mnt/ghostline/config/xray', '/mnt/ghostline/config/awg']);
     const host = resources.find(r => r.Type === 'AWS::EC2::Instance').Properties;
     expect(host.BlockDeviceMappings.map((d: any) => [d.DeviceName, d.Ebs.Encrypted])).toEqual([
       ['/dev/xvda', true], ['/dev/xvdb', true]]);
-    expect(resources.filter(r => r.Type === 'AWS::EC2::EIP').every(r => r.DeletionPolicy === 'Delete')).toBe(true);
-    expect(JSON.stringify(resources.filter(r => r.Type === 'AWS::IAM::Policy'))).not.toContain('parameter/ghostline/prod');
+    expect(resources.filter(r => r.Type === 'AWS::EC2::EIP').every(r => r.DeletionPolicy === 'Retain')).toBe(true);
     // Management images need explicit pulls too; keep host authority out of unrelated registries/parameters.
-    const pulls = bottlerocketPlatform(bottlerocketConfig(trial.amiId), trial.supportImage).pullRepositoryArns;
+    const pulls = gatewayPlatform(config, true).pullRepositoryArns;
     expect(pulls).toContain('arn:aws:ecr:eu-north-1:328549459982:repository/bottlerocket-control');
     expect(pulls.every(arn => !arn.includes('*'))).toBe(true);
     expect(resources.some(r => r.Type === 'AWS::Lambda::Function')).toBe(false);
   });
 
-  it('requires immutable owned platform images and reconstructs RAM on every boot', () => {
-    const config = bottlerocketConfig(trial.amiId);
-    expect(() => bottlerocketPlatform(config, `${registry}/ghostline/experiments/bottlerocket-host:latest`)).toThrow();
-    const data = bottlerocketPlatform(config, trial.supportImage).userData;
+  it('uses static owned aliases and reconstructs mandatory RAM on every boot', () => {
+    const data = gatewayPlatform(config, true).userData;
+    expect(data).toContain(`${registry}/ghostline/prod/bootstrap:keep-production`);
     expect(data).toContain('mode = "always"');
     expect(data).toContain('essential = true');
     expect(data).toContain('allow-privileged-containers = false');
@@ -72,7 +60,7 @@ describe('isolated Bottlerocket gateway', () => {
   });
 
   it('confines the network daemon and accounts for its memory once', () => {
-    const resources = Template.fromStack(buildBottlerocketTrial(trial, { service: true, runtime: true }).stack).toJSON().Resources;
+    const resources = Template.fromStack(buildApp(config, { service: true, runtime: true }).stack).toJSON().Resources;
     const task = resources.NetworkTask.Properties;
     expect(task.NetworkMode).toBe('host');
     expect(task.Memory).toBe('64');
@@ -90,7 +78,7 @@ describe('isolated Bottlerocket gateway', () => {
     expect(resources.NetworkService.Properties.SchedulingStrategy).toBe('DAEMON');
     expect(resources.NetworkService.Properties.DesiredCount).toBeUndefined();
     expect(resources.GatewayService.DependsOn).toContain('NetworkService');
-    const data = bottlerocketPlatform(bottlerocketConfig(trial.amiId), trial.supportImage).userData;
+    const data = gatewayPlatform(config, true).userData;
     expect(data).toContain('reserved-memory = 602');
     expect(data).not.toContain('ghostline-network');
     expect(data).toContain('[settings.host-containers.ghostline-diagnostics]');
@@ -99,9 +87,9 @@ describe('isolated Bottlerocket gateway', () => {
 });
 
 // Park must preserve CloudFormation EIP identities without leaving daemon or host resources behind.
-it('parks the trial to exactly its existing address resources', () => {
-  const active = Template.fromStack(buildBottlerocketTrial(trial, { service: true, runtime: true }).stack).toJSON();
-  const parked = Template.fromStack(buildBottlerocketTrial(trial, { service: true, runtime: true }, undefined, 'parked').stack).toJSON();
+it('parks the gateway to exactly its existing address resources', () => {
+  const active = Template.fromStack(buildApp(config, { service: true, runtime: true }).stack).toJSON();
+  const parked = Template.fromStack(buildApp(config, { service: true, runtime: true }, {}, 'parked').stack).toJSON();
   expect(Object.keys(parked.Resources).sort()).toEqual(['awgAddress', 'xrayAddress']);
   for (const key of Object.keys(parked.Resources)) expect(parked.Resources[key]).toEqual(active.Resources[key]);
 });

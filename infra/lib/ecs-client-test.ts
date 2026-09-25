@@ -2,11 +2,11 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
-import { imageArtifacts, imagePlatform, type ImageArtifact, type Protocol } from './ecs-release.js';
+import { applicationArtifacts, imagePlatform, type ApplicationArtifact, type Protocol } from './ecs-release.js';
 import type { DeploymentConfig } from './config.js';
 import { createTestRamStorage } from './ecs-test-storage.js';
 
-export function deployedClientImages(config: DeploymentConfig, outputs: Record<string, string>, aws: (args: string[]) => any): Record<ImageArtifact, string> {
+export function deployedClientImages(config: DeploymentConfig, outputs: Record<string, string>, aws: (args: string[]) => any): Record<ApplicationArtifact, string> {
   // Validate the running release without requiring publication of unrelated local source changes.
   const { ClusterName: cluster, GatewayServiceName: gateway } = outputs;
   if (!cluster || !gateway) throw new Error('Active ECS stack outputs are required.');
@@ -28,9 +28,9 @@ export function deployedClientImages(config: DeploymentConfig, outputs: Record<s
   if (detail.failures?.length || detail.tasks?.length !== 1 || detail.tasks[0].taskDefinitionArn !== service.taskDefinition) {
     throw new Error('Running task differs from the stable service.');
   }
-  const images = {} as Record<ImageArtifact, string>;
+  const images = {} as Record<ApplicationArtifact, string>;
   // A production tag may have moved since this deployment. Execute only the actual running digests.
-  for (const artifact of imageArtifacts) {
+  for (const artifact of applicationArtifacts) {
     const candidates = task.containerDefinitions.filter((item: any) => item.name === artifact);
     const prefix = `${config.account}.dkr.ecr.${config.region}.amazonaws.com/ghostline/prod/${artifact}`;
     const container = detail.tasks[0].containers.find((c: any) => c.name === artifact);
@@ -44,7 +44,7 @@ export function deployedClientImages(config: DeploymentConfig, outputs: Record<s
 export type ClientExercise = (client: { protocol: Protocol; request: (timeoutSeconds?: number) => string; container: string }) => Promise<void>;
 
 export async function testEcsClients(config: DeploymentConfig, root: string, work: string, outputs: Record<string, string>,
-  images: Record<ImageArtifact, string>, exercise?: ClientExercise) {
+  images: Record<ApplicationArtifact, string>, exercise?: ClientExercise) {
   const platform = imagePlatform;
   const temporary = mkdtempSync(resolve(work, 'clients-'));
   function command(executable: string, args: string[], required = true): string {

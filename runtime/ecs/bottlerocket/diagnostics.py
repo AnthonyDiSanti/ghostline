@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 
 import network
-from host_support import ROOT, command, configuration, prepare_tools
+from host_support import ROOT, command, configuration, diagnostic_peers, prepare_tools
 
 
 def daemon_posture(config):
@@ -39,7 +39,7 @@ def daemon_posture(config):
 
 def verify(config):
     # Read operational keys only to hash them locally. Never return configs, Docker environments or logs.
-    peers = network.discover(config)
+    peers = diagnostic_peers(config)
     if set(peers) != {'xray', 'awg'}:
         raise RuntimeError('Expected both engines')
     if (ROOT / 'sys/fs/selinux/enforce').read_text().strip() != '1':

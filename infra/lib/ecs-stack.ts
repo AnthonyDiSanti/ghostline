@@ -6,14 +6,16 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { ecsMemoryBudget } from './ecs-memory.js';
 import { addNetworkDaemon, gatewayPlatform } from './gateway-platform.js';
-import { platformImage, platformRepository } from './platform-image.js';
+import { useLatestBottlerocketOnLaunch } from './bottlerocket-os.js';
 import type { DeploymentConfig } from './config.js';
 import type { GuardDutySupport } from './guardduty-discovery.js';
-import { artifacts, production, repository } from './releases/model.js';
+import { applicationArtifacts as artifacts } from './image-artifacts.js';
+import { production, repository } from './releases/model.js';
 
 export interface GatewayPlatform {
-  image: string;
-  imageRepository: string;
+  bootstrapImage: string;
+  daemonImage: string;
+  daemonRepository: string;
   userData: string;
   configDirectory: string;
   disks: ec2.CfnInstance.BlockDeviceMappingProperty[];
@@ -45,11 +47,9 @@ export class EcsEndpointStack extends Stack {
       new CfnOutput(this, protocol === 'xray' ? 'EipAllocationId' : 'AwgEipAllocationId', { value: eip.attrAllocationId });
       return [protocol, eip];
     })) as Record<'xray' | 'awg', ec2.CfnEIP>;
-    // Park preserves tracked addresses and the separate image stack without retaining the host/disk.
+    // Park preserves tracked addresses and regional release support without retaining host storage or compute.
     if (props.lifecycle === 'parked') return;
-    const image = props.gateway?.platform?.image ?? platformImage(config);
-    const imageRepository = props.gateway?.platform?.imageRepository ?? platformRepository;
-    const platform = props.gateway?.platform ?? gatewayPlatform(config, image, imageRepository, props.guardDuty.runtime);
+    const platform = props.gateway?.platform ?? gatewayPlatform(config, props.guardDuty.runtime);
     const configDirectory = platform.configDirectory;
     const vpc = new ec2.CfnVPC(this, 'Vpc', { cidrBlock: '10.79.0.0/24', enableDnsHostnames: true, enableDnsSupport: true });
     const gateway = new ec2.CfnInternetGateway(this, 'InternetGateway');
@@ -115,13 +115,14 @@ export class EcsEndpointStack extends Stack {
     }));
     const profile = new iam.CfnInstanceProfile(this, 'InstanceProfile', { roles: [hostRole.roleName] });
     const instance = new ec2.CfnInstance(this, 'Instance', {
-      imageId: config.amiId, instanceType: config.instanceType, iamInstanceProfile: profile.ref,
+      instanceType: config.instanceType, iamInstanceProfile: profile.ref,
       networkInterfaces: [{ deviceIndex: '0', networkInterfaceId: nic.ref }],
       metadataOptions: { httpTokens: 'required', httpPutResponseHopLimit: 1 },
       blockDeviceMappings: platform.disks,
       propagateTagsToVolumeOnCreation: true, creditSpecification: { cpuCredits: 'unlimited' },
       userData: Fn.base64(platform.userData),
     });
+    useLatestBottlerocketOnLaunch(this, instance);
     // The host must terminate (and deregister) before CloudFormation deletes its ECS cluster.
     instance.addResourceDependency(cluster);
     // Precreate transport before automatic agent setup; reverse deletion keeps it until host termination.
@@ -192,7 +193,7 @@ export class EcsEndpointStack extends Stack {
       deploymentConfiguration: { minimumHealthyPercent: 0, maximumPercent: 100, deploymentCircuitBreaker: { enable: true, rollback: true } }, propagateTags: 'TASK_DEFINITION' });
     associations.forEach(association => service.addResourceDependency(association));
     service.node.addDependency(execution.node.findChild('DefaultPolicy'));
-    const daemon = addNetworkDaemon(this, config, image, imageRepository);
+    const daemon = addNetworkDaemon(this, config, platform.daemonImage, platform.daemonRepository);
     // Keep agent internet access until the last service is deleted; an IP-less host cannot acknowledge daemon stop.
     associations.forEach(association => daemon.addResourceDependency(association));
     new CfnOutput(this, 'GatewayServiceName', { value: service.attrName });

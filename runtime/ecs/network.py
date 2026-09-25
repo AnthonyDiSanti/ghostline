@@ -2,13 +2,11 @@
 """Reconcile the two ECS bridge peers without granting either host network access."""
 import json
 import subprocess
-import sys
-import time
 from pathlib import Path
 
 
 def command(args, data=None):
-    # Docker inspection is restricted to metadata: never collect environment/configuration values.
+    # Shared primitives accept only public topology; suppress captured tool output on failure.
     result = subprocess.run(args, input=data, text=True, capture_output=True, check=False)
     if result.returncode:
         raise RuntimeError(f"{args[0]} operation failed; captured output withheld")
@@ -48,34 +46,6 @@ def policy(config, peers):
     return rules + ['-i docker0 -j DROP', '-o docker0 -j DROP', '-j RETURN'], nat + ['-j RETURN']
 
 
-def discover(config):
-    # Exact gateway family and container names keep platform/foreign containers out of the rules.
-    peers = {}
-    for name in ['xray', 'awg']:
-        ids = command(['docker', 'ps', '--filter', f'label=com.amazonaws.ecs.task-definition-family={config["family"]}-gateway',
-                       '--filter', f'label=com.amazonaws.ecs.container-name={name}', '--format', '{{.ID}}']).split()
-        if len(ids) > 1:
-            raise RuntimeError('Multiple containers for a single protocol; refuse ambiguous routing')
-        if ids:
-            # One inspection avoids mixing network and process generations across an in-place restart.
-            metadata = json.loads(command(['docker', 'inspect', '--format',
-                                           '{"state":{{json .State}},"networks":{{json .NetworkSettings.Networks}}}', ids[0]]))
-            state, networks = metadata['state'], metadata['networks']
-            address = networks.get('bridge', {}).get('IPAddress', '')
-            if networks and set(networks) != {'bridge'}:
-                raise RuntimeError('Unexpected container network')
-            if not state['Running'] or state['Pid'] <= 0 or not address:
-                continue  # Restart in progress: quarantine this peer without withdrawing its healthy sibling.
-            import ipaddress
-            if not ipaddress.ip_address(address).is_private or set(networks) != {'bridge'}:
-                raise RuntimeError('Unexpected container network')
-            # A native restart may reuse the container ID/IP; StartedAt distinguishes its network generation.
-            peers[name] = {'ip': address, 'id': ids[0], 'started': state['StartedAt']}
-    if len({peer['ip'] for peer in peers.values()}) != len(peers):
-        raise RuntimeError('Duplicate protocol addresses')
-    return peers
-
-
 def initialize(config):
     # Deny forwarded container traffic before ECS starts; missing reconciliation never uses default NAT.
     rules, nat = policy(config, {})
@@ -109,28 +79,3 @@ def reconcile(config, peers, previous=None):
     replace_chain('filter', 'GHOSTLINE', policy(config, peers)[0])
     Path('/run/ghostline-network-state.json').write_text(json.dumps(peers))
     print('Reconciled protocol network identities: ' + ','.join(sorted(peers)), flush=True)
-
-
-def main():
-    config = json.loads(Path('/etc/ghostline-network.json').read_text())
-    config['interface'] = command(['ip', '-4', 'route', 'show', 'default']).split(' dev ')[1].split()[0]
-    initialize(config)
-    if '--initialize' in sys.argv:
-        return
-    previous = None
-    while True:
-        try:
-            peers = discover(config)
-            if peers != previous:
-                reconcile(config, peers, previous)
-                previous = peers
-        except Exception:
-            # Keep a missing/ambiguous metadata view closed, with a redacted retryable diagnostic.
-            initialize(config)
-            previous = None
-            print('Network reconciliation unavailable; forwarding disabled', flush=True)
-        time.sleep(1)
-
-
-if __name__ == '__main__':
-    main()

@@ -18,6 +18,19 @@ function until<T>(label: string, read: () => T | undefined): T {
   throw new Error(`Timed out waiting for ${label}.`);
 }
 
+function serviceTasks(cluster: string, service: string, aws: (args: string[]) => any): string[] {
+  // An interrupted stop can leave desired=STOPPED tasks still running. Include both lists before removing host connectivity.
+  return [...new Set<string>(['RUNNING', 'STOPPED'].flatMap(status =>
+    aws(['ecs', 'list-tasks', '--cluster', cluster, '--service-name', service, '--desired-status', status]).taskArns))];
+}
+
+function waitTasksStopped(cluster: string, tasks: string[], aws: (args: string[]) => any): void {
+  // The CLI paginates task listing, while each DescribeTasks request underlying this waiter accepts at most 100 identities.
+  for (let offset = 0; offset < tasks.length; offset += 100) {
+    aws(['ecs', 'wait', 'tasks-stopped', '--cluster', cluster, '--tasks', ...tasks.slice(offset, offset + 100)]);
+  }
+}
+
 export function setEcsPower(action: 'start' | 'stop', stackName: string, outputs: Record<string, string>, aws: (args: string[]) => any) {
   // Select one CloudFormation-owned host and its exact services; never operate on a regional fleet.
   const { InstanceId: id, ClusterName: cluster, GatewayServiceName: gateway, NetworkDaemonServiceName: daemon } = outputs;
@@ -36,21 +49,28 @@ export function setEcsPower(action: 'start' | 'stop', stackName: string, outputs
   if (state === 'stopping') { aws(['ec2', 'wait', 'instance-stopped', '--instance-ids', id]); state = 'stopped'; }
   if (action === 'stop') {
     // Desired/running service counts can reach zero before the agent reports actual task termination.
-    const tasks: string[] = state === 'stopped' ? []
-      : aws(['ecs', 'list-tasks', '--cluster', cluster, '--service-name', gateway]).taskArns;
+    const tasks = state === 'stopped' ? [] : serviceTasks(cluster, gateway, aws);
     scale('0'); waitServices();
-    if (tasks.length) aws(['ecs', 'wait', 'tasks-stopped', '--cluster', cluster, '--tasks', ...tasks]);
+    waitTasksStopped(cluster, tasks, aws);
     if (daemon && state !== 'stopped') {
       const host = registeredHost(cluster, id, aws);
       if (!host?.agentConnected) throw new Error('Connected ECS host required before daemon drain.');
-      const daemons = aws(['ecs', 'list-tasks', '--cluster', cluster, '--service-name', daemon]).taskArns;
+      const daemons = serviceTasks(cluster, daemon, aws);
       aws(['ecs', 'update-container-instances-state', '--cluster', cluster,
         '--container-instances', host.containerInstanceArn, '--status', 'DRAINING']);
-      if (daemons.length) aws(['ecs', 'wait', 'tasks-stopped', '--cluster', cluster, '--tasks', ...daemons]);
+      waitTasksStopped(cluster, daemons, aws);
     }
     if (state !== 'stopped') aws(['ec2', 'stop-instances', '--instance-ids', id]);
     aws(['ec2', 'wait', 'instance-stopped', '--instance-ids', id]);
   } else {
+    const service = aws(['ecs', 'describe-services', '--cluster', cluster, '--services', gateway]).services?.[0];
+    if (!service || service.status !== 'ACTIVE') throw new Error('Expected an active gateway service before start.');
+    const resume = service.desiredCount === 0 || state !== 'running';
+    if (resume) {
+      // Reset captured digests while no app tasks can start; combining force with 0→1 caused duplicate native starts.
+      aws(['ecs', 'update-service', '--cluster', cluster, '--service', gateway, '--desired-count', '0', '--force-new-deployment']);
+      if (daemon && state !== 'running') aws(['ecs', 'update-service', '--cluster', cluster, '--service', daemon, '--force-new-deployment']);
+    }
     if (state !== 'running') aws(['ec2', 'start-instances', '--instance-ids', id]);
     aws(['ec2', 'wait', 'instance-status-ok', '--instance-ids', id]);
     if (daemon) {
@@ -70,10 +90,7 @@ export function setEcsPower(action: 'start' | 'stop', stackName: string, outputs
         return task.lastStatus === 'RUNNING' && task.healthStatus === 'HEALTHY' ? task : undefined;
       });
     }
-    // A stopped service can retain yesterday's captured digests. Resolve the ready local production set on resume.
-    const service = aws(['ecs', 'describe-services', '--cluster', cluster, '--services', gateway]).services?.[0];
-    if (!service || service.status !== 'ACTIVE') throw new Error('Expected an active gateway service before start.');
-    if (service.desiredCount === 0 || state !== 'running') aws(['ecs', 'update-service', '--cluster', cluster, '--service', gateway, '--desired-count', '1', '--force-new-deployment']);
+    if (resume) scale('1');
     waitServices();
   }
 }

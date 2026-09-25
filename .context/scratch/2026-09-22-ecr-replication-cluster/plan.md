@@ -1,6 +1,6 @@
 # ECR replication cluster implementation plan
 
-Status: selected follow-up, September 22, 2026. Implement immediately after the Bottlerocket work unit, before blue-green evaluation. This is a plan only; the deployed primary/DR workflow remains described in [releases](../../../docs/releases.md) until migration.
+Status: incorporated into the [coordinated implementation](../2026-09-22-coordinated-release/plan.md), September 22, 2026. Implement immediately after the Bottlerocket work unit, before blue-green evaluation. Topology, origin checks, union retirement and full-mesh migration are implemented; isolated exact-digest publication from Stockholm/Cape Town and Ireland retirement/rebuild have passed. Whole-stack artifact/metadata expansion remains in progress; [releases](../../../docs/releases.md) records migration status.
 
 ## Goal and boundaries
 
@@ -9,14 +9,14 @@ Any enrolled regional registry can originate a Ghostline release and replicate d
 - Introduce reusable `EcrReplicationCluster` membership with explicit account/region identities and repository prefixes. Membership follows durable registry infrastructure, independently of gateway uptime.
 - Preserve qualified artifact identities, OCI release documents, production plus three prior releases, regional retention, CDK-owned static local task references, hourly/event gates, limited gate IAM and native ECS rollback.
 - Keep one operator publication in progress at a time. Any-source publication does not make aliases transactional or resolve concurrent promotions.
-- Scope replication to explicitly selected Ghostline repositories. Do not automatically enroll other projects, trial images or the Bottlerocket platform helper in the application release contract.
+- Scope replication to explicitly selected Ghostline repositories. Do not enroll other projects or trial images. Bootstrap, daemon and dedicated release metadata repositories now explicitly join the whole-stack release contract.
 - Uploading locally first does not guarantee the local ECS rollout finishes first. Strict canary testing would require testing immutable candidates before moving production aliases; do not silently add that gate or change the existing once-central qualification policy.
 
 ## 1. Capture the migration baseline
 
 Inspect live membership, registry rules/settings, complete production/MRU documents, gate state and task references. Reconcile the final Bottlerocket outcome before selecting image namespaces. Record only nonsecret metadata/digests.
 
-Stockholm and Cape Town are the initial gateway members. Keep NVA/London as ordinary members during migration so existing copies remain available; explicitly audit their eventual retirement. Removing source roles does not itself authorize deleting repositories or shared infrastructure.
+Stockholm and Cape Town are the initial gateway members. Keep NVA/London as ordinary members during migration so existing copies remain available; retain both publication regions. Their retirement is not authorized. Removing source roles does not itself authorize deleting repositories or shared infrastructure.
 
 Checkpoint: identify exact existing resource ownership and a complete copy of every protected image/document.
 
@@ -54,9 +54,9 @@ Checkpoint: empty-region seeding preserves production plus all three historical 
 
 ## 5. Retire members and migrate current resources
 
-Endpoint stop/park/destroy continues to retain registry membership. Explicit registry retirement removes incoming references from remaining members and clears owned outgoing rules at the departing member. Reconcile the union of previous and next membership so departing members are not skipped. Unreachable cleanup remains pending; verify retained copies/live references before any repository deletion.
+Endpoint stop/park retain registry membership. Destroy now retires membership and removes local release/runtime support resources and repositories. Registry retirement removes incoming references from remaining members and clears owned outgoing rules at the departing member. Reconcile the union of previous and next membership so departing members are not skipped. Unreachable cleanup remains pending; verify retained copies/live references before any repository deletion.
 
-After Stockholm/Cape Town can each publish, explicitly audit and retire redundant NVA/London publisher-only resources. Limit cleanup to owned release resources after fresh diffs/reference checks; preserve unrelated infrastructure, regional GuardDuty and account controls. Do not make deletion an automatic consequence of editing membership.
+Keep NVA/London enrolled and intact. Disposable-region destroy alone exercises full cleanup. Preserve unrelated infrastructure, enabled GuardDuty and independent account CloudTrail; existing expiring logs remain until expiry.
 
 At cutover, update release/development/lifecycle specifications and profile examples, removing superseded primary/DR instructions. Promote acceptance evidence from this scratch plan and remove the plan when obsolete.
 

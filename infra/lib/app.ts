@@ -16,6 +16,8 @@ export function buildApp(config: DeploymentConfig, guardDuty: GuardDutySupport,
   Tags.of(app).add('System', 'shared');
   const stack = new EcsEndpointStack(app, config.stackName, {
     env: { account: config.account, region: config.region }, synthesizer: new LegacyStackSynthesizer(),
+    // explicitStackTags keeps resource aspects from tagging the CloudFormation owner itself.
+    tags: { ...config.globalTags, System: 'shared' },
     deployment: config, lifecycle, guardDuty,
   });
   return { app, stack };

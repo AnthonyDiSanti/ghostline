@@ -1,0 +1,14 @@
+[Unit]
+Description=Ghostline finite bootstrap image gate
+Requires=docker.service
+After=docker.service
+Before=ecs.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/ghostline/al2023.env
+ExecStart=/opt/ghostline/al2023/v1/bootstrap-probe.sh
+RemainAfterExit=yes
+
+[Install]
+RequiredBy=ecs.service

@@ -23,10 +23,12 @@ it('finishes stopping before starting and waits for EC2 health before scheduling
   const aws = mock('stopping'); setEcsPower('start', 'gateway', outputs, aws);
   const calls = aws.mock.calls.map(([args]) => args.join(' '));
   expect(calls[1]).toContain('instance-stopped');
-  expect(calls[2]).toContain('start-instances');
-  expect(calls[3]).toContain('instance-status-ok');
-  expect(calls[4]).toContain('describe-services');
-  expect(calls[5]).toContain('--desired-count 1 --force-new-deployment');
+  const cold = calls.findIndex(c => c.endsWith('--desired-count 0 --force-new-deployment'));
+  const launch = calls.findIndex(c => c.includes('start-instances'));
+  const healthy = calls.findIndex(c => c.includes('instance-status-ok'));
+  const restore = calls.findIndex(c => c.endsWith('--desired-count 1'));
+  expect(cold).toBeLessThan(launch); expect(launch).toBeLessThan(healthy); expect(healthy).toBeLessThan(restore);
+  expect(calls.some(c => c.includes('--desired-count 1 --force-new-deployment'))).toBe(false);
 });
 
 it('deregisters a stopped empty host before cluster deletion but rejects unrelated hosts', () => {
@@ -51,7 +53,7 @@ it('stops replicas before draining the daemon and reactivates it before resuming
     if (args[1] === 'describe-container-instances') return { containerInstances: [{ ec2InstanceId: outputs.InstanceId,
       containerInstanceArn: 'arn:host', status: hostStatus, agentConnected: true }] };
     if (args[1] === 'update-container-instances-state') hostStatus = args.at(-1)!;
-    if (args[1] === 'list-tasks') return { taskArns: [args.at(-1) === 'network' ? 'task-daemon' : 'task-gateway'] };
+    if (args[1] === 'list-tasks') return { taskArns: [args[args.indexOf('--service-name') + 1] === 'network' ? 'task-daemon' : 'task-gateway'] };
     if (args[1] === 'describe-tasks') return { tasks: [{ containerInstanceArn: 'arn:host', lastStatus: 'RUNNING', healthStatus: 'HEALTHY' }] };
     if (args[1] === 'describe-services') return { services: [{ status: 'ACTIVE', desiredCount: 0 }] };
     return {};
@@ -67,7 +69,8 @@ it('stops replicas before draining the daemon and reactivates it before resuming
   setEcsPower('start', 'gateway', withDaemon, aws);
   joined = calls.map(args => args.join(' '));
   expect(position('update-container-instances-state')).toBeLessThan(position('describe-tasks'));
-  expect(position('describe-tasks')).toBeLessThan(position('update-service'));
+  expect(position('describe-tasks')).toBeLessThan(position('--desired-count 1'));
+  expect(position('--service network --force-new-deployment')).toBeLessThan(position('start-instances'));
   expect(hostStatus).toBe('ACTIVE');
 });
 
@@ -93,4 +96,15 @@ it('leaves an already-running service deployment unchanged on repeated start', (
     ? { services: [{ status: 'ACTIVE', desiredCount: 1 }] } : base(args));
   setEcsPower('start', 'gateway', outputs, aws);
   expect(aws.mock.calls.some(([args]) => ['update-service', 'start-instances'].includes(args[1]!))).toBe(false);
+});
+
+it('waits for tasks from an interrupted stop even when the RUNNING list is already empty', () => {
+  const base = mock('running');
+  const aws = vi.fn((args: string[]) => args[1] === 'list-tasks'
+    ? { taskArns: args.at(-1) === 'STOPPED' ? ['still-stopping'] : [] } : base(args));
+  setEcsPower('stop', 'gateway', outputs, aws);
+  const calls = aws.mock.calls.map(([args]) => args.join(' '));
+  const wait = calls.findIndex(call => call.includes('tasks-stopped') && call.includes('still-stopping'));
+  expect(wait).toBeGreaterThan(-1);
+  expect(wait).toBeLessThan(calls.findIndex(call => call.includes('stop-instances')));
 });

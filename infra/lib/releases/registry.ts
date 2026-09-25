@@ -11,13 +11,17 @@ export interface Registry {
   put(repository: string, manifest: Manifest, tag: string): Promise<void>;
   removeTag(repository: string, tag: string): Promise<void>;
 }
+export interface ImageSource {
+  get(repository: string, reference: string): Promise<Manifest | undefined>;
+  blob(repository: string, hash: string): Promise<Uint8Array>;
+}
 
 export async function readRelease(registry: Registry, repository: string, reference: string): Promise<ReleaseRecord | undefined> {
   const image = await registry.get(repository, reference);
   return image ? { digest: image.digest, release: readReleaseManifest(image.manifest) } : undefined;
 }
 
-export async function runtimeManifest(registry: Registry, repository: string, root: Manifest): Promise<Manifest> {
+export async function runtimeManifest(registry: Pick<Registry, 'get'>, repository: string, root: Manifest): Promise<Manifest> {
   const parsed = JSON.parse(root.manifest);
   if (!parsed.manifests) return root;
   // Index identity is retained for replication; execution/qualification compares the single ARM64 child.
@@ -64,21 +68,32 @@ export class EcrRegistry implements Registry {
     if (result.failures?.some(f => f.failureCode !== 'ImageNotFound')) throw new Error('ECR tag removal failed.');
   }
 
-  async uploadBlob(repository: string, bytes: Uint8Array): Promise<void> {
+  async uploadBlob(repository: string, bytes: Uint8Array, report: (message: string) => void = () => {}): Promise<void> {
     const hash = digest(bytes);
-    const available = await this.client.send(new BatchCheckLayerAvailabilityCommand({ repositoryName: repository, layerDigests: [hash] }));
-    if (available.layers?.some(l => l.layerDigest === hash && l.layerAvailability === 'AVAILABLE')) return;
+    if (await this.hasBlob(repository, hash)) return;
     const upload = await this.client.send(new InitiateLayerUploadCommand({ repositoryName: repository }));
     if (!upload.uploadId) throw new Error('Missing ECR upload ID.');
-    // Respect ECR's requested part size, retaining only one small image blob in memory at a time.
-    const size = Math.max(upload.partSize ?? 5 * 1024 * 1024, 5 * 1024 * 1024);
+    // ECR permits 5–20 MiB parts. The minimum bounds retries on slow uplinks; only the final part may be smaller.
+    const size = 5 * 1024 * 1024;
     for (let offset = 0; offset < bytes.length; offset += size) {
       const part = bytes.subarray(offset, offset + size);
-      await this.client.send(new UploadLayerPartCommand({ repositoryName: repository, uploadId: upload.uploadId,
-        partFirstByte: offset, partLastByte: offset + part.length - 1, layerPartBlob: part }));
+      const last = offset + part.length - 1;
+      report(`${repository}: upload bytes ${offset}-${last} of ${bytes.length}.`);
+      const received = await this.client.send(new UploadLayerPartCommand({ repositoryName: repository, uploadId: upload.uploadId,
+        partFirstByte: offset, partLastByte: last, layerPartBlob: part }),
+      // Metadata requests stay short; a 5 MiB binary part is roughly 7 MiB over this JSON API on a slow uplink.
+      { requestTimeout: 600_000, abortSignal: AbortSignal.timeout(610_000) });
+      if (received.lastByteReceived !== last) throw new Error('ECR did not acknowledge the complete layer part.');
     }
     const result = await this.client.send(new CompleteLayerUploadCommand({ repositoryName: repository, uploadId: upload.uploadId, layerDigests: [hash] }));
     if (result.layerDigest !== hash) throw new Error('Transferred blob digest mismatch.');
+  }
+
+  async hasBlob(repository: string, hash: string): Promise<boolean> {
+    // Resumed/backfilled releases share most layers; do not download bytes already at the destination.
+    const available = await this.client.send(new BatchCheckLayerAvailabilityCommand({ repositoryName: repository, layerDigests: [hash] }));
+    if (available.failures?.some(f => f.failureCode !== 'MissingLayerDigest')) throw new Error('Layer availability lookup failed.');
+    return available.layers?.some(l => l.layerDigest === hash && l.layerAvailability === 'AVAILABLE') ?? false;
   }
 
   async blob(repository: string, hash: string): Promise<Uint8Array> {
@@ -107,18 +122,22 @@ export class EcrRegistry implements Registry {
   }
 }
 
-export async function copyImage(source: EcrRegistry, target: EcrRegistry, sourceRepo: string, destinationRepo: string,
-  hash: string, tag: string): Promise<void> {
+export async function copyImage(source: ImageSource, target: EcrRegistry, sourceRepo: string, destinationRepo: string,
+  hash: string, tag: string, report: (message: string) => void = () => {}): Promise<void> {
   // Copy exact OCI bytes, including index children, without a Docker rebuild or manifest conversion.
   const image = await source.get(sourceRepo, hash);
   if (!image) throw new Error('Source artifact is missing.');
   if (!(await target.get(destinationRepo, hash))) {
     const manifest = JSON.parse(image.manifest);
     for (const child of manifest.manifests ?? []) {
-      await copyImage(source, target, sourceRepo, destinationRepo, child.digest, `sha-${child.digest.slice(7)}`);
+      await copyImage(source, target, sourceRepo, destinationRepo, child.digest, `sha-${child.digest.slice(7)}`, report);
     }
     for (const layer of [...(manifest.config ? [manifest.config] : []), ...(manifest.layers ?? [])]) {
-      await target.uploadBlob(destinationRepo, await source.blob(sourceRepo, layer.digest));
+      if (await target.hasBlob(destinationRepo, layer.digest)) continue;
+      report(`${destinationRepo}: transfer ${layer.digest} (${layer.size} bytes).`);
+      const bytes = await source.blob(sourceRepo, layer.digest);
+      report(`${destinationRepo}: verified download ${layer.digest}.`);
+      await target.uploadBlob(destinationRepo, bytes, report);
     }
   }
   await target.put(destinationRepo, image, tag);

@@ -1,16 +1,20 @@
 import { createHash } from 'node:crypto';
+import { imageArtifacts, type ImageArtifact } from '../image-artifacts.js';
 
-export const artifacts = ['xray', 'awg', 'gateway-config'] as const;
-export type Artifact = typeof artifacts[number];
+export const artifacts = imageArtifacts;
+export type Artifact = ImageArtifact;
+export const repositoryArtifacts = [...artifacts, 'releases'] as const;
+export type RepositoryArtifact = typeof repositoryArtifacts[number];
 export const production = 'keep-production';
 export const releaseSelector = `${production}-release`;
 export const releaseAnnotation = 'io.ghostline.release';
 export const manifestType = 'application/vnd.oci.image.manifest.v1+json';
-export const releaseType = 'application/vnd.ghostline.release.v1+json';
+export const releaseType = 'application/vnd.ghostline.release.v2+json';
 export const emptyConfig = Buffer.from('{}');
 export const digest = (bytes: string | Uint8Array) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 export const repositoryPrefix = 'ghostline/prod/';
-export const repository = (artifact: Artifact) => `${repositoryPrefix}${artifact}`;
+export const repository = (artifact: RepositoryArtifact) => `${repositoryPrefix}${artifact}`;
+export const releaseRepository = repository('releases');
 export const digestPattern = /^sha256:[a-f0-9]{64}$/;
 
 export interface ReleaseImage {
@@ -20,27 +24,37 @@ export interface ReleaseImage {
   buildTag: string;
 }
 export interface Release {
-  schemaVersion: 1;
+  schemaVersion: 2;
   promotionId: string;
   promotedAt: string;
   origin: string;
   platform: 'linux/arm64';
   images: Record<Artifact, ReleaseImage>;
+  os: { variant: 'aws-ecs-3'; architecture: 'arm64'; compatibleVersions: string[] };
+  sourceApplicationRelease?: string;
   history: string[];
 }
 
 export function parseRelease(value: unknown): Release {
   // Registry metadata is input, never authority to redirect the gate to another repository or architecture.
   const r = value as Release;
-  if (!r || r.schemaVersion !== 1 || !/^[a-z0-9-]{8,100}$/.test(r.promotionId)
+  if (!r || r.schemaVersion !== 2 || !/^[a-z0-9-]{8,100}$/.test(r.promotionId)
     || !Number.isFinite(Date.parse(r.promotedAt)) || !/^[a-z]{2}(?:-[a-z]+)+-\d+$/.test(r.origin)
     || r.platform !== 'linux/arm64' || !Array.isArray(r.history) || r.history.length > 3
     || r.history.some(d => !digestPattern.test(d)) || new Set(r.history).size !== r.history.length
-    || !r.images || Object.keys(r.images).length !== artifacts.length) throw new Error('Invalid release document.');
+    || !r.images || Object.keys(r.images).length !== artifacts.length
+    || r.os?.variant !== 'aws-ecs-3' || r.os.architecture !== 'arm64'
+    || !Array.isArray(r.os.compatibleVersions) || !r.os.compatibleVersions.length || r.os.compatibleVersions.length > 32
+    || r.os.compatibleVersions.some(v => !/^\d+\.\d+\.\d+$/.test(v))
+    || new Set(r.os.compatibleVersions).size !== r.os.compatibleVersions.length
+    || (r.sourceApplicationRelease !== undefined && !digestPattern.test(r.sourceApplicationRelease))) throw new Error('Invalid release document.');
+  if (Object.keys(r).some(key => !['schemaVersion', 'promotionId', 'promotedAt', 'origin', 'platform', 'images', 'os', 'sourceApplicationRelease', 'history'].includes(key))
+    || Object.keys(r.os).some(key => !['variant', 'architecture', 'compatibleVersions'].includes(key))) throw new Error('Unknown release document field.');
   for (const name of artifacts) {
     const image = r.images[name];
     if (!image || image.repository !== repository(name) || !digestPattern.test(image.digest)
-      || !digestPattern.test(image.runtimeDigest) || !/^sha-[a-f0-9]{64}$/.test(image.buildTag)) {
+      || !digestPattern.test(image.runtimeDigest) || !/^sha-[a-f0-9]{64}$/.test(image.buildTag)
+      || Object.keys(image).some(key => !['repository', 'digest', 'runtimeDigest', 'buildTag'].includes(key))) {
       throw new Error('Invalid release image identity.');
     }
   }
@@ -66,12 +80,13 @@ export function readReleaseManifest(manifest: string): Release {
   return parseRelease(JSON.parse(document));
 }
 
-export function setIdentity(release: Pick<Release, 'images'>): string {
-  // A promotion of unchanged bytes is a no-op even if its timestamp/build labels differ.
-  return artifacts.map(name => release.images[name].digest).join('/');
+export function setIdentity(release: Pick<Release, 'images' | 'os'>): string {
+  // Index provenance can change without changing any runtime. Do not fill the rollback window with those duplicate sets.
+  return JSON.stringify([artifacts.map(name => release.images[name].runtimeDigest), release.os.variant,
+    release.os.architecture, [...release.os.compatibleVersions].sort()]);
 }
 
-export function retainHistory(next: Pick<Release, 'images'>, previous: Array<{ digest: string; release: Release }>): string[] {
+export function retainHistory(next: Pick<Release, 'images' | 'os'>, previous: Array<{ digest: string; release: Release }>): string[] {
   const seen = new Set([setIdentity(next)]);
   return previous.filter(item => {
     const key = setIdentity(item.release);
@@ -80,16 +95,17 @@ export function retainHistory(next: Pick<Release, 'images'>, previous: Array<{ d
   }).slice(0, 3).map(item => item.digest);
 }
 
-export function keepTags(artifact: Artifact): string[] {
+export function keepTags(artifact: RepositoryArtifact): string[] {
   const tags = [production, ...[1, 2, 3].map(n => `keep-mru-${n}`)];
-  return [...tags, 'keep-publishing', ...(artifact === 'gateway-config' ? tags.map(tag => `${tag}-release`).concat('keep-publishing-release') : [])];
+  return artifact === 'releases' ? tags.map(tag => `${tag}-release`).concat('keep-publishing-release') : [...tags, 'keep-publishing'];
 }
 
-export function lifecyclePolicy(artifact: Artifact) {
+export function lifecyclePolicy(artifact: RepositoryArtifact) {
   // An exact alias selects at most one manifest, so a high-priority count-one rule protects it.
   const rules = keepTags(artifact).map((tag, i) => ({ rulePriority: i + 1, description: `Protect ${tag}`,
     selection: { tagStatus: 'tagged', tagPatternList: [tag], countType: 'imageCountMoreThan', countNumber: 1 },
     action: { type: 'expire' } }));
-  return { rules: [...rules, { rulePriority: 100, description: 'Expire unprotected artifacts after seven days',
-    selection: { tagStatus: 'any', countType: 'sinceImagePushed', countUnit: 'days', countNumber: 7 }, action: { type: 'expire' } }] };
+  // Native ECR cannot see running or parked references. Only the observation-aware publisher may prune tagged history.
+  return { rules: [...rules, { rulePriority: 100, description: 'Expire untagged artifacts after seven days',
+    selection: { tagStatus: 'untagged', countType: 'sinceImagePushed', countUnit: 'days', countNumber: 7 }, action: { type: 'expire' } }] };
 }

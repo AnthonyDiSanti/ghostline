@@ -1,3 +1,4 @@
+import { withLifecycle } from '../lib/lifecycle-operator.js';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -7,7 +8,7 @@ import { deploymentCommand } from '../lib/commands.js';
 import { assertStartReady } from '../lib/releases/gate.js';
 import { operatorGate } from '../lib/releases/operator.js';
 import { prepareEcsRemoval } from '../lib/ecs-power.js';
-import { assertDeploymentAmi } from '../lib/deployment-ami.js';
+import { bottlerocketOs, verifyOfficialBottlerocketImage } from '../lib/bottlerocket-os.js';
 import { assertInstanceMemory } from '../lib/ecs-memory.js';
 import { assertHostPlatform } from '../lib/platform-lifecycle.js';
 
@@ -28,8 +29,13 @@ function preflight(config: DeploymentConfig) {
   if (!['opted-in', 'opt-in-not-required'].includes(status)) {
     throw new Error(`${config.region} is not enabled yet (${status}). Enable it explicitly and wait before retrying.`);
   }
-  const image = aws(config, ['ec2', 'describe-images', '--owners', 'amazon', '--image-ids', config.amiId]).Images[0];
-  assertDeploymentAmi(image);
+  const channel = bottlerocketOs.latestImageParameter.replace(/\/image_id$/, '');
+  const parameters = aws(config, ['ssm', 'get-parameters', '--names', `${channel}/image_id`, `${channel}/image_version`]).Parameters;
+  const selected = (name: string) => parameters.find((p: any) => p.Name === `${channel}/${name}`)?.Value;
+  if (!/^ami-[a-f0-9]{17}$/.test(selected('image_id') ?? '')) throw new Error('Official Bottlerocket launch channel is unavailable.');
+  const image = aws(config, ['ec2', 'describe-images', '--owners', 'amazon', '--image-ids', selected('image_id')]).Images[0];
+  verifyOfficialBottlerocketImage({ owner: image?.ImageOwnerAlias, architecture: image?.Architecture,
+    state: image?.State, name: image?.Name }, selected('image_version'));
   const type = aws(config, ['ec2', 'describe-instance-types', '--instance-types', config.instanceType]).InstanceTypes[0];
   assertInstanceMemory(config.instanceType, type?.MemoryInfo?.SizeInMiB);
   const zones = aws(config, ['ec2', 'describe-availability-zones', '--zone-names', config.availabilityZone]);
@@ -54,25 +60,29 @@ if (action === 'list') {
 } else {
   const command = deploymentCommand(action ?? '', target, infraDir);
   if (action !== 'synth') preflight(command.config);
-  if (action === 'deploy') {
-    assertHostPlatform(command.config, args => aws(command.config, args));
-    await assertStartReady(operatorGate(command.config.id));
-  }
-  mkdirSync(command.artifactDir, { recursive: true, mode: 0o700 });
-  console.log(`Target: ${command.config.id} (${command.config.account}/${command.config.region}/${command.config.stackName})`);
-  const environment = { ...process.env, GHOSTLINE_DEPLOYMENT: command.config.id, GHOSTLINE_LIFECYCLE: action === 'park' ? 'parked' : 'active' };
-  if (action === 'park') {
-    // Refuse to allocate idle addresses for a target that has never been deployed.
-    const stack = aws(command.config, ['cloudformation', 'describe-stacks', '--stack-name', command.config.stackName]).Stacks[0];
-    if (!['CREATE_COMPLETE', 'UPDATE_COMPLETE'].includes(stack.StackStatus)) throw new Error('Only a completed stack can be parked.');
-    const diff = spawnSync(process.execPath, [resolve(infraDir, 'node_modules/aws-cdk/bin/cdk'),
-      ...deploymentCommand('diff', target, infraDir).args], { cwd: infraDir, stdio: 'inherit', env: environment });
-    if (diff.error || diff.status !== 0) throw new Error('Park diff failed.');
-    prepareEcsRemoval(Object.fromEntries(stack.Outputs.map((item: any) => [item.OutputKey, item.OutputValue])), args => aws(command.config, args));
-  }
-  const child = spawnSync(process.execPath, [resolve(infraDir, 'node_modules/aws-cdk/bin/cdk'), ...command.args], {
-    cwd: infraDir, stdio: 'inherit', env: environment,
-  });
-  if (child.error) throw child.error;
-  process.exitCode = child.status ?? 1;
+  const operation = async () => {
+    if (action === 'deploy') {
+      assertHostPlatform(command.config, args => aws(command.config, args));
+      await assertStartReady(operatorGate(command.config.id));
+    }
+    mkdirSync(command.artifactDir, { recursive: true, mode: 0o700 });
+    console.log(`Target: ${command.config.id} (${command.config.account}/${command.config.region}/${command.config.stackName})`);
+    const environment = { ...process.env, GHOSTLINE_DEPLOYMENT: command.config.id, GHOSTLINE_LIFECYCLE: action === 'park' ? 'parked' : 'active' };
+    if (action === 'park') {
+      // Refuse to allocate idle addresses for a target that has never been deployed.
+      const stack = aws(command.config, ['cloudformation', 'describe-stacks', '--stack-name', command.config.stackName]).Stacks[0];
+      if (!['CREATE_COMPLETE', 'UPDATE_COMPLETE'].includes(stack.StackStatus)) throw new Error('Only a completed stack can be parked.');
+      const diff = spawnSync(process.execPath, [resolve(infraDir, 'node_modules/aws-cdk/bin/cdk'),
+        ...deploymentCommand('diff', target, infraDir).args], { cwd: infraDir, stdio: 'inherit', env: environment });
+      if (diff.error || diff.status !== 0) throw new Error('Park diff failed.');
+      prepareEcsRemoval(Object.fromEntries(stack.Outputs.map((item: any) => [item.OutputKey, item.OutputValue])), args => aws(command.config, args));
+    }
+    const child = spawnSync(process.execPath, [resolve(infraDir, 'node_modules/aws-cdk/bin/cdk'), ...command.args], {
+      cwd: infraDir, stdio: 'inherit', env: environment,
+    });
+    if (child.error) throw child.error;
+    if (child.status !== 0) throw new Error('Scoped CDK operation failed.');
+  };
+  if (action === 'deploy' || action === 'park') await withLifecycle(command.config, action, operation, action === 'park' ? 'parked' : 'active');
+  else await operation();
 }

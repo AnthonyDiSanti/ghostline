@@ -1,7 +1,7 @@
 import type { DeploymentConfig } from './config.js';
 import { parse } from 'yaml';
 import { gatewayPlatform } from './gateway-platform.js';
-import { platformImage, platformRepository } from './platform-image.js';
+import { bottlerocketOs } from './bottlerocket-os.js';
 
 export function assertHostPlatform(config: DeploymentConfig, aws: (args: string[]) => any): void {
   // A normal task deploy cannot replay Bottlerocket's first-boot settings. Require an explicit cold rebuild.
@@ -17,8 +17,11 @@ export function assertHostPlatform(config: DeploymentConfig, aws: (args: string[
   if (!template?.Resources) throw new Error('Missing deployed endpoint template.');
   const host = template.Resources.Instance?.Properties;
   if (!host) return; // A parked/new endpoint has no bootstrap state to preserve.
-  const expected = gatewayPlatform(config, platformImage(config), platformRepository, false);
-  if (host.ImageId !== config.amiId || host.InstanceType !== config.instanceType
+  const expected = gatewayPlatform(config, false);
+  const launch = template.Resources.HostLaunchTemplate?.Properties?.LaunchTemplateData;
+  if (host.ImageId || launch?.ImageId !== `resolve:ssm:${bottlerocketOs.latestImageParameter}`
+    || JSON.stringify(host.LaunchTemplate?.LaunchTemplateId) !== JSON.stringify({ Ref: 'HostLaunchTemplate' })
+    || host.InstanceType !== config.instanceType
     || host.UserData?.['Fn::Base64'] !== expected.userData
     || host.BlockDeviceMappings?.find((disk: any) => disk.DeviceName === '/dev/xvdb')?.Ebs?.VolumeSize !== config.dataVolumeGiB) {
     throw new Error('Host platform settings changed: park this target, then unpark it to apply a coherent cold rebuild.');

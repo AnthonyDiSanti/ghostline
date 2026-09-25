@@ -30,7 +30,7 @@ export class NotificationRegistry extends Construct {
 export class ParameterEmailSubscription extends Construct {
   constructor(scope: Construct, id: string, props: { topic: ITopic; parameterName: string; depsLockFilePath: string }) {
     super(scope, id);
-    const logs = new LogGroup(this, 'Logs', { retention: RetentionDays.ONE_WEEK, removalPolicy: RemovalPolicy.DESTROY });
+    const logs = new LogGroup(this, 'Logs', { retention: RetentionDays.ONE_WEEK, removalPolicy: RemovalPolicy.RETAIN });
     const fn = new NodejsFunction(this, 'Handler', { entry: fileURLToPath(new URL('./subscription.ts', import.meta.url)),
       runtime: Runtime.NODEJS_24_X, timeout: Duration.seconds(30), memorySize: 128, logGroup: logs,
       depsLockFilePath: props.depsLockFilePath, bundling: { minify: true, externalModules: [] } });
@@ -38,7 +38,7 @@ export class ParameterEmailSubscription extends Construct {
     // Unsubscribe takes a subscription ARN, but SNS authorizes this action against its parent topic.
     fn.addToRolePolicy(new PolicyStatement({ actions: ['sns:Subscribe', 'sns:ListSubscriptionsByTopic', 'sns:Unsubscribe'], resources: [props.topic.topicArn] }));
     const provider = new Provider(this, 'Provider', { onEventHandler: fn,
-      logGroup: new LogGroup(this, 'ProviderLogs', { retention: RetentionDays.ONE_WEEK, removalPolicy: RemovalPolicy.DESTROY }) });
+      logGroup: new LogGroup(this, 'ProviderLogs', { retention: RetentionDays.ONE_WEEK, removalPolicy: RemovalPolicy.RETAIN }) });
     new CustomResource(this, 'Subscription', { serviceToken: provider.serviceToken,
       properties: { TopicArn: props.topic.topicArn, EmailParamName: props.parameterName } });
   }

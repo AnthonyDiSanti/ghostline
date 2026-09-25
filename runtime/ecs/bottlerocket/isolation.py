@@ -45,7 +45,7 @@ def verify():
     network.command = host.command
     host.prepare_tools()
     config = host.configuration()
-    peers = network.discover(config)
+    peers = host.diagnostic_peers(config)
     if set(peers) != {'xray', 'awg'}:
         raise RuntimeError('Expected both engines')
     script = str(Path(__file__).resolve())

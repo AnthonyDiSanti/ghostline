@@ -4,23 +4,18 @@ import { Template } from 'aws-cdk-lib/assertions';
 import { buildApp } from '../lib/app.js';
 import { getDeployment } from '../lib/config.js';
 import { gatewayPlatform } from '../lib/gateway-platform.js';
-import { buildPlatformRepository, platformImage, platformInputs, platformRepository, platformSourceHash } from '../lib/platform-image.js';
 import { withHostDiagnostics } from '../lib/ecs-verification.js';
 
-it('uses the qualified source and immutable regional platform artifact independently of application releases', () => {
-  expect(platformSourceHash()).toBe(platformInputs.sourceSha256);
+it('uses separate static local platform aliases and preserves endpoint ordering', () => {
   for (const target of ['stockholm-ecs', 'cape-town']) {
     const config = getDeployment(target);
-    const image = platformImage(config);
-    expect(image).toContain(`.ecr.${config.region}.amazonaws.com/${platformRepository}@${platformInputs.digest}`);
-    const platform = gatewayPlatform(config, image, platformRepository, true);
+    const platform = gatewayPlatform(config, true);
+    expect(platform.bootstrapImage).toBe(`${config.account}.dkr.ecr.${config.region}.amazonaws.com/ghostline/prod/bootstrap:keep-production`);
+    expect(platform.daemonImage).toBe(`${config.account}.dkr.ecr.${config.region}.amazonaws.com/ghostline/prod/network-daemon:keep-production`);
     expect(platform.userData).not.toContain('@@');
     expect(Buffer.byteLength(platform.userData)).toBeLessThan(16384);
     expect(platform.userData).toContain('essential = true');
     expect(platform.pullRepositoryArns.every(arn => arn.startsWith(`arn:aws:ecr:${config.region}:`) && !arn.includes('*'))).toBe(true);
-    const durable = Template.fromStack(buildPlatformRepository(config).stack).toJSON();
-    expect(durable.Resources.Repository).toMatchObject({ DeletionPolicy: 'Retain', UpdateReplacePolicy: 'Retain',
-      Properties: { RepositoryName: platformRepository, ImageTagMutability: 'IMMUTABLE' } });
     const active = Template.fromStack(buildApp(config, { service: true, runtime: true }).stack).toJSON();
     const parked = Template.fromStack(buildApp(config, { service: false, runtime: false }, {}, 'parked').stack).toJSON();
     expect(Object.keys(parked.Resources).sort()).toEqual(['awgAddress', 'xrayAddress']);
@@ -34,9 +29,9 @@ it('uses the qualified source and immutable regional platform artifact independe
 
 it('rejects unsafe identifiers and omits agent pulls when live runtime discovery is unavailable', () => {
   const config = getDeployment('cape-town');
-  expect(gatewayPlatform(config, platformImage(config), platformRepository, false).pullRepositoryArns).toHaveLength(2);
+  expect(gatewayPlatform(config, false).pullRepositoryArns).toHaveLength(2);
   for (const resourceName of ['bad\nvalue', '$(false)', 'bad"quote']) {
-    expect(() => gatewayPlatform({ ...config, resourceName }, platformImage(config), platformRepository, true)).toThrow('Invalid gateway identity');
+    expect(() => gatewayPlatform({ ...config, resourceName }, true)).toThrow('Invalid gateway identity');
   }
 });
 
@@ -99,7 +94,7 @@ it.each(['json', 'yaml', 'object'])('checks %s templates for changed host settin
     ? { StackSummaries: [{ StackName: config.stackName, StackStatus: status, StackId: 'owned-stack' }] }
     : { TemplateBody: format === 'json' ? JSON.stringify(template) : format === 'yaml' ? stringify(template) : template };
   expect(() => assertHostPlatform(config, aws)).not.toThrow();
-  for (const changed of [{ ...config, amiId: 'ami-00000000000000000' }, { ...config, instanceType: 't4g.medium' },
+  for (const changed of [{ ...config, instanceType: 't4g.medium' },
     { ...config, dataVolumeGiB: 40 }]) expect(() => assertHostPlatform(changed, aws)).toThrow('cold rebuild');
   template.Resources.Instance.Properties.UserData['Fn::Base64'] += '\n# changed bootstrap';
   expect(() => assertHostPlatform(config, aws)).toThrow('cold rebuild');

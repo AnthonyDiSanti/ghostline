@@ -7,12 +7,13 @@ Current specifications describe one regional ECS gateway architecture. Git histo
 | Understand product intent and evidence limits | [Product](product.md) |
 | Change regional topology, ownership or cost tags | [Architecture](architecture.md) |
 | Understand containers, RAM, networking, memory and recovery | [ECS gateway](ecs.md) |
-| Build/update the host platform or validate an isolated candidate | [Platform](platform.md), [isolated validation](bottlerocket-trial.md) |
+| Build/update the platform or qualify an isolated candidate | [Platform](platform.md), [isolated validation](bottlerocket-trial.md) |
 | Build, test, deploy or add another region | [Development](development.md) |
 | Inspect image provenance and release policy | [Images](images.md), [runtime notice](../runtime/NOTICE.md) |
-| Publish, replicate, retain or recover application releases | [Release workflow](releases.md) |
+| Publish, replicate, retain or recover whole-stack releases | [Release workflow](releases.md) |
 | Import credentials or review their security boundary | [Secrets](secrets.md) |
 | Stop, rebuild, park or release an exit | [Lifecycle](deployment-lifecycle.md) |
+| Verify shared account audit coverage | [CloudTrail](cloudtrail.md) |
 | Discover available regional security and verify host telemetry | [GuardDuty](guardduty.md) |
 | Inspect live regional identities and validation | [Stockholm](launch-stockholm-ecs.md), [Cape Town](launch-cape-town.md) |
 | Diagnose Mac crashes or review client selection | [Mac stability](mac-client-stability.md), [v2rayN assessment](v2rayn-assessment.md) |

@@ -10,24 +10,32 @@
     "stockholm-ecs": {
       "region": "eu-north-1",
       "availabilityZone": "eu-north-1a",
-      "amiId": "ami-031cd08d96ffcdb37",
       "stackName": "GhostlineEcsTrial",
       "resourceName": "ghostline-ecs-stockholm"
     },
     "cape-town": {
       "region": "af-south-1",
       "availabilityZone": "af-south-1a",
-      "amiId": "ami-0057bb1f922103530",
       "stackName": "GhostlineCapeTown",
       "resourceName": "ghostline-cape-town"
+    },
+    "lifecycle-test": {
+      "region": "eu-west-1",
+      "availabilityZone": "eu-west-1a",
+      "stackName": "GhostlineLifecycleTest",
+      "resourceName": "ghostline-lifecycle-test"
     }
   },
   "imagePublication": {
-    "primaryRegion": "us-east-1",
-    "disasterRecoveryRegion": "eu-west-2",
-    "subscribers": [
+    "members": [
+      "us-east-1",
+      "eu-west-2",
       "eu-north-1",
       "af-south-1"
+    ],
+    "retainedMembers": [
+      "us-east-1",
+      "eu-west-2"
     ],
     "automation": true
   }

@@ -2,28 +2,34 @@ import { ECRClient } from '@aws-sdk/client-ecr';
 import { ECSClient } from '@aws-sdk/client-ecs';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { SNSClient } from '@aws-sdk/client-sns';
-import { AwsGate } from '../lib/releases/aws-gate.js';
-import { readiness, reconcile } from '../lib/releases/gate.js';
+import { CloudFormationClient } from '@aws-sdk/client-cloudformation';
+import { EC2Client } from '@aws-sdk/client-ec2';
+import { SSMClient } from '@aws-sdk/client-ssm';
+import { EventBridgeClient } from '@aws-sdk/client-eventbridge';
+import { AwsStackGate } from '../lib/releases/aws-stack.js';
+import { reconcileController } from '../lib/releases/controller.js';
+import { coordinatedRelease, DynamoLifecycleStore } from '../lib/releases/lifecycle.js';
 import { EcrRegistry } from '../lib/releases/registry.js';
+import { relevantReleaseEvent } from '../lib/releases/events.js';
 
-export async function handler(event: { action?: string } = {}) {
+export async function handler(event: { action?: string; source?: string; 'detail-type'?: string; detail?: Record<string, any> } = {}) {
+  if (!relevantReleaseEvent(event)) return { status: 'irrelevant-event' };
   const region = process.env.AWS_REGION!;
-  const gate = new AwsGate(new EcrRegistry(new ECRClient({ region }), process.env.ACCOUNT!, region),
-    { cluster: process.env.CLUSTER!, service: process.env.SERVICE!, table: process.env.TABLE!, topic: process.env.TOPIC! },
-    // Force deployment has no idempotency token. Leave ambiguous retries to the operator, not the SDK.
-    new ECSClient({ region, maxAttempts: 1 }), new DynamoDBClient({ region }), new SNSClient({ region }));
-  if (event.action === 'retry') {
-    const current = (await readiness(gate.registry)).current;
-    if (!current) throw new Error('No current release to retry.');
-    const service = await gate.service();
-    if (service?.busy) throw new Error('An ECS deployment is already in progress.');
-    const previous = await gate.attempt(current.digest);
-    if (previous && !await gate.save({ ...previous, version: previous.version + 1, state: 'cancelled', startedAt: gate.now() }, previous)) {
-      throw new Error('Concurrent release-state change. Retry after inspection.');
-    }
-  }
   if (process.env.AUTOMATION !== 'enabled') return { status: 'automation-disabled' };
-  const status = await reconcile(gate);
+  const db = new DynamoDBClient({ region });
+  const lifecycle = new DynamoLifecycleStore(db, process.env.TABLE!);
+  const gate = new AwsStackGate(new EcrRegistry(new ECRClient({ region }), process.env.ACCOUNT!, region),
+    { stack: process.env.ENDPOINT_STACK!, cluster: process.env.CLUSTER!, service: process.env.SERVICE!,
+      daemon: process.env.DAEMON!, table: process.env.TABLE!, topic: process.env.TOPIC!,
+      observerDocument: process.env.OBSERVER_DOCUMENT!, progressRule: process.env.PROGRESS_RULE! },
+    // Lifecycle effects lack idempotency tokens. Observe uncertain outcomes; do not let SDK retries repeat them.
+    { cfn: new CloudFormationClient({ region }), ec2: new EC2Client({ region, maxAttempts: 1 }),
+      ecs: new ECSClient({ region, maxAttempts: 1 }), db, ssm: new SSMClient({ region }),
+      sns: new SNSClient({ region }), events: new EventBridgeClient({ region }) }, 'active');
+  const status = await coordinatedRelease(lifecycle, async () => {
+    return reconcileController(gate, event.action === 'retry');
+  });
+  if (status === 'lifecycle-held') await gate.progress(false);
   console.log(JSON.stringify({ status }));
   return { status };
 }
