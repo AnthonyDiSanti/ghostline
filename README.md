@@ -4,7 +4,7 @@ A personal connectivity product for browsing and video from Dubai under current 
 
 The repo has one regional deployment model: **one Bottlerocket Graviton EC2 host, one ECS gateway task with three application images, a restricted network daemon and two EIPs**. Separate bootstrap and network-daemon images join the common five-image release pipeline. A shared initializer prepares protocol-private RAM configuration; separate engines mount it read-only, share a formula-derived memory budget and restart independently when eligible. ECR retains images, regional Parameter Store retains credentials, and SSM supplies SSH-free administration.
 
-[Architecture](docs/architecture.md) and [ECS runtime](docs/ecs.md) define the model. [Stockholm](docs/launch-stockholm-ecs.md) and [Cape Town](docs/launch-cape-town.md) record live state and validation. Mac REALITY uses OneXraySE; AWG remains in Amnezia. Repeated Mac sleep/wake validation remains open.
+[Architecture](docs/architecture.md) and [ECS runtime](docs/ecs.md) define the model. [Stockholm](docs/launch-stockholm-ecs.md) and [Cape Town](docs/launch-cape-town.md) record live state and validation. Mac REALITY uses OneXraySE; AWG remains in Amnezia. Anthony confirmed OneXraySE sleep/wake stability and IPv4/DNS privacy in practical use; native Chrome WebRTC checks also pass. IPv6 blocking still needs an IPv6-capable test network.
 
 From `infra/`, with Node 24 selected:
 

@@ -20,7 +20,9 @@ Use the adopted protocol behavior through Ghostline-owned deployment infrastruct
 
 ## Acceptance and privacy
 
-Successful use means both devices connect, browse intended sites and use video normally on the networks available for testing. Record actual exit/HTTPS, reconnect, DNS/IPv6 and sleep/wake evidence separately. A running ECS task or passing synth does not prove these outcomes. Regional launch records own observed protocol/device checks; [Mac stability](mac-client-stability.md) owns the unresolved intermittent client problem.
+Successful use means both devices connect, browse intended sites and use video normally on the networks available for testing. Record actual exit/HTTPS, reconnect, DNS/IPv6 and sleep/wake evidence separately. A running ECS task or passing synth does not prove these outcomes. Regional launch records own observed protocol/device checks; [Mac stability](mac-client-stability.md) records the historical Amnezia failure and subsequent OneXraySE acceptance.
+
+September 28 owner acceptance: video is serviceable after substantial practical use; OneXraySE sleep/wake and IPv4/DNS privacy checks pass. Native Chrome WebRTC checks through OneXraySE/Stockholm subsequently passed; IPv6 blocking remains unproven without a working direct IPv6 baseline. This owner feedback does not establish the cause of the measured throughput plateau.
 
 Prefer full-device routing and available client failure protection. Best-effort mobile behavior is accepted. 4K is a desired workload, not a separate release gate. No sensitive browsing history, destination collection, DNS-query logs or traffic captures are required for acceptance.
 

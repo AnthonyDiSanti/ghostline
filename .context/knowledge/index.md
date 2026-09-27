@@ -5,7 +5,8 @@ Consult before infrastructure/vendor work. Current behavior belongs in `docs/`; 
 - [Production host platform](../../docs/platform.md) — qualified Bottlerocket OS/platform selection, durable regional image publication, bootstrap/daemon boundaries and diagnostic lockdown.
 - [Bootstrap pattern audit and upstream issue](../scratch/2026-09-22-coordinated-release/bootstrap-pattern-audit.md) — supported native bootstrap use, the reproduced host-ctr snapshot gap, exact uncertainty, upstream PR and accepted temporary recovery exception.
 - [Host OS evaluation](host-os-evaluation.md) — Bottlerocket versus AL2023/other hosts, current GuardDuty support, custom network/RAM security tradeoffs and validated isolated trial; blue-green follows.
-- [ECS gateway](../../docs/ecs.md) — shared task/initializer, per-engine restarts, private RAM, common memory budget, bridge identity and lifecycle constraints.
+- [ECS gateway](../../docs/ecs.md) — shared task/initializer, per-engine restarts, private RAM, common memory budget, bridge identity, lifecycle constraints and IPv6 feasibility/remaining platform qualification.
+- [Bottlerocket IPv6 upstream review](bottlerocket-ipv6-upstream.md) — deferred IPv6 work, related issues/PRs, existing fork and submitted feature proposal #4954.
 - [Account CloudTrail](../../docs/cloudtrail.md) — discover/reuse organization/shadow coverage, preserve external ownership, converge on a finite-retention neutral baseline; shared migration verified live.
 - [GuardDuty](../../docs/guardduty.md) — live service/telemetry discovery, accepted capability gaps, enable-only defaults, tagged enrollment and bounded coverage checks.
 - [On-demand lifecycle research](on-demand-lifecycle.md) — protocol presence limits, exact-version Xray/AWG signals, renewable leases, controller strategies and reporting/IAM tradeoffs; proposal only.
