@@ -28,7 +28,10 @@
     "ecs": "node --import=tsx scripts/ecs.ts",
     "release": "node --import=tsx scripts/release.ts",
     "platform": "node --import=tsx scripts/platform.ts",
-    "audit": "node --import=tsx scripts/audit.ts"
+    "audit": "node --import=tsx scripts/audit.ts",
+    "benchmark": "node --import=tsx scripts/benchmark.ts",
+    "test:benchmark": "node --import=tsx test/benchmark-browser.integration.ts",
+    "benchmark:install-browser": "PLAYWRIGHT_BROWSERS_PATH=../.local/benchmark-browsers playwright-core install chromium"
   },
   "dependencies": {
     "@aws-sdk/client-cloudformation": "3.1129.0",
@@ -43,10 +46,14 @@
     "@aws-sdk/client-s3": "3.1129.0",
     "@aws-sdk/client-sns": "3.1129.0",
     "@aws-sdk/client-ssm": "3.1129.0",
+    "@aws-sdk/client-sts": "3.1129.0",
     "@aws-sdk/credential-providers": "3.1129.0",
+    "@aws-sdk/s3-request-presigner": "3.1129.0",
     "@ghostline/aws-notifications": "file:packages/notifications",
+    "@sparticuz/chromium": "153.0.0",
     "aws-cdk-lib": "2.268.0",
     "constructs": "10.8.1",
+    "playwright-core": "1.63.0",
     "qrcode": "1.5.4",
     "yaml": "2.9.1"
   },

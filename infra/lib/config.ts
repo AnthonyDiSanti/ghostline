@@ -1,6 +1,14 @@
 import { publicationProfile } from './releases/topology.js';
 import { readFileSync } from 'node:fs';
-import defaults from '../deployment.json' with { type: 'json' };
+import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
+import committed from '../deployment.json' with { type: 'json' };
+
+// A campaign uses the same recipe with an explicit private catalog; never rewrite the maintained catalog.
+export const catalogPath = process.env.GHOSTLINE_CATALOG
+  ? resolve(process.env.GHOSTLINE_CATALOG) : fileURLToPath(new URL('../deployment.json', import.meta.url));
+const defaults: typeof committed = process.env.GHOSTLINE_CATALOG
+  ? JSON.parse(readFileSync(catalogPath, 'utf8')) : committed;
 
 export interface DeploymentConfig {
   id: string;
@@ -30,7 +38,12 @@ export function validateGlobalTags(tags: Record<string, string>): Record<string,
   return { ...tags };
 }
 
+// Both maintained and temporary catalogs receive the same strict validation before synthesis.
+if (!defaults || Object.keys(defaults).some(k => !['account', 'instanceType', 'dataVolumeGiB', 'globalTags', 'deployments', 'imagePublication'].includes(k))
+  || !defaults.deployments || Array.isArray(defaults.deployments) || !Object.keys(defaults.deployments).length) throw new Error('Invalid deployment catalog.');
 export const deploymentIds = Object.keys(defaults.deployments);
+for (const id of deploymentIds) getDeployment(id);
+publicationProfile(defaults.imagePublication, deploymentIds.map(id => getDeployment(id).region));
 
 export function getDeployment(id: string | undefined): DeploymentConfig {
   // Reject missing/unknown targets instead of silently deploying into the default AWS region.
@@ -66,6 +79,6 @@ export function validateDeployment(config: DeploymentConfig): DeploymentConfig {
 
 export function getPublication() {
   // Activation persists membership during this process; do not reuse the import cache for later reconciliation.
-  const current = JSON.parse(readFileSync(new URL('../deployment.json', import.meta.url), 'utf8'));
+  const current = JSON.parse(readFileSync(catalogPath, 'utf8'));
   return publicationProfile(current.imagePublication ?? {}, deploymentIds.map(id => getDeployment(id).region));
 }

@@ -1,3 +1,4 @@
+import { assertBenchmarkExclusion } from '../lib/benchmark/exclusion.js';
 import { withLifecycle } from '../lib/lifecycle-operator.js';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
@@ -47,6 +48,7 @@ function preflight(config: DeploymentConfig) {
 }
 
 // Keep lifecycle actions explicit; no region enablement, fleet loop, or automatic deletion is hidden here.
+assertBenchmarkExclusion();
 const [action, target, ...extra] = process.argv.slice(2);
 if (extra.length) throw new Error('Usage: npm run <synth|diff|deploy|park|preflight> <deployment>');
 if (action === 'list') {

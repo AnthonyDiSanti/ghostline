@@ -32,7 +32,8 @@ export async function withLifecycle<T>(config: DeploymentConfig, kind: string, r
     if (live) throw new Error('The recorded lifecycle CLI is still running; wait for it rather than resuming concurrently.');
   }
   if (!receipt) {
-    receipt = { account: config.account, region: config.region, kind, owner: randomUUID(), pid: process.pid };
+    receipt = { account: config.account, region: config.region, kind, owner: randomUUID(), pid: process.pid,
+      ...(process.env.GHOSTLINE_BENCHMARK_OWNER ? { benchmarkOwner: process.env.GHOSTLINE_BENCHMARK_OWNER } : {}) };
     writeFileSync(path, JSON.stringify(receipt) + '\n', { mode: 0o600, flag: 'wx' });
   }
   receipt.pid = process.pid;

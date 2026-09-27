@@ -2,12 +2,18 @@
 
 Backup target `cape-town`; profile `personal`; account `757999402784`; region `af-south-1`, AZ `af-south-1a`. Endpoint stack `GhostlineCapeTown`, release repositories `GhostlineRelease`, resource prefix `ghostline-cape-town`. It uses the same [gateway recipe](ecs.md) as Stockholm, with independent regional images and credential parameters.
 
-One official ECS-3 Bottlerocket ARM64 `t4g.small`, version `1.66.0-1ad6b4a4`, AMI `ami-08d7677b7fb19b172`, encrypted 2 GiB OS and 30 GiB data disks. Current host `i-03d4e6e915a94d94c`, ENI `eni-09f3256b8de20342b`. `GhostlineRelease` supplies separate bootstrap and network-daemon images alongside the three application images and authoritative OCI release document.
+Last active deployment: one official ECS-3 Bottlerocket ARM64 `t4g.small`, version `1.66.0-1ad6b4a4`, AMI `ami-08d7677b7fb19b172`, encrypted 2 GiB OS and 30 GiB data disks. Former host `i-03d4e6e915a94d94c`, ENI `eni-09f3256b8de20342b`. `GhostlineRelease` supplies separate bootstrap and network-daemon images alongside the three application images and authoritative OCI release document.
 
 | Protocol | Preserved EIP | Allocation | Private address |
 | --- | --- | --- | --- |
 | Xray | `16.28.130.178` | `eipalloc-09b530775698d23bb` | `10.79.0.11` |
 | AWG | `15.240.94.162` | `eipalloc-0d22c628c5fde384e` | `10.79.0.10` |
+
+## Parked — 2026-09-27
+
+Anthony requested parking Cape Town after the regional benchmarks. Normal `npm run park cape-town` completed through lifecycle exclusion and a fresh scoped CDK diff. The gateway, daemon, host, both encrypted disks and dedicated networking are removed. Both original EIPs remain allocated and unassociated; regional credentials, all six release/component repositories and release support remain. Persistent lifecycle intent is `parked`, so image arrivals do not reactivate the gateway. It is unavailable to clients until explicitly unparked.
+
+Restore from `infra/` with `npm run ecs cape-town unpark`; existing client endpoints and credentials are retained. Parking still incurs address and retained release/storage costs. Stockholm's host/endpoint outputs and both regions' credential parameter versions/timestamps were unchanged. Nonsecret before/after audit and assertions: `.local/operations/cape-town-park-2026-09-27/`.
 
 ## Coordinated platform release — 2026-09-26
 

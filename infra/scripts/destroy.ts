@@ -1,3 +1,4 @@
+import { assertBenchmarkExclusion } from '../lib/benchmark/exclusion.js';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
@@ -5,6 +6,7 @@ import { getDeployment } from '../lib/config.js';
 import { destroyRegion, type DestroyJournal } from '../lib/regional-destroy.js';
 import { regionalDestroyPorts } from '../lib/regional-destroy-operator.js';
 
+assertBenchmarkExclusion();
 const [target, ...extra] = process.argv.slice(2);
 if (extra.length) throw new Error('Usage: npm run destroy <deployment>');
 const config = getDeployment(target);

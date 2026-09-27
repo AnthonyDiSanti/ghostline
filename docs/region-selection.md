@@ -1,10 +1,10 @@
 # Endpoint region and destination privacy
 
-Assessment updated: 2026-09-09. **Stockholm (`eu-north-1`) is the selected primary; prefer it over Milan on content-blocking risk even when age verification is excluded.** Frankfurt remains the owner-proven faster alternative to Cape Town. Retain Cape Town as backup. Anthony excludes Tel Aviv because he does not want a persistent UAE-to-Israel connection. Respect that endpoint-selection constraint without treating his prediction of surveillance attention as an independently established fact. Anthony subsequently authorized Stockholm; it is deployed alongside Cape Town. See [launch evidence](launch-stockholm-ecs.md) for current inventory and validation.
+Current direction — September 27: Stockholm remains the deployed primary, but Anthony reports unsatisfactory performance and prioritizes measured regional access/privacy comparisons before deployment-feature work. The [benchmark workflow](benchmarks.md) screens nearby exits, compares both protocols and validates finalists from the actual Dubai connection. No new performance winner or regional cutover is established. Cape Town is now parked as an on-demand backup with its original IPs and credentials retained; unpark it before use.
 
-Latest direction: Anthony agrees Stockholm is worth testing as the intended primary. Retain Cape Town as backup and validate actual performance before promotion. Geographic proximity alone does not establish that Stockholm is faster than Frankfurt; deployment is complete, but practical performance validation remains pending.
+The September 9 jurisdiction comparison below explains the earlier Stockholm selection; it is not a measured performance ranking or a current legal-policy audit. Frankfurt was substantially faster than Cape Town in owner testing. Tel Aviv remains excluded by owner decision; do not treat the owner's monitoring concern as independently established fact. [Stockholm launch evidence](launch-stockholm-ecs.md) records the maintained deployment.
 
-Anthony reports Cape Town is too slow on **both AWG and REALITY**, while Frankfurt was substantially faster. Earlier macOS/iOS practical passes establish connectivity, not satisfactory ongoing performance. Frankfurt remains retired. Cape Town should remain available for destinations that cause verification friction on a nearer primary.
+Anthony reports Cape Town is too slow on **both AWG and REALITY**, while Frankfurt was substantially faster. Earlier macOS/iOS practical passes establish connectivity, not satisfactory ongoing performance. Frankfurt remains retired. Cape Town can be unparked for destinations that cause verification friction on a nearer primary.
 
 ## Milan versus Stockholm, excluding age verification
 
@@ -14,9 +14,9 @@ Italy has a material content-blocking concern independent of age verification: P
 
 Sweden also has targeted blocking: a [Swedish appellate court decision](https://www.domstol.se/nyheter/2020/06/internetleverantor-ska-blockera-domannamn-och-webbadresser/) ordered Telia to block named copyright-infringing services and additional addresses for those services. Do not call Sweden literally unfiltered, or infer that a Telia order describes AWS behavior. No specific block has been tested on a Ghostline deployment in either country.
 
-Both regions support the T3 family in [AWS's instance catalog](https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-instance-regions.html), so the current one-host/two-EIP runtime has no identified architectural reason to change. Regional AMI, AZ offering and quotas still require launch preflight. [AWS's region catalog](https://docs.aws.amazon.com/global-infrastructure/latest/regions/aws-regions.html) lists Milan as opt-in and Stockholm as enabled by default. This is a small setup difference, not a reason to choose a slower route. Region-specific prices were not compared in this head-to-head; do not claim a cost winner.
+The current runtime uses t4g.small ARM64 with one host and two EIPs. Check the [AWS instance catalog](https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-instance-regions.html) and actual regional offerings before a candidate launch. Regional AMI, AZ offering and quotas still require launch preflight. [AWS's region catalog](https://docs.aws.amazon.com/global-infrastructure/latest/regions/aws-regions.html) lists Milan as opt-in and Stockholm as enabled by default. This is a small setup difference, not a reason to choose a slower route. Region-specific prices were not compared in this head-to-head; do not claim a cost winner.
 
-Test Stockholm first and keep Cape Town intact. If Stockholm's actual experience disappoints, use the known-good Frankfurt route as the next baseline or compare Milan if desired. This adds an internet-filtering rationale to the existing Stockholm trial direction without treating age verification as a gate.
+Continue testing Stockholm while preserving Cape Town’s parked endpoints. If Stockholm's actual experience disappoints, use the known-good Frankfurt route as the next baseline or compare Milan if desired. This adds an internet-filtering rationale to the existing Stockholm trial direction without treating age verification as a gate.
 
 ## Scenario: ignore age verification when choosing the primary
 
@@ -96,4 +96,6 @@ Canada is farther from Dubai than Frankfurt; higher latency is an engineering ex
 
 ## Independent deployment implications
 
-Stockholm and Cape Town use independent regional instances of the [same ECS gateway](architecture.md), each with two EIPs and region-local image repositories and credential parameters. Frankfurt is retired. A preference change does not implicitly destroy the backup or release its addresses; choose stop, park or destroy explicitly through the [lifecycle commands](deployment-lifecycle.md).
+Stockholm and Cape Town use the [same ECS gateway recipe](architecture.md), with two retained EIPs and region-local image repositories and credential parameters each. Stockholm is running; Cape Town is parked without a host. Frankfurt is retired. A preference change does not implicitly destroy the backup or release its addresses; choose stop, park or destroy explicitly through the [lifecycle commands](deployment-lifecycle.md).
+
+September 27 coordinated follow-up: the [Stockholm/Frankfurt head-to-head](../.context/scratch/2026-09-27-regional-benchmark/head-to-head.md) used two reversed rounds and continuous byte accounting. It established no valid matched regional winner; the benchmark changed no production deployment and all temporary resources are cleaned up. Cape Town was subsequently parked by explicit owner request. Raw speeds are observations, not a basis for ranking regions.

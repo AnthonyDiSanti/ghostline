@@ -1,3 +1,4 @@
+import { assertBenchmarkExclusion } from '../lib/benchmark/exclusion.js';
 import { withLifecycle } from '../lib/lifecycle-operator.js';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -25,6 +26,7 @@ import { profileQr, vpnLink } from '../lib/profile-share.js';
 import { ensureGuardDuty, guardDutyPreflight, verifyGuardDuty } from '../lib/guardduty.js';
 import { discoverGuardDuty } from '../lib/guardduty-discovery.js';
 
+assertBenchmarkExclusion();
 const [target, action, ...extra] = process.argv.slice(2);
 const config = getDeployment(target);
 if (action === 'import' ? extra.length !== 1 : extra.length !== 0) {

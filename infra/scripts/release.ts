@@ -1,3 +1,4 @@
+import { assertBenchmarkExclusion } from '../lib/benchmark/exclusion.js';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -11,6 +12,7 @@ import { readiness } from '../lib/releases/gate.js';
 import { account, cleanPublicationRegions, command, credentials, deployReleaseRegion, operatorGate, persistPublication, reconcileReplication, registry,
   root, seedRegion, verifyAccount } from '../lib/releases/operator.js';
 
+assertBenchmarkExclusion();
 const [action, target, reference, ...extra] = process.argv.slice(2);
 if (extra.length || !['publish', 'status', 'reconcile', 'retry', 'activate'].includes(action ?? '')
   || (action !== 'publish' && reference)) throw new Error('Usage: npm run release <publish <target-or-region> [release-digest]|status [target]|reconcile target|retry target|activate target>');

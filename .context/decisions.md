@@ -160,3 +160,13 @@ Native Ireland evidence confirms separate-image boot, best-effort bootstrap iden
 All image publication uses exact qualified OCI exports and the shared checksummed ECR transfer; no CDK image-asset side pipeline. Slow uplink evidence justified minimum 5 MiB upload parts and a separate binary-call deadline, without lengthening ordinary metadata calls. Docker must expose an OCI export; never silently convert qualified bytes. Tagged cleanup is operator-owned and bounded because native ECR retention cannot see a parked host's actual bootstrap or a lagging runtime. Missing runtime observations defer cleanup.
 
 September 26 notebook cleanup: consolidate the handoff into current deployment/checkpoint/resume state; canonical docs and git history retain completed work. This removes superseded AL2023/official-fix-hold instructions rather than maintaining competing runbooks.
+
+## 2026-09-27 — Openness-first regional benchmarking
+
+Use a short-lived non-VPC Lambda browser before provisioning any dedicated gateway/EIP/registry infrastructure. Only positive content evidence advances; browser challenges, failed instrumentation and transport errors are distinct from geographical restrictions. Recheck the actual VPN EIPs because the Lambda source address differs. Keep the canary private, copy existing credential identities, use the common qualified regional recipe, and retain all passing candidates for coordinated measurement blocks before cleanup.
+
+For home Wi-Fi buffering, use 30-second paired protocol downloads, direct before/after controls and router probes; no wired peer is assumed. The selected 50 Mbps screen supplies headroom for a 25 Mbps, three-minute modeled streaming trial. Defer unstable controls rather than manufacture corrected throughput. Actual native playback, DNS/IPv6/WebRTC and long-duration capacity remain separate evidence. [Current contract](../docs/benchmarks.md).
+
+## September 27 — coordinated regional benchmark cohorts
+
+Select candidates upfront; finish all minimal openness probes, then provision all passing gateways before timed work. Cycle one protocol across the cohort, reverse region/protocol order in the second round, and keep candidates ready for qualified streaming. This supersedes the earlier one-disposable-host-at-a-time measurement plan (provisioning and registry writes remain sequential). Count streamed bytes including partial responses; use 30-second controls, matched-time comparisons and unchanged noise thresholds.
