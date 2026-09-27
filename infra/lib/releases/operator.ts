@@ -13,7 +13,7 @@ import { SSMClient } from '@aws-sdk/client-ssm';
 import { EventBridgeClient } from '@aws-sdk/client-eventbridge';
 import { LambdaClient, GetFunctionConfigurationCommand } from '@aws-sdk/client-lambda';
 import { fromIni } from '@aws-sdk/credential-providers';
-import { deploymentIds, getDeployment, getPublication } from '../config.js';
+import { catalogPath, deploymentIds, getDeployment, getPublication } from '../config.js';
 import { AwsStackGate } from './aws-stack.js';
 import { EcrRegistry, copyImage, readRelease } from './registry.js';
 import { artifacts, releaseRepository, repository, repositoryPrefix, releaseSelector } from './model.js';
@@ -23,7 +23,7 @@ import { pruneRegionalArtifacts } from './retention-operator.js';
 import { withLifecycle } from '../lifecycle-operator.js';
 
 export const root = fileURLToPath(new URL('../../../', import.meta.url));
-export const profilePath = resolve(root, 'infra/deployment.json');
+export const profilePath = catalogPath;
 export const account = getDeployment(deploymentIds[0]).account;
 export const awsProfile = process.env.AWS_PROFILE ?? 'personal';
 export const credentials = fromIni({ profile: awsProfile });

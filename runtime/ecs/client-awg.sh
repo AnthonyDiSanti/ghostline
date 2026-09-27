@@ -16,5 +16,13 @@ ip address add "$address" dev client0
 ip link set mtu 1280 up dev client0
 ip route add "$endpoint/32" via "$gateway" dev eth0
 ip route replace default dev client0
+# Benchmark traffic must not regain a direct path if the TUN process dies.
+if [[ "${1:-}" == guard ]]; then
+  iptables -P OUTPUT DROP
+  iptables -A OUTPUT -o lo -j ACCEPT
+  iptables -A OUTPUT -o client0 -j ACCEPT
+  iptables -A OUTPUT -o eth0 -d "$endpoint" -p udp --dport 443 -j ACCEPT
+  iptables -A OUTPUT -o eth0 -p tcp --sport 1080 -m conntrack --ctstate ESTABLISHED -j ACCEPT
+fi
 touch /tmp/ready
 wait "$daemon"

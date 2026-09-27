@@ -22,3 +22,5 @@ Consult before infrastructure/vendor work. Current behavior belongs in `docs/`; 
 - [Protocol selection](protocol-selection.md) — reasons for AWG as the manual stealth alternative.
 - [Reference repository](reference-repository.md) — personal-assistant source map, cost tags and fixture patterns.
 - [Region assessment](../../docs/region-selection.md) — performance/privacy research and evidence limits, separate from deployment implementation.
+
+- [Regional benchmarks](../../docs/benchmarks.md) — all-region openness probes, prepared gateway cohorts, protocol-major rounds, streamed-byte controls and resumable cleanup.

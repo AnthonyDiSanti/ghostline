@@ -1,6 +1,6 @@
 # Ghostline
 
-A personal connectivity product for browsing and video from Dubai under current internet filtering. Stockholm is the primary exit and Cape Town is the backup. Clients manually choose Xray / VLESS / REALITY or AmneziaWG.
+A personal connectivity product for browsing and video from Dubai under current internet filtering. Stockholm is the active primary exit. Cape Town is parked as an on-demand backup, retaining its IPs and credentials. Clients manually choose Xray / VLESS / REALITY or AmneziaWG.
 
 The repo has one regional deployment model: **one Bottlerocket Graviton EC2 host, one ECS gateway task with three application images, a restricted network daemon and two EIPs**. Separate bootstrap and network-daemon images join the common five-image release pipeline. A shared initializer prepares protocol-private RAM configuration; separate engines mount it read-only, share a formula-derived memory budget and restart independently when eligible. ECR retains images, regional Parameter Store retains credentials, and SSM supplies SSH-free administration.
 

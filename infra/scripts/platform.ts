@@ -1,3 +1,4 @@
+import { assertBenchmarkExclusion } from '../lib/benchmark/exclusion.js';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { getDeployment } from '../lib/config.js';
@@ -7,6 +8,7 @@ import { nativeQualificationPath, qualifyNativePlatform } from '../lib/platform-
 import { imageArtifacts, releaseTag } from '../lib/ecs-release.js';
 import { updateHostOs } from '../lib/platform-update.js';
 
+assertBenchmarkExclusion();
 const [target, action, path, ...extra] = process.argv.slice(2);
 if (extra.length || !['status', 'update', 'qualify'].includes(action ?? '') || (action === 'qualify' ? !path : !!path)) {
   throw new Error('Usage: npm run platform <target> <status|update|qualify qualified-file>.');
