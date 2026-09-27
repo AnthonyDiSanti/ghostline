@@ -2,12 +2,20 @@
 
 Backup target `cape-town`; profile `personal`; account `757999402784`; region `af-south-1`, AZ `af-south-1a`. Endpoint stack `GhostlineCapeTown`, release repositories `GhostlineRelease`, resource prefix `ghostline-cape-town`. It uses the same [gateway recipe](ecs.md) as Stockholm, with independent regional images and credential parameters.
 
-One official ECS-3 Bottlerocket ARM64 `t4g.small`, version `1.65.0-0be31b34`, AMI `ami-0057bb1f922103530`, encrypted 2 GiB OS and 30 GiB data disks. Current host `i-0caf363c8ad24923d`, ENI `eni-09ab55e864950649b`. The separately retained `GhostlinePlatform` repository supplies the qualified bootstrap/network image.
+One official ECS-3 Bottlerocket ARM64 `t4g.small`, version `1.66.0-1ad6b4a4`, AMI `ami-08d7677b7fb19b172`, encrypted 2 GiB OS and 30 GiB data disks. Current host `i-03d4e6e915a94d94c`, ENI `eni-09f3256b8de20342b`. `GhostlineRelease` supplies separate bootstrap and network-daemon images alongside the three application images and authoritative OCI release document.
 
 | Protocol | Preserved EIP | Allocation | Private address |
 | --- | --- | --- | --- |
 | Xray | `16.28.130.178` | `eipalloc-09b530775698d23bb` | `10.79.0.11` |
 | AWG | `15.240.94.162` | `eipalloc-0d22c628c5fde384e` | `10.79.0.10` |
+
+## Coordinated platform release — 2026-09-26
+
+Cape Town migrated first through the normal retained-IP park/unpark path after central Ireland qualification. Both original allocations/endpoints and every preexisting `/ghostline/prod/` parameter version/timestamp match the captured baseline. Actual bootstrap, daemon and application digests match the complete local release. Existing profiles require no edits.
+
+Both encrypted REALITY/AWG HTTPS probes pass through the original EIPs with direct Mac en0 routes. Private read-only RAM, absent engine secret environments, configuration hashes, memory and bridge isolation pass; diagnostics/admin are disabled and GuardDuty v1.17.1 is HEALTHY. The official OS remains subject to the explicitly accepted #1059 startup limitation and bounded controlled-boot recovery; it is not a patched OS. [Qualification](bottlerocket-trial.md), [policy](platform.md).
+
+Evidence: `.local/coordinated-release/september26-cape-town-continuity.json`, `.local/deployments/cape-town/ecs/`, and `/private/tmp/ghostline-september26-cape-clients.log`. Stockholm migration and legacy-resource retirement are tracked independently in the handoff.
 
 ## Bottlerocket production promotion — 2026-09-22
 

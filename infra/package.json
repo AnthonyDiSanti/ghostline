@@ -28,8 +28,7 @@
     "ecs": "node --import=tsx scripts/ecs.ts",
     "release": "node --import=tsx scripts/release.ts",
     "platform": "node --import=tsx scripts/platform.ts",
-    "audit": "node --import=tsx scripts/audit.ts",
-    "trial:al2023-gate": "cdk --app 'node --import=tsx bin/al2023-boot-gate-trial.ts'"
+    "audit": "node --import=tsx scripts/audit.ts"
   },
   "dependencies": {
     "@aws-sdk/client-cloudformation": "3.1129.0",

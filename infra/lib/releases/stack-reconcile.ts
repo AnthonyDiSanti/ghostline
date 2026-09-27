@@ -1,4 +1,5 @@
 import { applicationArtifacts } from '../image-artifacts.js';
+import { acceptsBootstrapRecovery, bootstrapRecoveryIssue } from '../bootstrap-recovery.js';
 import { componentMatches, selectStackAction, type StackIntent, type StackObservation, type StackAction } from './stack-action.js';
 
 export type Step = 'quiesce' | 'drain' | 'daemon-cold' | 'gateway-cold' | 'daemon' | 'reboot' | 'activate' | 'daemon-ready' | 'gateway' | 'restore' | 'verify';
@@ -13,6 +14,9 @@ export interface StackAttempt {
   host: string; bootId: string; gatewayDeployments: string[]; daemonDeployments: string[];
   steps: Step[]; index: number; state: 'planned' | 'waiting' | 'completed' | 'paused' | 'cancelled';
   stepStarted: number; reason?: string;
+  sourceOsVersion?: string;
+  rebootAcknowledged?: boolean;
+  recovery?: { issue: string; requestedAt: number; acknowledged: boolean; recoveredAt?: number };
 }
 export interface StackPorts {
   now(): number;
@@ -82,6 +86,9 @@ export async function reconcileStack(ports: StackPorts, desired: { release: stri
       version: (previous?.version ?? 0) + 1, host: actual.host!.id, bootId: actual.host!.bootId!,
       gatewayDeployments: actual.gateway!.deployments, daemonDeployments: actual.daemon!.deployments,
       steps: actionSteps(action as ActiveAction), index: 0, state: 'planned', stepStarted: ports.now() };
+    attempt.sourceOsVersion = actual.host!.version;
+    // New release notifications and explicit retries cannot replenish an unresolved incident's budget.
+    if (previous?.host === attempt.host && previous.recovery && !previous.recovery.recoveredAt) attempt.recovery = previous.recovery;
     if (!await ports.save(attempt, previous)) throw new Error('A regional action already exists.');
   }
   if (['completed', 'paused'].includes(attempt.state)) {
@@ -116,15 +123,42 @@ export async function reconcileStack(ports: StackPorts, desired: { release: stri
     if (observed(step, attempt, actual)) {
       const index = attempt.index + 1;
       await update({ index, state: index === attempt.steps.length ? 'completed' : 'planned', stepStarted: ports.now(), reason: undefined });
+      if (attempt.state === 'completed' && attempt.recovery && !attempt.recovery.recoveredAt) {
+        await update({ recovery: { ...attempt.recovery, recoveredAt: ports.now() } });
+        await ports.alert(`${attempt.release}/recovered`, 'The controlled bootstrap recovery completed; all release components are verified.');
+      }
       return attempt;
     }
-    if (ports.now() - attempt.stepStarted > 15 * 60_000) return pause(`Timed out observing ${step}; inspect before an explicit retry. No command was repeated.`);
+    if (ports.now() - attempt.stepStarted > 15 * 60_000) {
+      // Only a known, acknowledged release reboot with still-drained workloads may retry once.
+      // Missing SSM observations while ECS is connected, task failures and unexpected reboots are ineligible.
+      const recoverable = step === 'reboot' && attempt.rebootAcknowledged && !attempt.recovery
+        && attempt.intent.os.knownLimitations?.includes(bootstrapRecoveryIssue)
+        && acceptsBootstrapRecovery(attempt.sourceOsVersion) && attempt.intent.os.compatibleVersions.includes(attempt.sourceOsVersion!)
+        && actual.host?.state === 'running' && actual.host.agentConnected === false && actual.host.registration === 'DRAINING'
+        && actual.gateway?.desired === 0 && actual.gateway.tasks.length === 0 && actual.daemon?.tasks.length === 0;
+      if (!recoverable) return pause(`Timed out observing ${step}; inspect before an explicit retry. No additional recovery is authorized.`);
+      if (!await ports.stillReady(attempt.release)) return pause('Release availability changed before bootstrap recovery; inspect before retrying.');
+      // Persist consumption before the effect. A crash or lost acknowledgement cannot grant a second retry.
+      await update({ recovery: { issue: bootstrapRecoveryIssue, requestedAt: ports.now(), acknowledged: false }, stepStarted: ports.now() });
+      await ports.alert(`${attempt.release}/recovery`, 'Controlled bootstrap startup timed out; attempting the one temporary recovery reboot for core-kit #1059.');
+      try {
+        await ports.request('reboot', attempt.host);
+        await update({ recovery: { ...attempt.recovery!, acknowledged: true } });
+      } catch {
+        return pause('Bootstrap recovery acknowledgement is uncertain. The recovery allowance is consumed; inspect before any further reboot.');
+      }
+      return attempt;
+    }
     return attempt;
   }
   if (!await ports.stillReady(attempt.release)) return pause('The coherent local release or production aliases changed before an intentional action.');
   // Persist before every effect. A process dying here leaves an uncertain request, never authority to blindly repeat it.
-  await update({ state: 'waiting', stepStarted: ports.now() });
-  try { await ports.request(step, attempt!.host); }
+  await update({ state: 'waiting', stepStarted: ports.now(), ...(step === 'reboot' ? { rebootAcknowledged: false } : {}) });
+  try {
+    await ports.request(step, attempt!.host);
+    if (step === 'reboot') await update({ rebootAcknowledged: true });
+  }
   catch {
     await update({ reason: `The ${step} request acknowledgement is uncertain; observe without repeating it.` });
     await ports.alert(`${attempt!.release}/${attempt!.index}/uncertain`, attempt!.reason!);

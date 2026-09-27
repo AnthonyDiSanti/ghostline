@@ -2,7 +2,7 @@
 
 Primary target `stockholm-ecs`; profile `personal`; account `757999402784`; region `eu-north-1`, AZ `eu-north-1a`. Endpoint stack `GhostlineEcsTrial`, release repositories `GhostlineRelease`, resource prefix `ghostline-ecs-stockholm`. These are stable cloud identities for the common [gateway recipe](ecs.md).
 
-One official ECS-3 Bottlerocket ARM64 `t4g.small`, version `1.65.0-0be31b34`, AMI `ami-031cd08d96ffcdb37`, encrypted 2 GiB OS and 30 GiB data disks. Current host `i-0a754b73d3a3dafcb`, ENI `eni-0d263da2996d1d9ce`. The restricted ECS network daemon uses the separately retained `GhostlinePlatform` image.
+One official ECS-3 Bottlerocket ARM64 `t4g.small`, version `1.66.0-1ad6b4a4`, AMI `ami-0c0df096a3b9de91b`, encrypted 2 GiB OS and 30 GiB data disks. Current host `i-0876f4c923fb6a0d1`, ENI `eni-00ba60f36a4a0d96f`. Separate bootstrap and restricted network-daemon images use the common regional release pipeline.
 
 | Protocol | EIP | Allocation | Private address |
 | --- | --- | --- | --- |
@@ -10,6 +10,14 @@ One official ECS-3 Bottlerocket ARM64 `t4g.small`, version `1.65.0-0be31b34`, AM
 | AWG | `16.16.73.146` | `eipalloc-07627e295d844e8de` | `10.79.0.10` |
 
 Original client identities and existing primary profiles remain valid. Anthony accepted both iOS ARM64 protocols on September 15; the current recovery evidence below uses real automated clients. Mac REALITY uses OneXraySE, AWG uses Amnezia. Repeated sleep/wake remains separate in [client stability](mac-client-stability.md).
+
+## Coordinated platform release — 2026-09-26
+
+The retained-IP cold rebuild moved Stockholm to official Bottlerocket 1.66.0 after Cape Town passed the same migration. All existing parameter versions/timestamps and both original endpoint allocations are unchanged. The five-component release document is `sha256:013a8b63b7e93b25312ea3d296ec6378ccd6e13c3c4be91baf8439be56ed8d07`; observed bootstrap, daemon and gateway identities match it. Bootstrap uses the native stable local alias, while CDK retains ownership of static ECS task definitions.
+
+Private read-only RAM, secret separation, bridge/host isolation, protocol-specific EIP egress, memory limits and HEALTHY GuardDuty v1.17.1 passed. Privileged diagnostics are disabled. Both automated encrypted REALITY/AWG HTTPS probes passed through the existing endpoints after fresh direct Mac routing checks; no new iOS or sleep/wake acceptance is inferred. Existing profiles require no changes.
+
+The official OS still carries [core-kit #1059](https://github.com/bottlerocket-os/bottlerocket-core-kit/issues/1059). Central qualification and the accepted one-retry controlled-bootstrap recovery are recorded in [platform](platform.md) and [trial evidence](bottlerocket-trial.md); this rollout does not claim the OS defect is fixed. Nonsecret evidence: `.local/coordinated-release/september26-stockholm-ecs-continuity.json`, the migration journal, and `/private/tmp/ghostline-september26-{verify-stockholm,stockholm-clients}.log`.
 
 ## Bottlerocket production promotion — 2026-09-22
 

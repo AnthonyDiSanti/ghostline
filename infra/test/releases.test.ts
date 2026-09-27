@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { bootstrapRecoveryIssue } from '../lib/bootstrap-recovery.js';
 import { artifacts, releaseRepository, digest, lifecyclePolicy, parseRelease, production, repository, releaseManifest, releaseSelector,
   retainHistory, type Release } from '../lib/releases/model.js';
 import { publicationProfile } from '../lib/releases/topology.js';
@@ -32,6 +33,19 @@ class MemoryRegistry implements Registry {
 }
 
 describe('app release history', () => {
+  it('publishes changed qualification limitations without retaining duplicate runtime sets', async () => {
+    const registry = new MemoryRegistry();
+    const older = await registry.add(release('a'), true);
+    const current = (await planPromotion(registry, release('b')))!;
+    await registry.add(current, true);
+    // The accepted availability policy must reach consumers even when the images and compatible OS are unchanged.
+    const candidate = { ...current, promotionId: 'release-policy-change', os: { ...current.os, knownLimitations: [bootstrapRecoveryIssue] } };
+    const next = (await planPromotion(registry, candidate))!;
+    expect(next.os.knownLimitations).toEqual([bootstrapRecoveryIssue]);
+    expect(next.history).toEqual([older.digest]);
+    await registry.add(next, true);
+    expect(await planPromotion(registry, candidate)).toBeUndefined();
+  });
   it('rotates whole release sets and documents, preserves a reused initializer, and skips unchanged publication', async () => {
     const registry = new MemoryRegistry();
     const originals: Release[] = [];

@@ -58,7 +58,12 @@ export class EcrRegistry implements Registry {
     const current = await this.get(repository, tag);
     if (current?.digest === manifest.digest) return;
     const result = await this.client.send(new PutImageCommand({ repositoryName: repository, imageTag: tag,
-      imageManifest: manifest.manifest, imageManifestMediaType: manifest.mediaType, imageDigest: manifest.digest }));
+      imageManifest: manifest.manifest, imageManifestMediaType: manifest.mediaType, imageDigest: manifest.digest })).catch(async error => {
+      // Replication may win the lookup/write race. Accept only a fresh read of the exact intended alias target.
+      if (error.name === 'ImageAlreadyExistsException' && (await this.get(repository, tag))?.digest === manifest.digest) return undefined;
+      throw error;
+    });
+    if (!result) return;
     if (result.image?.imageId?.imageDigest !== manifest.digest) throw new Error('Published manifest digest mismatch.');
   }
 

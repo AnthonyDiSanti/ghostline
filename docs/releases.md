@@ -1,6 +1,6 @@
 # Whole-stack regional releases
 
-Migration is in progress. The [handoff](../.context/handoff.md) and regional launch records distinguish current deployment from the contract below. Qualification, publication, deployment and verification are separate evidence boundaries.
+Stockholm and Cape Town use this whole-stack release contract. The [handoff](../.context/handoff.md) and regional launch records contain observed deployment identities. Qualification, publication, deployment and verification remain separate evidence boundaries.
 
 The common pipeline qualifies bootstrap, network-daemon, gateway-config, Xray and AWG centrally. Publication exports those exact OCI bytes and uses the same bounded, checksummed ECR transfer as regional seeding. Delivery never rebuilds images or retests protocols as a release gate. Lambda code remains a CDK asset.
 
@@ -29,7 +29,7 @@ The JSON is a layer and a manifest annotation whose hash and byte count must agr
 | `sha-…`, `release-<promotion-id>` | Immutable content/publication identities |
 | `keep-publishing`, `keep-publishing-release` | Temporary protection during resumable alias rotation |
 
-History is application-level promotion history; regional outcomes never reorder it. Runtime child digests and the OS contract determine meaningful equality, so a provenance-only index change does not consume a history slot or restart tasks. Publication verifies all descriptors, rotates complete sets oldest-first, and moves the production document selector **last**. Interrupted rotation resumes from the same immutable document. Every deliberate regional effect rechecks local descriptor availability and exact production-alias/root equality.
+History is application-level promotion history; regional outcomes never reorder it. Runtime child digests and the OS contract determine meaningful equality, so a provenance-only index change does not consume a history slot or restart tasks. Changed qualification limitations still publish a new document without retaining a duplicate runtime set. Publication verifies all descriptors, rotates complete sets oldest-first, and moves the production document selector **last**. Interrupted rotation resumes from the same immutable document. Every deliberate regional effect rechecks local descriptor availability and exact production-alias/root equality.
 
 The accepted short race between alias validation and ECS resolution remains. Version consistency is explicitly enabled for every ECS container. The controller verifies what actually ran instead of treating current tags as deployment evidence.
 
@@ -57,7 +57,8 @@ The controller reads actual ECS task digests, the current kernel boot ID and boo
 | Bootstrap | Quiesce gateway, drain daemon, reboot once, observe bootstrap/OS/agent, activate daemon, restore app |
 | Combined components | One strongest action; force changed daemon/app only when necessary |
 | Parked/stopped/destroying | Preserve power intent; do not wake the host |
-| Failed, rolled-back or uncertain | Record/alert/pause; do not repeat destructive effects automatically |
+| Controlled bootstrap startup timeout | One temporary recovery reboot only under the [platform exception](platform.md#temporary-controlled-boot-recovery); then pause on failure |
+| Other failed, rolled-back or uncertain actions | Record/alert/pause; do not repeat destructive effects automatically |
 
 An unchanged app is restored after bootstrap reboot with desiredCount alone; forcing deployment at the same time as 0→1 caused two sequential app tasks in a native ECS trial. Changed app/daemon components resolve the new aliases through their explicit deployment. Native ECS rollback remains enabled where supported. There is no custom multi-release fallback cascade; retry/corrected publication follows investigation.
 
@@ -88,3 +89,9 @@ npm run release activate <target>
 Build qualifies once. A changed platform also needs the documented central native experiment and `platform <target> qualify <qualified-file>` before production publication. `reconcile` observes intended state; `retry` is an explicit correction after inspecting paused/failed work. A retained release promotion is a new global intent, not a regional tag rewrite.
 
 Stop/park retain membership and release support. Destroy retires incoming/outgoing membership, deletes local images/support/nonexpiring state, and releases owned addresses. Standard parameters, expiring logs and independent security persist. NVA/London are protected from destroy. [Complete lifecycle](deployment-lifecycle.md).
+
+## September 26 migration evidence
+
+All four members select v2 document `sha256:013a8b63b7e93b25312ea3d296ec6378ccd6e13c3c4be91baf8439be56ed8d07`. Cape Town then Stockholm passed retained-IP cold rebuild, credential continuity, runtime security/GuardDuty and both encrypted client checks. Their controllers are enabled; obsolete coupled-helper stacks/repositories and initializer-repository release aliases are removed. The dedicated metadata repository owns release history.
+
+The pre-migration protected window held three v1 documents but only two distinct executable sets after provenance-wrapper deduplication. Migration preserved those identities and selects production plus one distinct prior set; retention capacity remains production plus three distinct priors. This does not manufacture additional history or claim historical composed platform sets previously ran. A same-digest ECR replication/PutImage race was observed during promotion: the adapter accepts the duplicate only after exact tag-digest readback, and interrupted publication resumed successfully.

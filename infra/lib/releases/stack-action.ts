@@ -4,7 +4,7 @@ import type { LifecycleMode } from './lifecycle.js';
 export interface ComponentIdentity { digest: string; runtimeDigest: string }
 export interface StackIntent {
   components: Record<ImageArtifact, ComponentIdentity>;
-  os: { variant: string; architecture: string; compatibleVersions: string[] };
+  os: { variant: string; architecture: string; compatibleVersions: string[]; knownLimitations?: string[] };
 }
 export interface StackObservation {
   mode: LifecycleMode;

@@ -12,7 +12,7 @@ Use Node 24 and the strict TypeScript package under `infra/`, including its reus
 | `infra/lib/releases/`, `infra/lambda/release-gate.ts`, `infra/scripts/release.ts` | Global publication, regional image infrastructure and static-task deployment gate |
 | `infra/packages/notifications/` | Independent SNS event/alarm routing and private-parameter email subscription |
 | `infra/lib/ecs-memory.ts`, `infra/lib/bottlerocket-os.ts` | Memory budget and AWS host-image checks |
-| `infra/lib/ecs-release.ts`, `infra/lib/ecs-images.ts` | Three ARM64 image artifacts, content identities and publication |
+| `infra/lib/ecs-release.ts`, `infra/lib/ecs-images.ts` | Five ARM64 image artifacts, content identities and publication |
 | `infra/lib/stable-images.ts`, `infra/lib/upstream-download.ts`, `infra/image-inputs.json` | Stable resolution, scoped authenticated metadata reads and recorded verified build inputs |
 | `infra/lib/parameters.ts`, `infra/lib/xray-config.ts` | Portable credential validation and regional SecureString import |
 | `infra/lib/ecs-power.ts`, `infra/lib/lifecycle.ts` | Scoped start/stop, deletion and retained-address release |

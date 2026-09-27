@@ -1,6 +1,6 @@
 # ECR replication cluster implementation plan
 
-Status: incorporated into the [coordinated implementation](../2026-09-22-coordinated-release/plan.md), September 22, 2026. Implement immediately after the Bottlerocket work unit, before blue-green evaluation. Topology, origin checks, union retirement and full-mesh migration are implemented; isolated exact-digest publication from Stockholm/Cape Town and Ireland retirement/rebuild have passed. Whole-stack artifact/metadata expansion remains in progress; [releases](../../../docs/releases.md) records migration status.
+Status: incorporated into the [coordinated implementation](../2026-09-22-coordinated-release/plan.md), September 22, 2026. This work is part of the current coordinated Bottlerocket migration, before blue-green evaluation. Topology, origin checks, union retirement and full-mesh migration are implemented; isolated exact-digest publication from Stockholm/Cape Town and Ireland retirement/rebuild have passed. Whole-stack artifact/metadata expansion is implemented in `ac70cb0`; September 26 production promotion, complete protected-history migration and final expanded cleanup passed. NVA/London remain retained members; [releases](../../../docs/releases.md) records the current contract.
 
 ## Goal and boundaries
 
@@ -78,5 +78,3 @@ Done: every enrolled registry can publish; historical seeding and retirement wor
 - `infra/lib/releases/{topology,operator,publication,registry,gate,model}.ts`, `infra/scripts/release.ts`, `infra/bin/releases.ts`, deployment-profile validation and release tests.
 - [AWS replication](https://docs.aws.amazon.com/AmazonECR/latest/userguide/replication.html): one-hop propagation, no historical backfill, no replicated deletions/policies and prefix-based filtering.
 - [Registry replication API](https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_PutReplicationConfiguration.html): regional singleton configuration; preserve unrelated ownership.
-
-Recording this plan makes no code, cloud, client or release-alias changes.

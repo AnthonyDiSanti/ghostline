@@ -14,7 +14,9 @@ export async function releaseHistory(registry: Registry, current: ReleaseRecord)
 export async function planPromotion(registry: Registry, candidate: Release): Promise<Release | undefined> {
   // Publication owns app history. Regional success/rollback never influences these aliases.
   const current = await readRelease(registry, releaseRepository, releaseSelector);
-  if (current && setIdentity(current.release) === setIdentity(candidate)) return undefined;
+  // Qualification policy can change without new executable bytes; publish that intent without consuming an MRU slot.
+  if (current && setIdentity(current.release) === setIdentity(candidate)
+    && JSON.stringify(current.release.os.knownLimitations ?? []) === JSON.stringify(candidate.os.knownLimitations ?? [])) return undefined;
   return { ...candidate, history: retainHistory(candidate, current ? await releaseHistory(registry, current) : []) };
 }
 

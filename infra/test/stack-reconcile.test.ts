@@ -1,10 +1,11 @@
 import { expect, it } from 'vitest';
+import { bootstrapRecoveryIssue } from '../lib/bootstrap-recovery.js';
 import { imageArtifacts } from '../lib/image-artifacts.js';
 import { actionSteps, reconcileStack, type ActionObservation, type StackAttempt, type StackPorts } from '../lib/releases/stack-reconcile.js';
 import type { StackIntent } from '../lib/releases/stack-action.js';
 function fixture(change: 'app' | 'daemon' | 'bootstrap' | 'all' = 'app') {
   const intent: StackIntent = { components: Object.fromEntries(imageArtifacts.map(n => [n, { digest: `${n}-new`, runtimeDigest: `${n}-child` }])) as StackIntent['components'],
-    os: { variant: 'aws-ecs-3', architecture: 'arm64', compatibleVersions: ['1.65.0'] } };
+    os: { variant: 'aws-ecs-3', architecture: 'arm64', compatibleVersions: ['1.65.0'], knownLimitations: [bootstrapRecoveryIssue] } };
   const actual: ActionObservation = { mode: 'active',
     host: { id: 'host', state: 'running', bootId: 'boot-1', version: '1.65.0', variant: 'aws-ecs-3', architecture: 'arm64', agentConnected: true, registration: 'ACTIVE' },
     bootstrap: { digest: ['bootstrap','all'].includes(change) ? 'bootstrap-old' : 'bootstrap-new', bootId: 'boot-1' },
@@ -40,7 +41,7 @@ it('orders a combined release through real task termination, one reboot and one 
   f.actual.host!.registration = 'DRAINING'; await f.tick(); expect(f.saved().index).toBe(1);
   f.actual.daemon!.tasks = []; await f.tick(); await f.tick(); expect(f.calls.at(-1)).toBe('daemon-cold');
   f.actual.daemon!.deployments.push('daemon-2'); await f.tick(); await f.tick(); expect(f.calls.at(-1)).toBe('gateway-cold');
-  f.actual.gateway!.deployments.push('gateway-2'); await f.tick(); await f.tick(); expect(f.calls.at(-1)).toBe('reboot');
+  f.actual.gateway!.deployments.push('gateway-2'); await f.tick(); await f.tick(); expect(f.calls.filter(c => c === 'reboot')).toHaveLength(1);
   f.actual.bootstrap!.digest = 'bootstrap-new'; await f.tick(); expect(f.saved().index).toBe(4);
   f.actual.host!.bootId = 'boot-2'; f.actual.bootstrap!.bootId = 'boot-2';
   await f.tick(); await f.tick(); expect(f.calls.at(-1)).toBe('activate');
@@ -95,4 +96,79 @@ it('permits a distinct correction after a paused release while preserving versio
   expect(f.saved()).toMatchObject({release:'release-2',state:'waiting'});
   expect(f.saved().version).toBeGreaterThan(previous);
   expect(f.calls.filter(c => c === 'gateway')).toHaveLength(2);
+});
+
+// Advance through actual quiescence and draining before simulating a stalled controlled boot.
+async function stalledBoot() {
+  const f = fixture('bootstrap');
+  await f.tick(); f.actual.gateway!.desired = 0; f.actual.gateway!.tasks = [];
+  await f.tick(); await f.tick();
+  f.actual.host!.registration = 'DRAINING'; f.actual.daemon!.tasks = [];
+  await f.tick(); await f.tick();
+  f.actual.host!.agentConnected = false;
+  delete f.actual.host!.bootId; delete f.actual.bootstrap;
+  return f;
+}
+it('reboots once more after a controlled startup timeout and completes the original release', async () => {
+  const f = await stalledBoot(); f.advance(); await f.tick();
+  expect(f.saved().recovery).toMatchObject({ issue: bootstrapRecoveryIssue, acknowledged: true });
+  await f.tick(); await f.tick(); expect(f.calls.filter(c => c === 'reboot')).toHaveLength(2);
+  f.actual.host!.agentConnected = true; f.actual.host!.bootId = 'recovered';
+  f.actual.bootstrap = { bootId: 'recovered', digest: 'bootstrap-new' };
+  await f.tick(); await f.tick(); f.actual.host!.registration = 'ACTIVE';
+  await f.tick(); f.actual.daemon!.tasks = ['healthy-daemon'];
+  await f.tick(); await f.tick(); f.actual.gateway!.desired = 1; f.actual.gateway!.tasks = ['healthy-gateway'];
+  await f.tick(); await f.tick();
+  expect(f.saved().state).toBe('completed'); expect(f.saved().recovery?.recoveredAt).toBeDefined();
+  await f.tick(); expect(f.calls.filter(c => c === 'reboot')).toHaveLength(2);
+});
+it('pauses after the single recovery timeout across duplicate and newer release events', async () => {
+  const f = await stalledBoot(); f.advance(); await f.tick(); f.advance(); await f.tick();
+  expect(f.saved().state).toBe('paused'); await f.tick(); await f.tick('release-2');
+  expect(f.saved().recovery?.acknowledged).toBe(true); expect(f.calls.filter(c => c === 'reboot')).toHaveLength(2);
+});
+it('consumes recovery before an uncertain acknowledgement and never retries it', async () => {
+  const f = await stalledBoot(); f.fail(); f.advance(); await f.tick();
+  expect(f.saved().state).toBe('paused'); expect(f.saved().recovery?.acknowledged).toBe(false);
+  await f.tick(); f.advance(); await f.tick(); expect(f.calls.filter(c => c === 'reboot')).toHaveLength(2);
+});
+it.each(['unacknowledged', 'fixed-os', 'unrecorded-limit', 'connected-agent', 'live-task', 'changed-alias'] as const)(
+  'refuses bootstrap recovery with %s evidence', async reason => {
+    const f = await stalledBoot();
+    // Model persisted evidence gaps and control-plane observations, not a second reboot request.
+    if (reason === 'unacknowledged') f.saved().rebootAcknowledged = false;
+    if (reason === 'fixed-os') f.saved().sourceOsVersion = '1.67.0';
+    if (reason === 'unrecorded-limit') delete f.saved().intent.os.knownLimitations;
+    if (reason === 'connected-agent') f.actual.host!.agentConnected = true;
+    if (reason === 'live-task') f.actual.daemon!.tasks = ['still-running'];
+    if (reason === 'changed-alias') f.ports.stillReady = async () => false;
+    f.advance(); await f.tick(); expect(f.saved().state).toBe('paused');
+    expect(f.calls.filter(c => c === 'reboot')).toHaveLength(1);
+  });
+it.each(['stopped', 'parked', 'destroying'] as const)('does not recover after intent becomes %s', async mode => {
+  const f = await stalledBoot(); f.actual.mode = mode; f.advance(); await f.tick();
+  expect(f.saved().state).toBe('paused'); expect(f.calls.filter(c => c === 'reboot')).toHaveLength(1);
+});
+it('does not recover an unexpected incomplete boot', async () => {
+  const f = fixture('bootstrap'); delete f.actual.host!.bootId; delete f.actual.bootstrap;
+  f.actual.host!.agentConnected = false; f.advance();
+  expect(await f.tick()).toMatchObject({ kind: 'blocked' }); expect(f.calls).not.toContain('reboot');
+});
+it('keeps consumption durable if execution stops after saving it but before reboot', async () => {
+  const f = await stalledBoot(); f.advance();
+  f.ports.alert = async () => { throw Error('injected interruption after persisted consumption'); };
+  await expect(f.tick()).rejects.toThrow('injected interruption');
+  expect(f.saved().recovery?.acknowledged).toBe(false);
+  f.ports.alert = async () => {}; await f.tick(); f.advance(); await f.tick();
+  expect(f.saved().state).toBe('paused'); expect(f.calls.filter(c => c === 'reboot')).toHaveLength(1);
+});
+it('carries an unresolved recovery allowance into a newer release attempt', async () => {
+  const f = await stalledBoot(); f.advance(); await f.tick(); f.advance(); await f.tick();
+  const spent = structuredClone(f.saved().recovery);
+  // An external partial recovery is not proof that the complete release succeeded.
+  f.actual.host!.agentConnected = true; f.actual.host!.bootId = 'later-boot'; f.actual.host!.registration = 'ACTIVE';
+  f.actual.bootstrap = { digest: 'bootstrap-old', bootId: 'later-boot' };
+  f.actual.gateway!.desired = 1; f.actual.gateway!.tasks = ['g']; f.actual.daemon!.tasks = ['d'];
+  await f.tick('newer-release');
+  expect(f.saved().release).toBe('newer-release'); expect(f.saved().recovery).toEqual(spent);
 });

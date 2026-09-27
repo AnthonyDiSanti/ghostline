@@ -25,3 +25,12 @@ it('refuses stale boot evidence, mismatched candidates and unrecorded local buil
   f.actual.bootstrap!.bootId = 'current'; f.actual.daemon!.digest = `sha256:${'e'.repeat(64)}`;
   expect(() => qualifyNativePlatform(f.images, f.actual, f.at)).toThrow('differs');
 });
+
+it('carries the accepted limitation and rejects evidence that silently omits it', () => {
+  const f = fixture(); const proof = qualifyNativePlatform(f.images, f.actual, f.at);
+  expect(proof.os.knownLimitations).toEqual(['https://github.com/bottlerocket-os/bottlerocket-core-kit/issues/1059']);
+  delete proof.os.knownLimitations;
+  expect(() => qualifiedOs(f.images, proof)).toThrow('availability limitation');
+  f.actual.host!.version = '1.67.0';
+  expect(qualifyNativePlatform(f.images, f.actual, f.at).os.knownLimitations).toBeUndefined();
+});

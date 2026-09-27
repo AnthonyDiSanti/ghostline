@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { bootstrapRecoveryIssue } from '../bootstrap-recovery.js';
 import { imageArtifacts, type ImageArtifact } from '../image-artifacts.js';
 
 export const artifacts = imageArtifacts;
@@ -30,7 +31,7 @@ export interface Release {
   origin: string;
   platform: 'linux/arm64';
   images: Record<Artifact, ReleaseImage>;
-  os: { variant: 'aws-ecs-3'; architecture: 'arm64'; compatibleVersions: string[] };
+  os: { variant: 'aws-ecs-3'; architecture: 'arm64'; compatibleVersions: string[]; knownLimitations?: string[] };
   sourceApplicationRelease?: string;
   history: string[];
 }
@@ -49,7 +50,10 @@ export function parseRelease(value: unknown): Release {
     || new Set(r.os.compatibleVersions).size !== r.os.compatibleVersions.length
     || (r.sourceApplicationRelease !== undefined && !digestPattern.test(r.sourceApplicationRelease))) throw new Error('Invalid release document.');
   if (Object.keys(r).some(key => !['schemaVersion', 'promotionId', 'promotedAt', 'origin', 'platform', 'images', 'os', 'sourceApplicationRelease', 'history'].includes(key))
-    || Object.keys(r.os).some(key => !['variant', 'architecture', 'compatibleVersions'].includes(key))) throw new Error('Unknown release document field.');
+    || Object.keys(r.os).some(key => !['variant', 'architecture', 'compatibleVersions', 'knownLimitations'].includes(key))) throw new Error('Unknown release document field.');
+  // Explicit evidence is carried with the release; arbitrary metadata cannot authorize a recovery policy.
+  if (r.os.knownLimitations !== undefined && (!Array.isArray(r.os.knownLimitations) || r.os.knownLimitations.length !== 1
+    || r.os.knownLimitations[0] !== bootstrapRecoveryIssue)) throw new Error('Invalid release limitation.');
   for (const name of artifacts) {
     const image = r.images[name];
     if (!image || image.repository !== repository(name) || !digestPattern.test(image.digest)

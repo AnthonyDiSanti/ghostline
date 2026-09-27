@@ -1,6 +1,6 @@
 # Regional lifecycle
 
-September 22 migration status: complete cleanup and exclusion are implemented locally; shared CloudTrail is approved and logging; production controller migration is verified and disposable lifecycle validation remains pending. The CLI refuses lifecycle writes against an older controller that does not participate in exclusion. This is not yet a completed live acceptance result.
+September 26 acceptance: shared lifecycle exclusion and complete regional cleanup are deployed. Ireland passed deploy/destroy/repeat/redeploy and final expanded cleanup with no manual dependency repair. Both production retained-IP migrations passed. The CLI refuses writes against an older controller that does not participate in exclusion.
 
 One reusable ECS gateway recipe serves every configured region. An explicit target controls one endpoint stack and separate durable image/release infrastructure. The catalog allocates nothing by itself. [Development](development.md) lists commands; [secrets](secrets.md) defines durable identities.
 
@@ -65,3 +65,9 @@ No automatic expiry controller exists. A future lifetime policy could be permane
 Authenticated presence is not equivalent to interface state or EC2 network bytes. AWG keepalives and quiet/sleeping clients need explicit semantics; public scans must not extend a lease. Store aggregate activity and reporter health, not browsing destinations. A controller would need durable operation generations, serialized changes and explicit stale-telemetry handling. These are backlog decisions, not a second deployment architecture.
 
 September 22 Bottlerocket replay: retained-IP park took about five minutes and restore about 6.6 minutes in Stockholm, excluding subsequent runtime/GuardDuty/client verification. These are observed samples, not timing guarantees. Explicit service-to-address dependencies keep management connectivity until the daemon stops; the final clean teardown passed the same ordering check. [Platform lifecycle](platform.md), [validation evidence](bottlerocket-trial.md).
+
+## Coordinated lifecycle closeout — September 26
+
+Final Ireland destroy removed the endpoint, both disks/EIPs, release/controller/asset stacks, all six application repositories, retained state and exclusive Lambda asset objects/bucket. Repeat destroy returned complete with no pending work. A separately guarded cleanup removed the isolated candidate stack, two experiment repositories and observer document. Independent inventory found no remaining owned compute/network/release-control resources, and the disposable target is removed from the catalog.
+
+Seven Standard parameters remain. Two deployment generations left six seven-day log groups and two empty fourteen-day dead-letter queues, without producers, pollers or alarms. Enabled GuardDuty and adequate shared account CloudTrail remain; shared CDK assets are outside application cleanup. These deliberate classes may retain expiring bytes or account-security charges. NVA/London and both functioning gateways were preserved. Nonsecret receipts live in `.local/deployments/lifecycle-test/regional-cleanup.json` and `.local/coordinated-release/september26-cleanup-audit.json`.
