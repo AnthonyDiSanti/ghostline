@@ -1,5 +1,45 @@
 # Handoff
 
+## Commit-prep checkpoint — September 28
+
+Reviewed all 11 staged documentation/instruction files. Reconciled stale unposted-proposal and pending-client wording in the working tree; left the index unchanged. Scope includes owner video/sleep/IPv4-DNS acceptance, native WebRTC evidence and IPv6 limits, bridge/WireGuard direction, submitted #4954 and all three recurring upstream watches. Latest checks: #4954 open/no comments; #1059 and #1063 open with no PR reviews; Amnezia #2933 open, latest releases unchanged at 5.0.3.0 and Bottlerocket 1.66.0. Documentation-only verification passed staged/unstaged whitespace checks and all 122 local links/anchors across the 11 changed files; no runtime tests, synth or cloud actions are warranted by this diff. Follow-ups remain upstream feedback, future IPv6 qualification and classic WireGuard work.
+
+## Three recurring upstream watches — September 28
+
+Anthony explicitly adds IPv6 proposal #4954 to the same major-milestone/To Do review cadence as Amnezia #2933 and Bottlerocket race #1059/PR #1063. Updated root AGENTS.md to require all three checks and tasks.md with feedback/implementation/release/qualification tracking. This prevents the proposal being forgotten while IPv6 work is deferred; no background scheduler, automatic upgrade or external message was created.
+
+## IPv6 proposal submitted — September 28
+
+Created [Bottlerocket #4954](https://github.com/bottlerocket-os/bottlerocket/issues/4954), **Support IPv6 on the default Docker bridge for ECS variants**, under AnthonyDiSanti after explicit owner authorization. GitHub readback confirms OPEN and exact approved-body equality. One optional subnet enables default-bridge IPv6 with firewall handling retained; unchanged defaults. No adjacent issue links/comments or duplicate tracking issues. [Proposal and research](knowledge/bottlerocket-ipv6-upstream.md). Await maintainer feedback on API/repository responsibilities before implementation; check at major milestones. No source/runtime/cloud changes; preserve the dirty documentation and index.
+
+## Upstream PR current; IPv6 dependencies clarified — September 28
+
+Owner-requested PR housekeeping verified #1063 already includes latest core-kit `develop` (`209347b`): head `6a4c053`, zero behind/two ahead. No rebase or push needed. [Deeper review](knowledge/bottlerocket-ipv6-upstream.md#deeper-dependency-review-and-pr-housekeeping--september-28) confirms #4743's agent update is already shipped in core-kit 17.0.0, #4625 concerns IPv6-only management we do not need, and #418's old wicked report differs from current networkd RA handling. None provides the missing Docker bridge settings. No cloud/runtime/upstream source changes; preserve the existing dirty documentation and index.
+
+## IPv6 deferred; upstream review complete — September 28
+
+Anthony defers IPv6 deployment until official Bottlerocket Docker bridge configuration support. [Review](knowledge/bottlerocket-ipv6-upstream.md) searched three repositories, all their open PR listings and related discussions; no exact matching open work was found before filing #4954. The proposal is now submitted; await maintainer feedback before the separate settings/template contribution. No cloud changes. Amnezia #2933 and core-kit #1059/PR #1063 remain open; latest stable releases are still 5.0.3.0 and Bottlerocket 1.66.0, with no verified repair. Preserve prior dirty documentation and index.
+
+## Current owner acceptance — September 28
+
+Anthony confirms substantial practical video testing is serviceable, OneXraySE sleep/wake is stable, and IPv4/DNS checks are private. Close these acceptance items for the tested setup; do not require another synthetic streaming pass to accept his video experience. A subsequent native Chrome/OneXraySE Stockholm WebRTC test passed; IPv6 blocking remains unproven. This feedback does not specify exhaustive macOS/iOS, AWG or battery/AC coverage. Wi-Fi is the owner's suspected bottleneck; the observed approximately 20 Mbps settling pattern has no established cause. Diagnose it as a performance follow-up without claiming proven shaping or Wi-Fi attribution.
+
+The benchmark and Cape Town park work was committed as `ec2b0fb` (`Add coordinated regional VPN benchmarks`); the tree was clean before this documentation-only update. Earlier September 27 uncommitted/acceptance-pending notes below describe that historical checkpoint. No persistent client, cloud or benchmark changes were made for this feedback.
+
+## Native privacy verification — September 28
+
+Chrome WebRTC via OneXraySE/Stockholm REALITY passed: direct baseline gathered the ISP public IPv4; connected HTTP/WebRTC exposed only the expected Stockholm exit, with mDNS host candidates and no direct public IPv4. No camera/microphone permissions or browser hardening flags were used. IPv6 probes failed direct and connected, with no global IPv6 address or destination route, so there is no observed IPv6 leak but blocking remains unproven. Starting disconnected state and exact direct IPv4/en0 path were restored. [Scope and evidence](../docs/mac-client-stability.md#native-ipv6-and-webrtc-checks--2026-09-28); private sanitized summary and native output under `.local/diagnostics/privacy-2026-09-28/`. No profile/server/browser settings changed. Documentation-only checks passed; no code/full-suite rerun was needed.
+
+## IPv6 feasibility review — September 28
+
+Both engines support IPv6, including IPv6 destination traffic over the existing IPv4 endpoints. Our VPC, bridge discovery, routing and forwarding leases are IPv4-only today. [Feasibility and upstream references](../docs/ecs.md#ipv6-feasibility--september-28-2026) record required AWS/client/guard changes and the unqualified Bottlerocket bridge integration. Anthony selects egress-only scope and declines stable IPv6 retention; preserve park behavior. Bridge configuration has no exposed IPv6 knob in the inspected Bottlerocket template. Anthony rejects awsvpc: retain engine network separation, the network-disabled initializer, shared task memory and coordinated deployments. Next investigate IPv6 bridge configuration within those boundaries; no bootstrap override or architecture migration is selected. See the September 28 decision.
+
+IPv6 follow-up found a platform boundary: Bottlerocket's bootstrap guidance advises against editing `/etc`; maintainers describe SELinux enforcement. The earlier generated-Docker-config bootstrap trial is no longer recommended. Prefer upstream supported settings for default-bridge IPv6; custom OS or custom per-container networking remains unselected. [Sources and options](../docs/ecs.md#networking-mode-decision--retain-bridge). No live IPv6 trial occurred; the subsequent proposal is linked above.
+
+## Classic WireGuard direction — September 28
+
+Anthony intends classic WireGuard as the next protocol, on its own EIP/UDP 443. Existing ECS host-port reservations require a daemon/discovery extension, not a new server or awsvpc migration. The proposed address-aware mapping is recorded in [ECS networking](../docs/ecs.md#bridge-networking); it is not implemented or tested. Preserve the shared task, initializer isolation and protocol-specific ingress/egress.
+
 ## Cape Town parked — September 27
 
 Owner-requested `npm run park cape-town` completed. Cape Town is an on-demand backup, not a running exit: gateway/daemon, host, both disks and VPC are removed; both original EIPs, credentials and regional release support remain. Lifecycle intent is parked. Restore with `npm run ecs cape-town unpark` from `infra/`. Stockholm remains active and unchanged. [Launch record](../docs/launch-cape-town.md#parked--2026-09-27); private nonsecret audit under `.local/operations/cape-town-park-2026-09-27/`. Existing benchmark changes remain uncommitted; index preserved.

@@ -54,3 +54,9 @@ September 27: the minimal Frankfurt probe, full disposable gateway deployment, b
 A second round completed both protocols in Milan, Zurich and Frankfurt, plus Stockholm, with all trial/fixture resources cleaned up. It found no clear improvement and exposed a control-resolution limitation: ten-second controls count completed 5 MB transfers, roughly 4 Mbps steps. That historical method is superseded by the cohort/streamed-v2 workflow above; do not reinterpret deferred samples as a regional ranking. [Recorded results](../.context/scratch/2026-09-27-regional-benchmark/round-two.md).
 
 The coordinated Stockholm/Frankfurt head-to-head completed two reversed rounds with continuous byte accounting. Six of eight overall samples were deferred; the two valid individual results were below the streaming screen. No matched regional comparison qualified and no primary change is supported. [Results and final-source qualification limits](../.context/scratch/2026-09-27-regional-benchmark/head-to-head.md).
+
+## Owner feedback — 2026-09-28
+
+Anthony reports substantial practical video use is serviceable, confirms OneXraySE sleep/wake stability and reports private IPv4/DNS results. Those acceptance items are complete for his tested setup; the skipped synthetic streaming stage does not negate observed video usability. A subsequent native Chrome/OneXraySE Stockholm check passed WebRTC; IPv6 blocking still lacks a working direct IPv6 baseline. Broader device/protocol coverage is not established by these checks.
+
+Anthony suspects the home Wi-Fi and recognizes the roughly 20 Mbps plateau from his experience. The plateau is observed; Wi-Fi, ISP/CDN behavior, bursting and test-order effects are still not isolated. Treat settling/cap diagnosis as a performance follow-up, not a prerequisite to accepting serviceable playback. No new benchmark or threshold change accompanied this feedback.

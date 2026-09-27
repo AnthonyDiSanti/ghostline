@@ -1,5 +1,17 @@
 # Current decisions
 
+## 2026-09-28 — Propose optional bridge IPv6 configuration (Anthony)
+
+Accept optional enablement with unchanged defaults for the upstream proposal. Draft one IPv6 subnet setting whose presence enables default-bridge IPv6, keeping Docker's IPv6 firewall handling enabled. Exact API naming remains subject to upstream discussion. Keep the issue focused on behavior and affected repository responsibilities; omit unrelated issue links, consumer deployment orchestration and routine test process. [Approved proposal](knowledge/bottlerocket-ipv6-upstream.md#submitted-feature-request), submitted as [Bottlerocket #4954](https://github.com/bottlerocket-os/bottlerocket/issues/4954) after owner authorization.
+
+## 2026-09-28 — Defer IPv6 deployment pending official Bottlerocket support (Anthony)
+
+Park the IPv6 workstream while pursuing upstream configurable Docker bridge IPv6. Review related open issues/PRs before starting a contribution; keep production and the shared bridge architecture unchanged. No custom OS, generated-config override or task split is selected. The [upstream review](knowledge/bottlerocket-ipv6-upstream.md) found related but no exact matching open work before we filed #4954. An official release still needs local lifecycle/isolation qualification before adoption.
+
+## 2026-09-28 — Keep the shared bridge task for IPv6 work (Anthony)
+
+Reject awsvpc migration for Ghostline: preserve per-engine network namespaces and public identities, the network-disabled initializer, shared task memory budget and coordinated single-task deployments. Splitting protocols into tasks to recover network isolation would undermine those requirements. IPv6 scope is egress only with no stable IPv6 retention across park. Investigate the Bottlerocket bridge configuration boundary without assuming a generated-config override is acceptable; no workaround or OS/networking redesign is selected. Future same-transport port-443 engines still need an explicit address/port mapping design because ECS bridge mappings do not expose Docker HostIp. [Assessment](../docs/ecs.md#networking-mode-decision--retain-bridge).
+
 ## 2026-09-26 — Adopt official Bottlerocket with temporary bounded recovery (Anthony)
 
 Implement the upstream core-kit contribution through AnthonyDiSanti's GitHub fork, remove AL2023, and promote the coordinated release architecture Cape Town first, then Stockholm. This supersedes the official-fix prerequisite and the AL2023 port. Keep automatic bootstrap rollouts. Permit exactly one additional reboot only after an acknowledged controller-initiated bootstrap reboot fails to complete, with drained services, active lifecycle ownership and explicit affected-OS qualification. Persist the allowance across events and pause/alert after failure or uncertain acknowledgement. Unexpected reboots and unrelated failures require diagnosis. Remove this temporary behavior as soon as a reviewed official repair is qualified and adopted; normal boot failures must then require diagnosis. Preserve isolation, credentials, EIPs and the Git index.
