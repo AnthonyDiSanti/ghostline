@@ -3,6 +3,7 @@ import { Template } from 'aws-cdk-lib/assertions';
 import { CloudAssembly } from 'aws-cdk-lib/cx-api';
 import { buildApp } from '../lib/app.js';
 import { getDeployment } from '../lib/config.js';
+import { hostTemplates } from '../lib/host-slot.js';
 import { gatewayPlatform } from '../lib/gateway-platform.js';
 import { imageArtifacts, officialXrayImage, releaseFiles, releaseTag } from '../lib/ecs-release.js';
 
@@ -17,17 +18,17 @@ it('tags the CloudFormation owner explicitly as well as its billable resources',
   expect(app.synth().getStackArtifact(stack.artifactId).tags).toMatchObject({ Project: 'ghostline', Environment: 'prod', System: 'shared' });
 });
 
-it('uses one SSH-free Bottlerocket host with retained dual addresses and no paid gateways', () => {
-  template.resourceCountIs('AWS::EC2::Instance', 1);
-  template.resourceCountIs('AWS::EC2::NetworkInterface', 1);
+it('separates retained regional networking from temporary host-slot capacity without paid gateways', () => {
+  template.resourceCountIs('AWS::EC2::Instance', 0);
+  template.resourceCountIs('AWS::EC2::NetworkInterface', 0);
   template.resourceCountIs('AWS::EC2::EIP', 2);
   for (const type of ['AWS::EC2::KeyPair', 'AWS::EC2::NatGateway', 'AWS::ElasticLoadBalancingV2::LoadBalancer', 'AWS::AutoScaling::AutoScalingGroup']) template.resourceCountIs(type, 0);
-  const host = Object.values(resources).find(r => r.Type === 'AWS::EC2::Instance').Properties;
+  const slot = JSON.parse(hostTemplates(config, true).a).Resources;
+  const host = slot.Instance.Properties;
   expect(host.KeyName).toBeUndefined();
-  expect(Object.values(resources).find(r => r.Type === 'AWS::EC2::Instance').DependsOn).toContain('Cluster');
-  expect(resources.Instance.DependsOn).toContain(Object.keys(resources).find(key => key.startsWith('HostRoleDefaultPolicy')));
+  expect(resources.xrayAssociation).toBeUndefined(); expect(resources.awgAssociation).toBeUndefined();
   expect(host.ImageId).toBeUndefined();
-  expect(resources.HostLaunchTemplate.Properties.LaunchTemplateData.ImageId).toBe('resolve:ssm:/aws/service/bottlerocket/aws-ecs-3/arm64/latest/image_id');
+  expect(JSON.stringify(slot.HostLaunchTemplate.Properties)).toContain('OsVersion');
   expect(host.MetadataOptions).toMatchObject({ HttpTokens: 'required', HttpPutResponseHopLimit: 1 });
   expect(host.BlockDeviceMappings[0]).toMatchObject({ DeviceName: '/dev/xvda', Ebs: { Encrypted: true, VolumeSize: 2, DeleteOnTermination: true } });
   expect(Object.values(resources).find(r => r.Type === 'AWS::EC2::SecurityGroup').Properties.SecurityGroupIngress.map((r: any) => r.FromPort)).toEqual([443, 443]);
@@ -46,7 +47,7 @@ it('owns GuardDuty transport for the full host lifetime with private, account-sc
       { Effect: 'Deny', Principal: '*', Action: '*', Resource: '*',
         Condition: { StringNotEquals: { 'aws:PrincipalAccount': config.account } } },
     ] } });
-  expect(resources.Instance.DependsOn).toContain('GuardDutyEndpoint');
+  expect(resources.GuardDutyEndpoint).toBeDefined(); // Shared transport outlives either host slot; CLI teardown removes slots first.
   const hostPolicy = Object.entries(resources).find(([id]) => id.startsWith('HostRoleDefaultPolicy'))![1];
   const actions = hostPolicy.Properties.PolicyDocument.Statement.flatMap((statement: any) => [].concat(statement.Action));
   expect(actions).toContain('ssm:GetManifest');
@@ -69,8 +70,8 @@ it('owns GuardDuty transport for the full host lifetime with private, account-sc
 });
 
 it('runs one bridge task with isolated engines, one secret recipient and shared memory', () => {
-  template.resourceCountIs('AWS::ECS::Service', 2);
-  template.resourceCountIs('AWS::ECS::TaskDefinition', 2);
+  template.resourceCountIs('AWS::ECS::Service', 1);
+  template.resourceCountIs('AWS::ECS::TaskDefinition', 1);
   const task = resources.GatewayTask.Properties;
   expect(task).toMatchObject({ NetworkMode: 'bridge', Memory: '1126' });
   expect(task.TaskRoleArn).toBeUndefined();
@@ -101,17 +102,18 @@ it('runs one bridge task with isolated engines, one secret recipient and shared 
   }
   expect(task.Volumes).toEqual([{ Name: 'gateway-config', Host: { SourcePath: '/mnt/ghostline/config' } },
     ...['xray', 'awg'].map(protocol => ({ Name: `${protocol}-config`, Host: { SourcePath: `/mnt/ghostline/config/${protocol}` } }))]);
-  expect(resources.GatewayService.Properties).toMatchObject({ DesiredCount: 1,
-    DeploymentConfiguration: { MinimumHealthyPercent: 0, MaximumPercent: 100, DeploymentCircuitBreaker: { Enable: true, Rollback: true } } });
+  expect(resources.GatewayService.Properties).toMatchObject({
+    DesiredCount: { 'Fn::If': ['InitialGateway', 0, { Ref: 'AWS::NoValue' }] },
+    DeploymentConfiguration: { Strategy: 'BLUE_GREEN', MinimumHealthyPercent: 100, MaximumPercent: 200, BakeTimeInMinutes: 5 } });
   expect(resources.GatewayService.DependsOn).toContain(Object.keys(resources).find(key => key.startsWith('GatewayExecutionRoleDefaultPolicy')));
-  const statements = Object.values(resources).filter(r => r.Type === 'AWS::IAM::Policy').flatMap(r => r.Properties.PolicyDocument.Statement);
+  const statements = Object.entries(resources).filter(([id, r]) => id.startsWith('GatewayExecutionRoleDefaultPolicy') && r.Type === 'AWS::IAM::Policy').flatMap(([, r]) => r.Properties.PolicyDocument.Statement);
   const reads = statements.filter(s => [].concat(s.Action).some((a: string) => a.startsWith('ssm:GetParameter')));
   expect(reads).toHaveLength(1);
   expect(reads[0].Resource).toEqual(['awg', 'xray'].map(protocol => `arn:aws:ssm:eu-north-1:000000000000:parameter/ghostline/prod/server/${protocol}`));
   const bootstrap = gatewayPlatform(config, true).userData;
   expect(bootstrap).toContain('reserved-memory = 602');
   expect(bootstrap).toContain('essential = true');
-  expect(resources.GatewayService.DependsOn).toContain('NetworkService');
+  expect(resources.GatewayService.Properties.PlacementConstraints).toEqual([{ Type: 'memberOf', Expression: 'attribute:ghostline_candidate == eligible' }]);
   expect(releaseFiles('xray')).toEqual({});
   expect(officialXrayImage).toMatch(/^ghcr.io\/xtls\/xray-core@sha256:[a-f0-9]{64}$/);
 });

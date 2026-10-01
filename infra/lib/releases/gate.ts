@@ -1,6 +1,7 @@
 import { artifacts, releaseRepository, production, releaseSelector, repository } from './model.js';
 import { readRelease, type Registry, type ReleaseRecord } from './registry.js';
-import type { StackAttempt } from './stack-reconcile.js';
+import type { Rollout } from './blue-green.js';
+import type { LifecycleState } from './lifecycle.js';
 
 export async function readiness(registry: Registry): Promise<{ current?: ReleaseRecord; ready: boolean; reason?: string }> {
   const current = await readRelease(registry, releaseRepository, releaseSelector);
@@ -20,12 +21,15 @@ export async function readiness(registry: Registry): Promise<{ current?: Release
   return { current, ready: true };
 }
 
-export async function assertStartReady(ports: { registry: Registry; attempt(): Promise<StackAttempt | undefined> }): Promise<void> {
+export async function assertStartReady(ports: { registry: Registry; record<T>(key: string): Promise<T | undefined> }): Promise<void> {
   // Deliberate activation requires coherent local intent. Unexpected native boot does not call this preflight.
   const ready = await readiness(ports.registry);
-  if (!ready.ready || !ready.current) throw new Error(`Release is not ready: ${ready.reason}`);
-  const attempt = await ports.attempt();
-  if (attempt && ['planned', 'waiting', 'paused'].includes(attempt.state)) {
+  if (!ready.ready || !ready.current?.release.os.targetVersion) throw new Error(`Release is not ready: ${ready.reason ?? 'qualified OS target missing'}`);
+  const attempt = await ports.record<Rollout>('rollout/current');
+  const lifecycle = await ports.record<LifecycleState>('lifecycle');
+  const resumingPreparation = lifecycle?.operation && ['deploy', 'unpark'].includes(lifecycle.operation.kind)
+    && attempt && ['network', 'addresses', 'wire', 'host', 'daemon', 'placement', 'force'].includes(attempt.phase) && !attempt.deployment;
+  if (attempt && !['complete', 'cleaned', 'retired'].includes(attempt.phase) && !resumingPreparation) {
     throw new Error('Regional intent has an unresolved action; inspect, explicitly retry or publish a correction first.');
   }
 }

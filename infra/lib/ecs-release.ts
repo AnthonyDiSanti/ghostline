@@ -26,7 +26,7 @@ export function releaseFiles(protocol: ImageArtifact): Record<string, Buffer> {
     // Explicit file allowlists keep host-only diagnostics out of the steady-state image.
     const names = protocol === 'bootstrap'
       ? ['bootstrap.py', 'storage.py', 'boot_observation.py', 'host_support.py', 'diagnostics.py', 'isolation.py', 'guard.py']
-      : ['daemon.py', 'discovery.py', 'guard.py'];
+      : ['daemon.py', 'discovery.py', 'guard.py', 'readiness.py'];
     const files = Object.fromEntries(names.map(name => [name, readFileSync(new URL(`../../runtime/ecs/bottlerocket/${name}`, import.meta.url))]));
     files.Dockerfile = readFileSync(new URL(`../../runtime/ecs/bottlerocket/${protocol}.Dockerfile`, import.meta.url));
     files['network.py'] = readFileSync(new URL('../../runtime/ecs/network.py', import.meta.url));

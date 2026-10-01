@@ -1,12 +1,14 @@
-import { CfnOutput, Fn, RemovalPolicy, Stack, Tags, type StackProps } from 'aws-cdk-lib';
+import { CfnCondition, CfnOutput, CfnParameter, Fn, RemovalPolicy, Stack, Tags, type StackProps } from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { ecsMemoryBudget } from './ecs-memory.js';
-import { addNetworkDaemon, gatewayPlatform } from './gateway-platform.js';
-import { useLatestBottlerocketOnLaunch } from './bottlerocket-os.js';
+import { gatewayPlatform } from './gateway-platform.js';
+import { hostSlotAuthority } from './host-slot-authority.js';
+import { hookName } from './releases/names.js';
+import { deploymentStages } from './releases/deployment-hook.js';
 import type { DeploymentConfig } from './config.js';
 import type { GuardDutySupport } from './guardduty-discovery.js';
 import { applicationArtifacts as artifacts } from './image-artifacts.js';
@@ -39,14 +41,13 @@ export class EcsEndpointStack extends Stack {
     const parameterPrefix = props.gateway?.parameterPrefix ?? '/ghostline/prod';
     // Durable regional repositories are activated separately and never owned by the disposable endpoint.
     const repositories = Object.fromEntries(artifacts.map(name => [name, ecr.Repository.fromRepositoryName(this, `${name}Repository`, repository(name))]));
-    const addresses = Object.fromEntries((['xray', 'awg'] as const).map(protocol => {
+    for (const protocol of ['xray', 'awg'] as const) {
       const eip = new ec2.CfnEIP(this, `${protocol}Address`, { domain: 'vpc' });
       eip.applyRemovalPolicy(RemovalPolicy.RETAIN);
       Tags.of(eip).add('System', protocol === 'awg' ? 'amneziawg' : 'xray');
       new CfnOutput(this, protocol === 'xray' ? 'EndpointIp' : 'AwgEndpointIp', { value: eip.ref });
       new CfnOutput(this, protocol === 'xray' ? 'EipAllocationId' : 'AwgEipAllocationId', { value: eip.attrAllocationId });
-      return [protocol, eip];
-    })) as Record<'xray' | 'awg', ec2.CfnEIP>;
+    }
     // Park preserves tracked addresses and regional release support without retaining host storage or compute.
     if (props.lifecycle === 'parked') return;
     const platform = props.gateway?.platform ?? gatewayPlatform(config, props.guardDuty.runtime);
@@ -87,10 +88,6 @@ export class EcsEndpointStack extends Stack {
       Tags.of(telemetrySecurity).add('System', 'shared');
       Tags.of(telemetry).add('System', 'shared');
     }
-    const nic = new ec2.CfnNetworkInterface(this, 'NetworkInterface', {
-      subnetId: subnet.ref, groupSet: [security.attrGroupId],
-      privateIpAddresses: [{ privateIpAddress: '10.79.0.10', primary: true }, { privateIpAddress: '10.79.0.11', primary: false }],
-    });
     const cluster = new ecs.CfnCluster(this, 'Cluster', { clusterName: config.resourceName });
     const hostRole = new iam.Role(this, 'HostRole', { assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com') });
     // ECS's host agent needs platform registration; it has no Parameter Store or device-key access.
@@ -114,31 +111,17 @@ export class EcsEndpointStack extends Stack {
       resources: platform.pullRepositoryArns,
     }));
     const profile = new iam.CfnInstanceProfile(this, 'InstanceProfile', { roles: [hostRole.roleName] });
-    const instance = new ec2.CfnInstance(this, 'Instance', {
-      instanceType: config.instanceType, iamInstanceProfile: profile.ref,
-      networkInterfaces: [{ deviceIndex: '0', networkInterfaceId: nic.ref }],
-      metadataOptions: { httpTokens: 'required', httpPutResponseHopLimit: 1 },
-      blockDeviceMappings: platform.disks,
-      propagateTagsToVolumeOnCreation: true, creditSpecification: { cpuCredits: 'unlimited' },
-      userData: Fn.base64(platform.userData),
-    });
-    useLatestBottlerocketOnLaunch(this, instance);
-    // The host must terminate (and deregister) before CloudFormation deletes its ECS cluster.
-    instance.addResourceDependency(cluster);
-    // Precreate transport before automatic agent setup; reverse deletion keeps it until host termination.
-    if (telemetry) instance.addResourceDependency(telemetry);
-    // Keep agent authority until the host terminates; otherwise service/cluster deletion can stall.
-    instance.node.addDependency(hostRole.node.findChild('DefaultPolicy'));
-    instance.addResourceDependency(route); instance.addResourceDependency(subnetRoutes);
-    Tags.of(instance).add('Name', config.resourceName);
-    // Inclusion tags let AWS install/update only selected hosts without enabling fleet-wide agent management.
-    if (props.guardDuty.runtime) Tags.of(instance).add('GuardDutyManaged', 'true');
-    const associations = (['xray', 'awg'] as const).map(protocol => {
-      const association = new ec2.CfnEIPAssociation(this, `${protocol}Association`, { allocationId: addresses[protocol].attrAllocationId,
-        networkInterfaceId: nic.ref, privateIpAddress: protocol === 'xray' ? '10.79.0.11' : '10.79.0.10' });
-      association.addResourceDependency(instance);
-      return association;
-    });
+    const networkExecution = new iam.Role(this, 'NetworkExecutionRole', { assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com') });
+    networkExecution.addToPolicy(new iam.PolicyStatement({ actions: ['ecr:GetAuthorizationToken'], resources: ['*'] }));
+    networkExecution.addToPolicy(new iam.PolicyStatement({ actions: ['ecr:BatchGetImage', 'ecr:GetDownloadUrlForLayer', 'ecr:BatchCheckLayerAvailability'],
+      resources: [`arn:aws:ecr:${config.region}:${config.account}:repository/${platform.daemonRepository}`] }));
+    const provisioner = hostSlotAuthority(this, config, { subnet: subnet.ref, security: security.attrGroupId,
+      hostRole: hostRole.roleArn, executionRole: networkExecution.roleArn });
+    new CfnOutput(this, 'SubnetId', { value: subnet.ref });
+    new CfnOutput(this, 'SecurityGroupId', { value: security.attrGroupId });
+    new CfnOutput(this, 'InstanceProfileName', { value: profile.ref });
+    new CfnOutput(this, 'NetworkExecutionRoleArn', { value: networkExecution.roleArn });
+    new CfnOutput(this, 'SlotProvisionerRoleArn', { value: provisioner.roleArn });
     // One scheduling and release unit shares capacity; engines retain separate network/mount namespaces.
     const memory = ecsMemoryBudget(config.instanceType);
     const execution = new iam.Role(this, 'GatewayExecutionRole', { assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com') });
@@ -187,20 +170,23 @@ export class EcsEndpointStack extends Stack {
     });
     Tags.of(definition).add('System', 'shared');
     Tags.of(execution).add('System', 'shared');
-    // Fixed ports prohibit a surge task; native engine restarts avoid replacing healthy siblings.
+    const hook = new iam.Role(this, 'DeploymentHookRole', { assumedBy: new iam.ServicePrincipal('ecs.amazonaws.com') });
+    const hookArn = `arn:aws:lambda:${config.region}:${config.account}:function:${hookName}`;
+    hook.addToPolicy(new iam.PolicyStatement({ actions: ['lambda:InvokeFunction'], resources: [hookArn] }));
+    const empty = new CfnParameter(this, 'EmptyGatewayOnCreate', { type: 'String', default: 'false', allowedValues: ['true', 'false'],
+      description: 'CLI sets true only while creating shared infrastructure before the first host is ready.' });
+    const initial = new CfnCondition(this, 'InitialGateway', { expression: Fn.conditionEquals(empty.valueAsString, 'true') });
+    // Omission on later updates preserves the actual power intent; a task-definition update must not wake a stopped region.
+    const desired = Fn.conditionIf(initial.logicalId, 0, { Ref: 'AWS::NoValue' });
     const service = new ecs.CfnService(this, 'GatewayService', { cluster: cluster.attrArn,
-      serviceName: `${config.resourceName}-gateway`, taskDefinition: definition.ref, desiredCount: 1, launchType: 'EC2',
-      deploymentConfiguration: { minimumHealthyPercent: 0, maximumPercent: 100, deploymentCircuitBreaker: { enable: true, rollback: true } }, propagateTags: 'TASK_DEFINITION' });
-    associations.forEach(association => service.addResourceDependency(association));
-    service.node.addDependency(execution.node.findChild('DefaultPolicy'));
-    const daemon = addNetworkDaemon(this, config, platform.daemonImage, platform.daemonRepository);
-    // Keep agent internet access until the last service is deleted; an IP-less host cannot acknowledge daemon stop.
-    associations.forEach(association => daemon.addResourceDependency(association));
+      serviceName: `${config.resourceName}-gateway`, taskDefinition: definition.ref, desiredCount: desired as unknown as number, launchType: 'EC2',
+      placementConstraints: [{ type: 'memberOf', expression: 'attribute:ghostline_candidate == eligible' }],
+      deploymentConfiguration: { strategy: 'BLUE_GREEN', minimumHealthyPercent: 100, maximumPercent: 200, bakeTimeInMinutes: 5,
+        lifecycleHooks: [{ hookTargetArn: hookArn, roleArn: hook.roleArn, lifecycleStages: [...deploymentStages],
+          timeoutConfiguration: { timeoutInMinutes: 30, action: 'ROLLBACK' } }] }, propagateTags: 'TASK_DEFINITION' });
+    service.node.addDependency(execution.node.findChild('DefaultPolicy'), hook.node.findChild('DefaultPolicy'));
     new CfnOutput(this, 'GatewayServiceName', { value: service.attrName });
-    new CfnOutput(this, 'InstanceId', { value: instance.ref });
+    new CfnOutput(this, 'GatewayTaskDefinitionArn', { value: definition.ref });
     new CfnOutput(this, 'ClusterName', { value: config.resourceName });
-    new CfnOutput(this, 'NetworkInterfaceId', { value: nic.ref });
-    new CfnOutput(this, 'XrayPrivateIp', { value: '10.79.0.11' });
-    new CfnOutput(this, 'AwgPrivateIp', { value: '10.79.0.10' });
   }
 }

@@ -1,8 +1,8 @@
 import { expect, it } from 'vitest';
-import { stringify } from 'yaml';
 import { Template } from 'aws-cdk-lib/assertions';
 import { buildApp } from '../lib/app.js';
 import { getDeployment } from '../lib/config.js';
+import { hostTemplates } from '../lib/host-slot.js';
 import { gatewayPlatform } from '../lib/gateway-platform.js';
 import { withHostDiagnostics } from '../lib/ecs-verification.js';
 
@@ -20,10 +20,10 @@ it('uses separate static local platform aliases and preserves endpoint ordering'
     const parked = Template.fromStack(buildApp(config, { service: false, runtime: false }, {}, 'parked').stack).toJSON();
     expect(Object.keys(parked.Resources).sort()).toEqual(['awgAddress', 'xrayAddress']);
     for (const name of Object.keys(parked.Resources)) expect(parked.Resources[name]).toEqual(active.Resources[name]);
-    expect(active.Resources.NetworkService.Properties.SchedulingStrategy).toBe('DAEMON');
-    // Deletion reverses these edges: engines, daemon, EIP bindings, then host and management transport.
-    expect(active.Resources.GatewayService.DependsOn).toContain('NetworkService');
-    expect(active.Resources.NetworkService.DependsOn).toEqual(expect.arrayContaining(['xrayAssociation', 'awgAssociation', 'Instance']));
+    const slot = JSON.parse(hostTemplates(config, true).a);
+    expect(slot.Resources.NetworkService.Properties.SchedulingStrategy).toBe('DAEMON');
+    expect(slot.Resources.NetworkService.DependsOn).toContain('Instance');
+    expect(active.Resources.xrayAssociation).toBeUndefined(); expect(active.Resources.awgAssociation).toBeUndefined();
   }
 });
 
@@ -83,24 +83,4 @@ it('reads the actual ECS reserve while keeping host verification output redacted
     isolation: { peerBlocked: true }, agentReservedMiB: 602 });
   expect(commands.some(command => command.includes('get-parameter'))).toBe(false);
   expect(commands.at(-1)).toBe('apiclient get settings.host-containers');
-});
-
-it.each(['json', 'yaml', 'object'])('checks %s templates for changed host settings while permitting ordinary task deploys and unpark', async format => {
-  const { assertHostPlatform } = await import('../lib/platform-lifecycle.js');
-  const config = getDeployment('stockholm-ecs');
-  let template = Template.fromStack(buildApp(config, { service: true, runtime: true }).stack).toJSON();
-  let status = 'UPDATE_COMPLETE';
-  const aws = (args: string[]) => args[1] === 'list-stacks'
-    ? { StackSummaries: [{ StackName: config.stackName, StackStatus: status, StackId: 'owned-stack' }] }
-    : { TemplateBody: format === 'json' ? JSON.stringify(template) : format === 'yaml' ? stringify(template) : template };
-  expect(() => assertHostPlatform(config, aws)).not.toThrow();
-  for (const changed of [{ ...config, instanceType: 't4g.medium' },
-    { ...config, dataVolumeGiB: 40 }]) expect(() => assertHostPlatform(changed, aws)).toThrow('cold rebuild');
-  template.Resources.Instance.Properties.UserData['Fn::Base64'] += '\n# changed bootstrap';
-  expect(() => assertHostPlatform(config, aws)).toThrow('cold rebuild');
-  template = Template.fromStack(buildApp(config, { service: false, runtime: false }, {}, 'parked').stack).toJSON();
-  expect(() => assertHostPlatform(config, aws)).not.toThrow();
-  expect(() => assertHostPlatform(config, () => ({ StackSummaries: [] }))).not.toThrow();
-  status = 'UPDATE_IN_PROGRESS';
-  expect(() => assertHostPlatform(config, aws)).toThrow('stable');
 });

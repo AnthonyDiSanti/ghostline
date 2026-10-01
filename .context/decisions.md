@@ -1,5 +1,13 @@
 # Current decisions
 
+## 2026-09-28 — Keep direct EIPs for blue-green deployment (Anthony)
+
+Reject NLBs: roughly $39–$42 additional fixed monthly cost per active Stockholm region is too high when multiplied across exits. Preserve direct protocol EIPs and matching ingress/egress identity. Use ECS headless deployment stages with Lambda lifecycle hooks for the EIP handoff, sharing regional lifecycle exclusion and durable retry/rollback state. Keep temporary host overlap and one-host steady state. The selected ownership model was subsequently qualified and deployed: shared infrastructure retains allocations, reusable host slots own compute/network/daemon resources, and the controller journals associations. Production security closeout passed October 1 without relaxing isolation. [Plan](../docs/deployment-lifecycle.md#blue-green-deployments--direct-eips-and-ecs-lifecycle-hooks).
+
+## 2026-09-28 — Close current-network testing and evaluate blue-green next (Anthony)
+
+Treat performance/privacy work on the current UAE LAN as complete with its recorded limits: apparent approximately 20 Mbps sustained clamp after a faster burst and no working IPv6. Do not keep cap diagnosis or an IPv6-capable test network on the immediate task list. Defer classic WireGuard until Anthony returns to Miami; evaluate blue-green deployment next. Revisit benchmarking and privacy from a new location as part of subsequent WireGuard/IPv6 work. Acceptance closure does not turn an unavailable IPv6 test into a pass.
+
 ## 2026-09-28 — Propose optional bridge IPv6 configuration (Anthony)
 
 Accept optional enablement with unchanged defaults for the upstream proposal. Draft one IPv6 subnet setting whose presence enables default-bridge IPv6, keeping Docker's IPv6 firewall handling enabled. Exact API naming remains subject to upstream discussion. Keep the issue focused on behavior and affected repository responsibilities; omit unrelated issue links, consumer deployment orchestration and routine test process. [Approved proposal](knowledge/bottlerocket-ipv6-upstream.md#submitted-feature-request), submitted as [Bottlerocket #4954](https://github.com/bottlerocket-os/bottlerocket/issues/4954) after owner authorization.
@@ -182,3 +190,9 @@ For home Wi-Fi buffering, use 30-second paired protocol downloads, direct before
 ## September 27 — coordinated regional benchmark cohorts
 
 Select candidates upfront; finish all minimal openness probes, then provision all passing gateways before timed work. Cycle one protocol across the cohort, reverse region/protocol order in the second round, and keep candidates ready for qualified streaming. This supersedes the earlier one-disposable-host-at-a-time measurement plan (provisioning and registry writes remain sequential). Count streamed bytes including partial responses; use 30-second controls, matched-time comparisons and unchanged noise thresholds.
+
+- September 28 implementation: replace in-place component/TUF rollout paths with one host-slot blue-green controller. Preserve known Bottlerocket startup evidence without granting new automatic reboot retries. AGENTS.md now names the qualified-version AMI and single rollout contract; disposable qualification preceded the completed production migration.
+
+## September 28 — Close one-time host ownership migration
+
+Retain/detach/import preserved Stockholm’s exact source host, user data, gateway task, EIPs and boot ID while transferring its five host resources into slot a. Remove the temporary source migration guard after shared-root adoption; operational state now comes from launch records and durable lifecycle claims. AGENTS.md points to those current records instead of the completed retain/import prerequisite. Canonical lifecycle/native-qualification docs now describe whole-host blue-green, not the retired selective update/reboot workflow. Preserve the upstream #1059 limitation until official repair qualification.

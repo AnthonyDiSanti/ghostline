@@ -6,6 +6,8 @@ import { getPublication, type DeploymentConfig } from './config.js';
 import { captureRelease, deleteEndpointStack, releaseAfterDeletion } from './lifecycle.js';
 import { lifecycleStore } from './lifecycle-operator.js';
 import { claimLifecycle } from './releases/lifecycle.js';
+import { hostSlots, slotStackName, transitionAddressStackName } from './host-slot-model.js';
+import { assertNativeDeploymentSettled, removeRegionalHosts } from './host-slot-lifecycle.js';
 import { persistPublication, reconcileReplication } from './releases/operator.js';
 import { assertExclusiveRegionalHosts, captureDetachedEndpoint, type DestroyJournal, type DestroyPorts, type OwnedResource, type OwnedStack } from './regional-destroy.js';
 
@@ -29,13 +31,14 @@ export function regionalDestroyPorts(config: DeploymentConfig, save: (journal: D
   const aws = (args: string[], missing?: string[]) => call(config.region, args, missing);
   if (aws(['sts', 'get-caller-identity']).Account !== config.account) throw new Error('AWS account mismatch.');
   const currentStacks = () => aws(['cloudformation', 'describe-stacks']).Stacks as any[];
+  const ownedNames = [config.stackName, ...supportNames, ...hostSlots.map(slot => slotStackName(config.stackName, slot)), transitionAddressStackName(config.stackName)];
   const tagsMatch = (tags: Array<{ Key: string; Value: string }> = []) => {
     const actual = Object.fromEntries(tags.map(t => [t.Key, t.Value]));
     return Object.entries(config.globalTags).every(([k,v]) => actual[k] === v);
   };
   const assertNoReplacement = (journal: DestroyJournal) => {
     // Repeated cleanup may resume an old stack ARN, never silently retarget a new deployment with the same name.
-    for (const stack of currentStacks()) if ([config.stackName, ...supportNames].includes(stack.StackName)
+    for (const stack of currentStacks()) if (ownedNames.includes(stack.StackName)
       && !journal.stacks.some(s => s.id === stack.StackId)) throw new Error('A regional stack was recreated after cleanup began; review before continuing.');
     const hosts = aws(['ec2','describe-instances','--filters',`Name=tag:Project,Values=${config.globalTags.Project}`,
       'Name=instance-state-name,Values=pending,running,stopping,stopped']).Reservations.flatMap((r: any) => r.Instances.map((i: any) => i.InstanceId));
@@ -73,16 +76,18 @@ export function regionalDestroyPorts(config: DeploymentConfig, save: (journal: D
       const snapshots: OwnedStack[] = [];
       let endpoint;
       const volumes: string[] = [];
-      for (const stack of currentStacks().filter(s => [config.stackName, ...supportNames].includes(s.StackName))) {
+      for (const stack of currentStacks().filter(s => ownedNames.includes(s.StackName))) {
         if (!tagsMatch(stack.Tags) || !stack.StackId.startsWith(`arn:aws:cloudformation:${config.region}:${config.account}:stack/${stack.StackName}/`)) throw new Error('Stack ownership mismatch.');
-        if (!['CREATE_COMPLETE','UPDATE_COMPLETE','UPDATE_ROLLBACK_COMPLETE','DELETE_IN_PROGRESS','DELETE_FAILED'].includes(stack.StackStatus)) throw new Error('Regional stack is not ready for teardown.');
+        if (!['CREATE_COMPLETE','UPDATE_COMPLETE','UPDATE_ROLLBACK_COMPLETE','DELETE_IN_PROGRESS','DELETE_FAILED', 'CREATE_FAILED', 'UPDATE_FAILED'].includes(stack.StackStatus)) throw new Error('Regional stack is not ready for teardown.');
         const items = aws(['cloudformation','list-stack-resources','--stack-name',stack.StackId]).StackResourceSummaries;
         snapshots.push({ id: stack.StackId, name: stack.StackName, outputs: outputMap(stack), resources: items.filter((r: any) => r.PhysicalResourceId).map((r: any) => ({
           id: r.PhysicalResourceId, logicalId: r.LogicalResourceId, type: r.ResourceType, stackId: stack.StackId,
         })) });
         if (stack.StackName === config.stackName) {
           endpoint = captureRelease(config, stack, items);
-          const instance = outputMap(stack).InstanceId;
+        }
+        // Overlap and failed-green hosts both own disks; inventory physical resources even when CFN outputs were never produced.
+        for (const instance of items.filter((r: any) => r.ResourceType === 'AWS::EC2::Instance').map((r: any) => r.PhysicalResourceId)) {
           if (instance) for (const r of aws(['ec2','describe-instances','--filters',`Name=instance-id,Values=${instance}`]).Reservations) {
             for (const i of r.Instances) for (const disk of i.BlockDeviceMappings ?? []) if (disk.Ebs?.VolumeId) volumes.push(disk.Ebs.VolumeId);
           }
@@ -117,6 +122,14 @@ export function regionalDestroyPorts(config: DeploymentConfig, save: (journal: D
           if (template.Resources[r.logicalId]?.DeletionPolicy !== 'Retain') throw new Error('Deploy retained expiring-log policies before regional teardown.');
         }
       }
+      assertNativeDeploymentSettled(config, args => aws(args));
+      const table = resources(journal,'AWS::DynamoDB::Table').find(r => r.id === 'ghostline-prod-release-attempts');
+      if (table && aws(['dynamodb','describe-table','--table-name',table.id],['ResourceNotFoundException'])) {
+        // Claim before freezing: a running release retains its hooks and can finish; teardown cannot steal uncertain AWS work.
+        if (!await claimLifecycle(lifecycleStore(config),'destroy',journal.owner,'destroying')) {
+          throw new Error('Another lifecycle operation owns this region; let it finish or resolve it before teardown.');
+        }
+      }
       for (const rule of resources(journal, 'AWS::Events::Rule')) aws(['events','disable-rule','--name',rule.id], ['ResourceNotFoundException']);
       const gate = resources(journal, 'AWS::Lambda::Function').find(r => r.id === 'ghostline-prod-release-gate');
       if (gate && aws(['lambda','get-function-configuration','--function-name',gate.id], ['ResourceNotFoundException'])) {
@@ -124,14 +137,7 @@ export function regionalDestroyPorts(config: DeploymentConfig, save: (journal: D
         // The gate has a 60-second timeout. Disabling invocation does not cancel one already executing.
         for (let elapsed = 0; elapsed < 65; elapsed += 5) await pause(5000);
       }
-      const table = resources(journal,'AWS::DynamoDB::Table').find(r => r.id === 'ghostline-prod-release-attempts');
-      if (table && aws(['dynamodb','describe-table','--table-name',table.id],['ResourceNotFoundException'])) {
-        const store = lifecycleStore(config); const before = await store.read();
-        if (before?.operation?.kind === 'release') {
-          // Only after the controller is frozen and every invocation has expired may teardown take over its claim.
-          if (!await store.replace({ version: before.version + 1, mode: 'destroying', operation: { kind:'destroy',owner:journal.owner,startedAt:Date.now() } },before)) throw new Error('Lifecycle changed during freeze.');
-        } else if (!await claimLifecycle(store,'destroy',journal.owner,'destroying')) throw new Error('Another CLI operation owns regional lifecycle; resume after it completes.');
-      }
+
     },
     retireReplication: async journal => {
       const publication = getPublication();
@@ -158,6 +164,8 @@ export function regionalDestroyPorts(config: DeploymentConfig, save: (journal: D
     },
     endpoint: async journal => {
       assertNoReplacement(journal);
+      const root = journal.stacks.find(s => s.name === config.stackName);
+      await removeRegionalHosts(config, root?.outputs ?? {}, args => aws(args));
       if (!journal.endpoint) return;
       const stack = stackPresent(journal.endpoint.stackId);
       if (stack) deleteEndpointStack(stack, args => aws(args));

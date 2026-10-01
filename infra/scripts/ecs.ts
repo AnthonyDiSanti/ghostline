@@ -1,5 +1,11 @@
 import { assertBenchmarkExclusion } from '../lib/benchmark/exclusion.js';
-import { withLifecycle } from '../lib/lifecycle-operator.js';
+import { activateHost } from '../lib/host-slot-activation.js';
+import { deploymentChanges, deployWithGreen } from '../lib/infrastructure-rollout.js';
+import { parse as parseYaml } from 'yaml';
+import { buildApp } from '../lib/app.js';
+import { LambdaClient, InvokeCommand, GetFunctionConfigurationCommand } from '@aws-sdk/client-lambda';
+import { CloudAssembly } from 'aws-cdk-lib/cx-api';
+import { withLifecycle, type LifecycleControl } from '../lib/lifecycle-operator.js';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -11,15 +17,16 @@ import { fromIni } from '@aws-sdk/credential-providers';
 import { getDeployment } from '../lib/config.js';
 import { ecsDeploymentCommand } from '../lib/commands.js';
 import { assertServerParameterMetadata, credentialParameters, importParameters, serverParameterNames } from '../lib/parameters.js';
+import { regionalHosts, regionalOutputs } from '../lib/regional-hosts.js';
+import { assertNativeDeploymentSettled, stopRegionalHosts } from '../lib/host-slot-lifecycle.js';
 import { setEcsPower } from '../lib/ecs-power.js';
 import { deployedClientImages, testEcsClients } from '../lib/ecs-client-test.js';
 import { imagePlatform } from '../lib/ecs-release.js';
 import { assertStartReady } from '../lib/releases/gate.js';
-import { operatorGate } from '../lib/releases/operator.js';
+import { operatorGate, deployReleaseRegion } from '../lib/releases/operator.js';
 import { ecsMemoryBudget } from '../lib/ecs-memory.js';
 import { hostRemote, verifyHost } from '../lib/ecs-verification.js';
 import { networkDaemonMemory } from '../lib/gateway-platform.js';
-import { assertHostPlatform } from '../lib/platform-lifecycle.js';
 import { parseJson } from '../lib/xray-config.js';
 import { xrayLink } from '../lib/xray.js';
 import { profileQr, vpnLink } from '../lib/profile-share.js';
@@ -52,16 +59,21 @@ function aws(args: string[]) {
   return text.trim() ? parseJson(text) : {};
 }
 
-function state(): Record<string, string> {
+function state(raw = false): Record<string, string> {
   const stack = aws(['cloudformation', 'describe-stacks', '--stack-name', config.stackName]).Stacks[0];
   if (!['CREATE_COMPLETE', 'UPDATE_COMPLETE', 'UPDATE_ROLLBACK_COMPLETE'].includes(stack.StackStatus)) throw new Error('Endpoint stack is not stable.');
-  return Object.fromEntries(stack.Outputs.map((item: any) => [item.OutputKey, item.OutputValue]));
+  const outputs = Object.fromEntries(stack.Outputs.map((item: any) => [item.OutputKey, item.OutputValue]));
+  return raw ? outputs : regionalOutputs(config, outputs, aws);
 }
 
-function cdk(action: 'diff' | 'deploy') {
+function cdk(action: 'diff' | 'deploy', empty?: boolean) {
   // Scope every synthesis/deployment explicitly; no wildcard stack selection or SSH launch inputs.
   const command = ecsDeploymentCommand(action, config.id, resolve(root, 'infra'));
-  run(process.execPath, [resolve(root, 'infra/node_modules/aws-cdk/bin/cdk'), ...command.args], undefined, true);
+  // CDK diff has no parameter option. Show the explicit lifecycle input beside its template diff; pass it only to deploy.
+  if (empty !== undefined) console.log(`Lifecycle parameter: ${config.stackName}:EmptyGatewayOnCreate=${empty}.`);
+  run(process.execPath, [resolve(root, 'infra/node_modules/aws-cdk/bin/cdk'), ...command.args,
+    ...(action === 'deploy' && empty !== undefined ? ['--parameters', `${config.stackName}:EmptyGatewayOnCreate=${empty}`] : []),
+    ...(action === 'deploy' ? ['--no-rollback'] : [])], undefined, true);
 }
 
 async function parameter(name: string): Promise<string> {
@@ -71,7 +83,12 @@ async function parameter(name: string): Promise<string> {
 }
 
 function power(action: 'start' | 'stop') {
-  setEcsPower(action, config.stackName, state(), aws);
+  if (action === 'stop') stopRegionalHosts(config, state(true), aws);
+  else {
+    // A stopped failed-green slot remains owned but must not be reactivated with the production survivor.
+    const allowed = regionalHosts(config, aws).flatMap(host => host.instance ? [host.instance] : []);
+    setEcsPower(action, config.stackName, state(), aws, allowed);
+  }
   console.log(`${config.id}: ${action === 'start' ? 'host running; gateway service stable' : 'host stopped; disk and EIPs retained'}.`);
 }
 
@@ -129,26 +146,50 @@ async function profiles() {
 
 try {
   if (aws(['sts', 'get-caller-identity']).Account !== config.account) throw new Error('AWS account mismatch.');
-  const operation = async () => {
+  const operation = async (control?: LifecycleControl) => {
     switch (action) {
       case 'import': console.log(await importParameters(parameters, config, credentialParameters(resolve(extra[0]!)))); break;
       case 'unpark':
       case 'deploy': {
+        // Updating controller templates while holding the endpoint claim prevents ECR/hourly events racing this IaC rollout.
+        await deployReleaseRegion(config.region, true, control!);
         run(process.execPath, ['--import=tsx', 'scripts/deployment.ts', 'preflight', config.id], undefined, true);
         assertServerParameterMetadata(aws(['ssm', 'describe-parameters', '--parameter-filters',
           JSON.stringify([{ Key: 'Name', Option: 'Equals', Values: serverParameterNames }])]).Parameters);
-        assertHostPlatform(config, aws);
-        await assertStartReady(operatorGate(config.id));
+        const gate = await operatorGate(config.id);
+        await assertStartReady(gate);
         const support = discoverGuardDuty(config);
         if (support.service) await guardDutyPreflight(guardDuty);
-        cdk('diff');
-        // Transport and host permissions must exist before a new detector begins automatic installation.
-        cdk('deploy');
+        const stacks = aws(['cloudformation', 'describe-stacks']).Stacks;
+        const existing = stacks.find((s: any) => s.StackName === config.stackName);
+        const rawOutputs = Object.fromEntries((existing?.Outputs ?? []).map((o: any) => [o.OutputKey, o.OutputValue])) as Record<string, string>;
+        const shared = async (empty?: boolean) => { cdk('diff', empty); cdk('deploy', empty); };
+        const activation = await gate.record<{ phase: string }>('activation/current');
+        const deployed = rawOutputs.ClusterName && (!activation || activation.phase === 'complete') ? regionalOutputs(config, rawOutputs, aws) : rawOutputs;
+        if (!deployed.InstanceId || activation && activation.phase !== 'complete') {
+          // Replay shared authority before resuming a failed slot; never empty a gateway whose activation already started.
+          await shared(activation?.phase === 'gateway' ? false : true);
+          await activateHost(gate, state(true), () => shared(false));
+        } else {
+          const powerState = aws(['ec2', 'describe-instances', '--instance-ids', deployed.InstanceId!]).Reservations[0].Instances[0].State.Name;
+          if (powerState !== 'running') power('start'); // An explicit deploy reactivates blue before preparing its replacement.
+          const oldBody = aws(['cloudformation', 'get-template', '--stack-name', existing.StackId, '--template-stage', 'Processed']).TemplateBody;
+          const oldTemplate = typeof oldBody === 'string' ? parseYaml(oldBody) : oldBody;
+          const { app } = buildApp(config, support);
+          const desired = app.synth().getStackArtifact(config.stackName).template;
+          const changes = deploymentChanges(oldTemplate, desired);
+          CloudAssembly.cleanupTemporaryDirectories();
+          await deployWithGreen(gate, control!, changes, () => shared(), async () => {
+            const result = await new LambdaClient({ region: config.region, credentials: fromIni({ profile: 'personal' }) }).send(new InvokeCommand({
+              FunctionName: 'ghostline-prod-release-gate', Payload: Buffer.from(JSON.stringify({ action: 'reconcile' })) }));
+            if (result.FunctionError) throw new Error('Controller handoff failed; inspect the persisted release action.');
+          });
+        }
         const protection = await ensureGuardDuty(guardDuty, support, { tags: { ...config.globalTags, System: 'shared' }, report: console.log });
         if (protection.status !== 'RUNTIME_ENABLED') console.log(`GuardDuty: ${protection.status}; ${protection.reason}`);
         await monitoring(state()); break;
       }
-      case 'start': await assertStartReady(operatorGate(config.id)); power(action); break;
+      case 'start': await assertStartReady(await operatorGate(config.id)); power(action); break;
       case 'stop': power(action); break;
       case 'status': {
         const outputs = state();
@@ -173,6 +214,17 @@ try {
     }
   };
   if (['deploy', 'unpark', 'start', 'stop'].includes(action ?? '')) {
+    if (action === 'deploy' || action === 'unpark') {
+      // Only a brand-new region lacks a lifecycle table. Existing controllers are updated inside the same deployment claim.
+      try {
+        await new LambdaClient({ region: config.region, credentials: fromIni({ profile: 'personal' }) })
+          .send(new GetFunctionConfigurationCommand({ FunctionName: 'ghostline-prod-release-gate' }));
+      } catch (error) {
+        if ((error as Error).name !== 'ResourceNotFoundException') throw error;
+        await deployReleaseRegion(config.region);
+      }
+    }
+    if (action === 'stop') assertNativeDeploymentSettled(config, aws);
     await withLifecycle(config, action!, operation, action === 'stop' ? 'stopped' : 'active');
   } else await operation();
 } catch (error) {

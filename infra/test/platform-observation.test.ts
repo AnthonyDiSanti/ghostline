@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { execFileSync } from 'node:child_process';
 import { parseHostObservation } from '../lib/platform-observation.js';
 const bootId = '11111111-1111-1111-1111-111111111111';
 const digest = `sha256:${'a'.repeat(64)}`;
@@ -18,4 +19,18 @@ it('rejects malformed live OS/boot input', () => {
   expect(() => parseHostObservation(JSON.stringify({...report(),bootId:'unknown'}))).toThrow('malformed');
   const wrong = report(); wrong.os.os.arch = 'unknown';
   expect(() => parseHostObservation(JSON.stringify(wrong))).toThrow('malformed');
+});
+it('distinguishes cold daemon health from validated engine readiness', () => {
+  const value = { ...report(), network: { schema: 1, healthy: true, peers: {} } };
+  expect(parseHostObservation(JSON.stringify(value)).network).toEqual({ healthy: true, peers: {} });
+  const peer = { id: 'a'.repeat(64), ip: '172.17.0.2', task: `arn:aws:ecs:eu-west-1:111111111111:task/trial/${'b'.repeat(32)}`,
+    started: '2026-09-28T00:00:00Z', restarts: 0 };
+  value.network.peers = { xray: peer };
+  expect(parseHostObservation(JSON.stringify(value)).network?.peers.xray).toEqual(peer);
+  value.network.healthy = false;
+  expect(() => parseHostObservation(JSON.stringify(value))).toThrow('malformed');
+});
+it('withdraws observed readiness before the forwarding lease can expire', () => {
+  const script = new URL('./fixtures/daemon-readiness.py', import.meta.url).pathname;
+  expect(execFileSync('python3', ['-B', script], { encoding: 'utf8' })).toContain('bounded readiness passed');
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { bootstrapRecoveryIssue } from '../lib/bootstrap-recovery.js';
+import { bootstrapRaceIssue } from '../lib/bottlerocket-limitations.js';
 import { artifacts, releaseRepository, digest, lifecyclePolicy, parseRelease, production, repository, releaseManifest, releaseSelector,
-  retainHistory, type Release } from '../lib/releases/model.js';
+  retainHistory, readReleaseManifest, setIdentity, type Release } from '../lib/releases/model.js';
 import { publicationProfile } from '../lib/releases/topology.js';
 import { applyPromotion, cleanPublicationProtection, planPromotion, assertPublicationOrigin } from '../lib/releases/publication.js';
 import { type Manifest, type Registry } from '../lib/releases/registry.js';
@@ -33,15 +33,25 @@ class MemoryRegistry implements Registry {
 }
 
 describe('app release history', () => {
+  it('binds v3 launches to a qualified OS and preserves historical v2 document reads', () => {
+    const old = release('a');
+    expect(readReleaseManifest(releaseManifest(old))).toEqual(old);
+    const selected: Release = { ...old, schemaVersion: 3, os: { ...old.os, targetVersion: '1.65.0' } };
+    expect(readReleaseManifest(releaseManifest(selected))).toEqual(selected);
+    expect(setIdentity(selected)).not.toEqual(setIdentity(old));
+    expect(() => parseRelease({ ...selected, os: { ...selected.os, targetVersion: '9.0.0' } })).toThrow('target OS');
+    expect(() => parseRelease({ ...selected, os: { ...old.os } })).toThrow('target OS');
+    expect(() => parseRelease({ ...old, os: selected.os })).toThrow('target OS');
+  });
   it('publishes changed qualification limitations without retaining duplicate runtime sets', async () => {
     const registry = new MemoryRegistry();
     const older = await registry.add(release('a'), true);
     const current = (await planPromotion(registry, release('b')))!;
     await registry.add(current, true);
     // The accepted availability policy must reach consumers even when the images and compatible OS are unchanged.
-    const candidate = { ...current, promotionId: 'release-policy-change', os: { ...current.os, knownLimitations: [bootstrapRecoveryIssue] } };
+    const candidate = { ...current, promotionId: 'release-policy-change', os: { ...current.os, knownLimitations: [bootstrapRaceIssue] } };
     const next = (await planPromotion(registry, candidate))!;
-    expect(next.os.knownLimitations).toEqual([bootstrapRecoveryIssue]);
+    expect(next.os.knownLimitations).toEqual([bootstrapRaceIssue]);
     expect(next.history).toEqual([older.digest]);
     await registry.add(next, true);
     expect(await planPromotion(registry, candidate)).toBeUndefined();

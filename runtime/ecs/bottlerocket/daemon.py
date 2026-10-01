@@ -11,6 +11,7 @@ from pathlib import Path
 import discovery
 import guard
 import network
+import readiness
 
 HEALTH = Path('/run/ghostline-health.json')
 
@@ -96,6 +97,7 @@ def serve(config):
     network.command = command
     config['interface'] = command(['ip', '-4', 'route', 'show', 'default']).split(' dev ')[1].split()[0]
     prepare_network(config)
+    observer = readiness.serve(HEALTH)
     previous = None
     def stop(_signal, _frame):
         raise SystemExit(0)
@@ -110,7 +112,10 @@ def serve(config):
                 peers = discovery.discover(config, command)
                 reconcile(config, peers, previous)
                 previous = peers
-                HEALTH.write_text(json.dumps({'tick': time.monotonic()}))
+                # Atomic publication prevents the observer from reading a half-written peer identity set.
+                pending = HEALTH.with_suffix('.new')
+                pending.write_text(json.dumps({'tick': time.monotonic(), 'peers': peers}))
+                pending.replace(HEALTH)
             except Exception as error:
                 HEALTH.unlink(missing_ok=True)
                 guard.withdraw()
@@ -122,6 +127,8 @@ def serve(config):
     finally:
         HEALTH.unlink(missing_ok=True)
         guard.withdraw()
+        observer.shutdown()
+        observer.server_close()
 
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 import { readFileSync, existsSync } from 'node:fs';
-import { acceptsBootstrapRecovery, bootstrapRecoveryIssue } from './bootstrap-recovery.js';
+import { hasKnownBootstrapRace, bootstrapRaceIssue } from './bottlerocket-limitations.js';
 import { platformArtifacts, type ImageArtifact } from './image-artifacts.js';
-import { componentMatches, type StackObservation } from './releases/stack-action.js';
+import { componentMatches, type StackObservation } from './releases/runtime-identity.js';
 import { digestPattern, type Release } from './releases/model.js';
 import type { QualifiedImage } from './releases/image-publication.js';
 
@@ -17,7 +17,8 @@ export function qualifiedOs(images: Record<ImageArtifact, QualifiedImage>, nativ
   if (!native || native.schema !== 1 || !Number.isFinite(Date.parse(native.verifiedAt))) return undefined;
   if (native.os?.variant !== 'aws-ecs-3' || native.os.architecture !== 'arm64'
     || !native.os.compatibleVersions?.length || native.os.compatibleVersions.some(v => !/^\d+\.\d+\.\d+$/.test(v))) throw new Error('Malformed native qualification.');
-  if (native.os.compatibleVersions.some(acceptsBootstrapRecovery) && !native.os.knownLimitations?.includes(bootstrapRecoveryIssue)) {
+  if (!native.os.targetVersion || !native.os.compatibleVersions.includes(native.os.targetVersion)) return undefined;
+  if (native.os.compatibleVersions.some(hasKnownBootstrapRace) && !native.os.knownLimitations?.includes(bootstrapRaceIssue)) {
     throw new Error('Native qualification must record the accepted Bottlerocket startup availability limitation.');
   }
   return platformArtifacts.every(name => native.images[name]?.buildTag === images[name]?.buildTag
@@ -43,7 +44,7 @@ export function qualifyNativePlatform(images: Record<ImageArtifact, QualifiedIma
       throw new Error('Native platform differs from locally qualified bytes.');
     }
   }
-  return { schema: 1, verifiedAt, os: { variant: 'aws-ecs-3', architecture: 'arm64', compatibleVersions: [actual.host.version!],
-    ...(acceptsBootstrapRecovery(actual.host.version) ? { knownLimitations: [bootstrapRecoveryIssue] } : {}) },
+  return { schema: 1, verifiedAt, os: { variant: 'aws-ecs-3', architecture: 'arm64', compatibleVersions: [actual.host.version!], targetVersion: actual.host.version!,
+    ...(hasKnownBootstrapRace(actual.host.version) ? { knownLimitations: [bootstrapRaceIssue] } : {}) },
     images: Object.fromEntries(platformArtifacts.map(name => [name, { buildTag: images[name].buildTag, runtimeDigest: images[name].runtimeDigest! }])) as NativeQualification['images'] };
 }

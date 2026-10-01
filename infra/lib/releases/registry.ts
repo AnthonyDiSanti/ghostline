@@ -118,9 +118,11 @@ export class EcrRegistry implements Registry {
   }
 
   async putRelease(repository: string, release: Release, tag: string): Promise<Manifest> {
+    // Historical v2 bytes can be seeded unchanged; they cannot authorize a new host rollout or new publication.
+    if (release.schemaVersion !== 3) throw new Error('New releases require a qualified target OS (schema v3).');
+    const manifest = releaseManifest(release);
     await this.uploadBlob(repository, emptyConfig);
     await this.uploadBlob(repository, Buffer.from(JSON.stringify(release)));
-    const manifest = releaseManifest(release);
     const result = { manifest, digest: digest(manifest), mediaType: manifestType };
     await this.put(repository, result, tag);
     return result;

@@ -27,7 +27,7 @@ From `infra/`, run `npm ci` then `npm test`. Typecheck without emitting files; k
 
 Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra/test/fixtures/`, including nested programs. Bottlerocket TOML settings live beside the platform fixtures. `renderFixture()` replaces exact `@@NAME@@` slots once and rejects missing/unused inputs; it does not perform shell escaping or recursive expansion. Validate identifiers and encode transported files before rendering.
 
-`gatewayPlatform()` renders nonsecret Bottlerocket settings. The common five-image pipeline publishes distinct bootstrap/diagnostic and restricted daemon artifacts. Bootstrap content changes use a controlled reboot; native settings/layout changes use retained-IP cold rebuilds. App and daemon updates select only the necessary task restart. [Platform workflow](platform.md).
+`gatewayPlatform()` renders nonsecret Bottlerocket settings. The common five-image pipeline publishes distinct bootstrap/diagnostic and restricted daemon artifacts. Every meaningful component, host-template or qualified OS change prepares a temporary green host through the same native ECS/EIP rollout; unchanged releases remain no-ops. [Platform workflow](platform.md).
 
 ## Commands
 
@@ -42,14 +42,14 @@ Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra
 | `npm run images:build` | Resolve official stable engines, build/test locally, then record the successful selection |
 | `npm run test:ecs-images` | Build/test five ARM64 artifacts, platform package boundaries and real local encrypted tunnels with synthetic credentials |
 | `npm run platform <target> status` | Observe actual boot, OS and component identities |
-| `npm run platform <target> update` | Explicitly apply a qualified latest native OS update under lifecycle exclusion |
 | `npm run platform <target> qualify <qualified-file>` | Close central native qualification after the documented experiment; verify runtime and record exact platform/OS compatibility |
 | `npm run deployments` | List maintained targets; allocate nothing |
-| `npm run preflight <target>` | Verify AWS account, enabled region, live official latest Bottlerocket ECS-3 ARM64 launch channel, AZ, instance capacity/offering |
+| `npm run preflight <target>` | Verify AWS account, enabled region, official regional AMI for the centrally qualified target OS, AZ, instance capacity/offering |
 | `npm run synth <target>` / `npm run diff <target>` | Discover live GuardDuty availability and synthesize / compare the selected endpoint |
 | `npm run ecs <target> import <directory>` | Import six validated protected credential files; refuse conflicting values |
 | `npm run release publish <target-or-region>` | Publish centrally qualified bytes once; native replication and regional gates handle rollout |
 | `npm run release status [target]` / `reconcile <target>` / `retry <target>` | Inspect, reconcile or explicitly retry a release |
+| `npm run release cleanup-failed <target>` | Remove held green only after verified rollback or explicit stopped-blue proof |
 | `npm run release activate <target>` | Prepare/seed a member before enabling outbound replication and automation |
 | `npm run ecs <target> deploy` / `unpark` | Check parameter metadata/images/live support, diff/deploy gateway, enable available protection and verify its reported coverage |
 | `npm run ecs <target> start` / `stop` | Start/stop the selected host and service in lifecycle order |
@@ -62,7 +62,7 @@ Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra
 
 The primary target is `stockholm-ecs`; the backup target is `cape-town`. Npm accepts these positional arguments without `--`; the delimiter is only useful when forwarding options such as `npm run test:assets -- --docker`. AWS commands use profile `personal`. CDK receives `GHOSTLINE_DEPLOYMENT` from the wrapper; only explicit `active`/`parked` lifecycle modes are supported. No SSH key or operator CIDR input exists.
 
-Use `images:build` for a new official stable selection with `gh` authenticated to `github.com`; review and commit `image-inputs.json`. Publication and deployment reuse this selection without contacting release channels. [Image workflow and evidence limits](images.md). Use `ecs deploy` for a normal active rollout, including [regional GuardDuty](guardduty.md). First detector creation accepts AWS defaults plus supported Runtime Monitoring; existing detectors are discovered live and receive only missing available protection, preserving other settings. Confirmed service/feature gaps produce explicit reduced-protection results; access/installation failures still surface. Low-level `npm run deploy` remains the direct CDK entrypoint used by the lifecycle wrapper and does not run the security enabler. The [release workflow](releases.md) prepares local images before initial infrastructure deployment; ordinary image updates use its gate without a CDK rollout. Never use `--all`, deploy a retired catalog recipe, or run an unreviewed change against a live exit.
+Use `images:build` for a new official stable selection with `gh` authenticated to `github.com`; review and commit `image-inputs.json`. Publication and deployment reuse this selection without contacting release channels. [Image workflow and evidence limits](images.md). Use `ecs deploy` for a normal active rollout, including [regional GuardDuty](guardduty.md). First detector creation accepts AWS defaults plus supported Runtime Monitoring; existing detectors are discovered live and receive only missing available protection, preserving other settings. Confirmed service/feature gaps produce explicit reduced-protection results; access/installation failures still surface. `npm run deploy` delegates to the same coordinated ECS lifecycle; there is no second direct deployment path. The [release workflow](releases.md) prepares local images before initial infrastructure deployment; ordinary image updates use its gate without a CDK rollout. Never use `--all`, deploy a retired catalog recipe, or run an unreviewed change against a live exit.
 
 ## Asset verification
 
@@ -80,4 +80,4 @@ Read [lifecycle](deployment-lifecycle.md) and the selected launch record before 
 
 The destroy helper records exact regional ownership and resumable phases in ignored `.local/deployments/<target>/regional-cleanup.json`. Read [lifecycle](deployment-lifecycle.md#exclusion-and-resumable-destroy) for exclusion, replication retirement, retained resource classes and incomplete-cleanup reporting. Ireland passed complete destroy, repeat-destroy and reseeded redeployment. The final expanded whole-stack cleanup remains in the active work item; see the handoff for its current checkpoint.
 
-For native host settings/layout/size changes, prepare the complete local release, park, unpark, then run `verify` and `test`. Deployment refuses changed static host settings on an active host; explicitly park first. Bootstrap image content updates use the controller's controlled reboot; OS updates use the separate native TUF workflow. The existing ENI cannot be attached to a replacement host while the first host still owns it. This cold rebuild has an outage; an unchanged-image task deployment does not require rebuilding the host.
+For native settings/layout/size or task-definition changes, use the normal coordinated `ecs deploy` command after central qualification. Shared infrastructure and immutable host-slot templates remain CDK-owned. The CLI prepares green before transferring its lock to ECS hooks; it must not deploy a task change first and deadlock waiting for its own hook. Existing root-owned hosts require the explicit retain/import migration before this recipe can be deployed. See the [handoff](../.context/handoff.md) for qualification/migration status.

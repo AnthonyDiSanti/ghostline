@@ -6,13 +6,14 @@ import { LambdaClient, GetFunctionConfigurationCommand } from '@aws-sdk/client-l
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { fromIni } from '@aws-sdk/credential-providers';
 import type { DeploymentConfig } from './config.js';
-import { claimLifecycle, completeLifecycle, DynamoLifecycleStore, failLifecycle, type LifecycleMode } from './releases/lifecycle.js';
+import { claimLifecycle, completeLifecycle, DynamoLifecycleStore, failLifecycle, handoffToRelease, type LifecycleMode } from './releases/lifecycle.js';
 
 export function lifecycleStore(config: DeploymentConfig) {
   return new DynamoLifecycleStore(new DynamoDBClient({ region: config.region, credentials: fromIni({ profile: process.env.AWS_PROFILE ?? 'personal' }) }),
     'ghostline-prod-release-attempts');
 }
-export async function withLifecycle<T>(config: DeploymentConfig, kind: string, run: () => Promise<T>, completed?: LifecycleMode): Promise<T> {
+export interface LifecycleControl { handoff(): Promise<void> }
+export async function withLifecycle<T>(config: DeploymentConfig, kind: string, run: (control: LifecycleControl) => Promise<T>, completed?: LifecycleMode): Promise<T> {
   const gate = await new LambdaClient({ region: config.region, credentials: fromIni({ profile: process.env.AWS_PROFILE ?? 'personal' }) })
     .send(new GetFunctionConfigurationCommand({ FunctionName: 'ghostline-prod-release-gate' }));
   if (gate.Environment?.Variables?.LIFECYCLE_SCHEMA !== '1') throw new Error('Deploy the coordinated regional release controller before lifecycle mutations.');
@@ -47,12 +48,19 @@ export async function withLifecycle<T>(config: DeploymentConfig, kind: string, r
     throw new Error('Regional lifecycle is held by another operation. Inspect release/lifecycle state before retrying.');
   }
   let result: T;
-  try { result = await run(); }
+  let delegated = false;
+  try { result = await run({ handoff: async () => {
+    if (delegated) return;
+    await handoffToRelease(store, claim, completed ?? claim.mode); delegated = true;
+    // A crash after handoff cannot reclaim the controller's AWS effects through the old CLI token.
+    receipt.delegated = true; writeFileSync(path, JSON.stringify(receipt) + '\n', { mode: 0o600 });
+  } }); }
   catch (error) {
-    await failLifecycle(store, claim, `${kind} interrupted; resume the same command using its local receipt.`);
+    if (delegated) renameSync(path, resolve(folder, 'last-lifecycle-operation.json'));
+    else await failLifecycle(store, claim, `${kind} interrupted; resume the same command using its local receipt.`);
     throw error;
   }
-  await completeLifecycle(store, claim, completed ?? claim.mode);
+  if (!delegated) await completeLifecycle(store, claim, completed ?? claim.mode);
   renameSync(path, resolve(folder, 'last-lifecycle-operation.json'));
   return result;
 }

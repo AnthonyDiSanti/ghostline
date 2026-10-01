@@ -15,7 +15,7 @@ From `infra/`, with Node 24, Docker/buildx, curl and GitHub CLI (`gh`) authentic
 ```sh
 npm run images:build
 npm test
-npm run release publish primary
+npm run release publish us-east-1
 npm run release status
 ```
 
@@ -23,9 +23,9 @@ Build is AWS-free and does not change native VPN routing. It resolves once, test
 
 Anthony approved authenticated public metadata reads on September 19. `upstream-download.ts` routes only the reviewed public repositories' release/tag/commit endpoints through explicit `gh api --hostname github.com --method GET` calls. Existing CLI credentials remain inside `gh`; the resolver never retrieves a token or passes authentication headers. Source archives/workflow files still use anonymous HTTPS curl. Inherited `GH_DEBUG`/legacy `DEBUG` HTTP logging and interactive prompts are disabled; captured failure output is withheld. A failed authenticated read stops resolution instead of falling back to the exhausted anonymous quota. [GitHub API CLI](https://cli.github.com/manual/gh_api), [environment controls](https://cli.github.com/manual/gh_help_environment).
 
-Publication consumes the successful central qualification record and its exact local image IDs. It performs transfer-identity checks only, then distributes the complete release through direct member-to-member native replication after the coordinated distribution migration. Regional handlers validate local manifests/production aliases and force an ECS deployment. They do not rebuild or repeat image/protocol tests. [Release workflow](releases.md) owns topology, tags, history, lifecycle and recovery.
+Publication consumes the successful central qualification record and its exact local image IDs. It performs transfer-identity checks only, then distributes the complete release through direct member-to-member native replication after the coordinated distribution migration. Regional handlers validate local manifests/production aliases, prepare a qualified green host and coordinate native ECS deployment with direct EIP handoff. They do not rebuild or repeat image/protocol tests. [Release workflow](releases.md) owns topology, tags, history, lifecycle and recovery.
 
-Deployment/start do not rediscover upstream releases. Static task definitions reference local `keep-production` aliases; ECS captures their digests per deployment. Resuming a stopped endpoint resolves the validated local intended set. Regional launch records describe observed deployment state; the build-input file describes the selected central build.
+Deployment/start do not rediscover upstream releases. Static task definitions reference local `keep-production` aliases; ECS captures their digests per deployment. Resuming a stopped endpoint restores power without forcing a second deployment; the controller separately reconciles newer intent through green capacity. Regional launch records describe observed deployment state; the build-input file describes the selected central build.
 
 September 19 deployed selection: Xray **26.3.27**, AWG daemon **3.1.20260828**, tools **3.1.20260812**. Both [Stockholm](launch-stockholm-ecs.md) and [Cape Town](launch-cape-town.md) run gateway task revision 3 with this selection. Xray's official stable replaced prerelease 26.7.28; AWG's upstream versions are unchanged. Exact-artifact publication checks, live runtime/security verification and both encrypted HTTPS/assigned-EIP tests pass in each region. Credentials, hosts and EIPs are unchanged; native-device acceptance remains distinct.
 

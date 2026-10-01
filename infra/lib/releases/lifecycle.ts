@@ -32,12 +32,21 @@ export async function claimLifecycle(store: LifecycleStore, kind: string, owner:
   mode?: LifecycleMode): Promise<LifecycleState | undefined> {
   const before = await store.read();
   if (before?.operation && (before.operation.owner !== owner || before.operation.kind !== kind)) return undefined;
-  if (kind === 'release' && before && before.mode !== 'active') return undefined;
+  if (kind === 'release' && before?.mode !== 'active') return undefined;
+  if (kind === 'release-cleanup' && !['active', 'stopped'].includes(before?.mode ?? '')) return undefined;
   // Resumption retains the same operation identity; a second process cannot silently claim a different operation.
   if (before?.operation) return before;
   const next: LifecycleState = { version: (before?.version ?? 0) + 1, mode: mode ?? before?.mode ?? 'active',
     operation: { kind, owner, startedAt: Date.now() } };
   return await store.replace(next, before) ? next : undefined;
+}
+
+export async function handoffToRelease(store: LifecycleStore, claim: LifecycleState, mode = claim.mode): Promise<void> {
+  // CLI prepares green before an IaC task change, then transfers exclusion so synchronous ECS hooks cannot deadlock on its lock.
+  if (!claim.operation || !await store.replace({ ...claim, mode, version: claim.version + 1,
+    operation: { kind: 'release', owner: 'regional-release-controller', startedAt: claim.operation.startedAt } }, claim)) {
+    throw new Error('Lifecycle ownership changed before controller handoff.');
+  }
 }
 
 export async function completeLifecycle(store: LifecycleStore, claim: LifecycleState, mode = claim.mode): Promise<void> {
@@ -51,12 +60,12 @@ export async function failLifecycle(store: LifecycleStore, claim: LifecycleState
     operation: { ...claim.operation, failure } }, claim)) throw new Error('Could not record incomplete lifecycle operation.');
 }
 
-export async function coordinatedRelease(store: LifecycleStore, run: () => Promise<string>): Promise<string> {
+export async function coordinatedRelease(store: LifecycleStore, run: (mode: LifecycleMode) => Promise<string>, cleanup = false): Promise<string> {
   // One reserved-concurrency controller resumes its durable claim across events. CLI writers use unique persisted owners.
-  const claim = await claimLifecycle(store, 'release', 'regional-release-controller');
+  const claim = await claimLifecycle(store, cleanup ? 'release-cleanup' : 'release', 'regional-release-controller');
   if (!claim) return 'lifecycle-held';
   try {
-    const status = await run();
+    const status = await run(claim.mode);
     if (!['deployment-requested', 'deployment-in-progress', 'action-in-progress', 'observation-pending'].includes(status)) await completeLifecycle(store, claim);
     return status;
   } catch (error) {

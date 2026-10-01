@@ -14,8 +14,8 @@ import { account, cleanPublicationRegions, command, credentials, deployReleaseRe
 
 assertBenchmarkExclusion();
 const [action, target, reference, ...extra] = process.argv.slice(2);
-if (extra.length || !['publish', 'status', 'reconcile', 'retry', 'activate'].includes(action ?? '')
-  || (action !== 'publish' && reference)) throw new Error('Usage: npm run release <publish <target-or-region> [release-digest]|status [target]|reconcile target|retry target|activate target>');
+if (extra.length || !['publish', 'status', 'reconcile', 'retry', 'cleanup-failed', 'activate'].includes(action ?? '')
+  || (action !== 'publish' && reference)) throw new Error('Usage: npm run release <publish <target-or-region> [release-digest]|status [target]|reconcile target|retry target|cleanup-failed target|activate target>');
 verifyAccount();
 const publication = getPublication();
 const publishers = publication.members;
@@ -46,12 +46,13 @@ async function publish() {
     if (!digestPattern.test(reference)) throw new Error('Select a retained release document by digest.');
     const old = await readRelease(destination, releaseRepository, reference);
     if (!old) throw new Error('Retained release is unavailable at the selected publisher.');
+    if (old.release.schemaVersion !== 3) throw new Error('Historical release has no selected OS; qualify its platform before republishing.');
     images = old.release.images; os = old.release.os;
   } else {
     const path = resolve(root, '.local/deployments/image-builds/qualified.json');
     if (!existsSync(path)) throw new Error('Run images:build once to qualify artifacts before publication.');
     const qualified = JSON.parse(readFileSync(path, 'utf8'));
-    if (!qualified.os) throw new Error('Native platform compatibility qualification is missing.');
+    if (!qualified.os?.targetVersion) throw new Error('Native platform target OS qualification is missing.');
     os = qualified.os;
     // Never silently discard a newly introduced component from the centrally qualified release set.
     if (Object.keys(qualified.images ?? {}).sort().join(',') !== [...artifacts].sort().join(',')) throw new Error('Qualified components differ from the release schema; complete the manifest migration before publication.');
@@ -61,7 +62,7 @@ async function publish() {
         args => { command('docker', args); }, console.log);
     }
   }
-  const release = await planPromotion(destination, { schemaVersion: 2, promotionId: randomUUID(), promotedAt: new Date().toISOString(),
+  const release = await planPromotion(destination, { schemaVersion: 3, promotionId: randomUUID(), promotedAt: new Date().toISOString(),
     origin: region, platform: 'linux/arm64', images, os, history: [] });
   if (!release) { console.log('Qualified image set is already production; history is unchanged.'); return; }
   const document = await destination.putRelease(releaseRepository, release, `release-${release.promotionId}`);
@@ -70,17 +71,15 @@ async function publish() {
 }
 
 async function status(id: string) {
-  const gate = operatorGate(id);
+  const gate = await operatorGate(id);
   const ready = await readiness(gate.registry);
-  const observation = await gate.refresh();
-  const actual = await gate.observe();
-  const attempt = await gate.attempt();
-  const lifecycle = await gate.record('lifecycle');
+  const lifecycle = await gate.record<{ mode: string }>('lifecycle');
+  const actual = lifecycle?.mode === 'active' ? await gate.generation() : undefined;
   console.log(JSON.stringify({ target: id, release: ready.current, ready: ready.ready, reason: ready.reason,
-    observation, actual, attempt, lifecycle }, null, 2));
+    actual, attempt: await gate.record('rollout/current'), retainedImages: await gate.record('runtime/images'), lifecycle }, null, 2));
 }
 
-async function invoke(id: string, action: 'reconcile' | 'retry') {
+async function invoke(id: string, action: 'reconcile' | 'retry' | 'cleanup-failed') {
   const config = getDeployment(id);
   const result = await new LambdaClient({ region: config.region, credentials }).send(new InvokeCommand({
     FunctionName: 'ghostline-prod-release-gate', Payload: Buffer.from(JSON.stringify({ action })) }));
@@ -91,7 +90,7 @@ async function invoke(id: string, action: 'reconcile' | 'retry') {
 try {
   if (action === 'publish') await publish();
   else if (action === 'status') for (const id of target ? [getDeployment(target).id] : deploymentIds) await status(id);
-  else if (action === 'reconcile' || action === 'retry') {
+  else if (action === 'reconcile' || action === 'retry' || action === 'cleanup-failed') {
     await reconcileReplication();
     await invoke(getDeployment(target).id, action);
   } else if (action === 'activate') {

@@ -6,28 +6,32 @@ import { withLifecycle } from '../lib/lifecycle-operator.js';
 import { operatorGate, command, verifyAccount, root } from '../lib/releases/operator.js';
 import { nativeQualificationPath, qualifyNativePlatform } from '../lib/platform-qualification.js';
 import { imageArtifacts, releaseTag } from '../lib/ecs-release.js';
-import { updateHostOs } from '../lib/platform-update.js';
+import { qualificationObservation } from '../lib/releases/generation-proof.js';
 
 assertBenchmarkExclusion();
 const [target, action, path, ...extra] = process.argv.slice(2);
-if (extra.length || !['status', 'update', 'qualify'].includes(action ?? '') || (action === 'qualify' ? !path : !!path)) {
-  throw new Error('Usage: npm run platform <target> <status|update|qualify qualified-file>.');
+if (extra.length || !['status', 'qualify'].includes(action ?? '') || (action === 'qualify' ? !path : !!path)) {
+  throw new Error('Usage: npm run platform <target> <status|qualify qualified-file>.');
 }
 const config = getDeployment(target);
 verifyAccount();
-if (action === 'update') await updateHostOs(config);
-else {
+{
   const run = async () => {
-    const gate = operatorGate(config.id);
-    // Observation may span SSM invocations; never replace current boot evidence with registration-time ECS attributes.
-    let ready = false;
+    const gate = await operatorGate(config.id);
+    const lifecycle = await gate.record<{ mode: string }>('lifecycle');
+    if (lifecycle?.mode !== 'active') {
+      if (action === 'qualify') throw new Error('Native qualification requires a running region.');
+      console.log(JSON.stringify({ lifecycle, retainedImages: await gate.record('runtime/images') }, null, 2)); return;
+    }
+    let generation;
     for (let n = 0; n < 30; n++) {
-      if (await gate.refresh() === 'ready') { ready = true; break; }
+      generation = await gate.generation();
+      if (generation) break;
       await new Promise(resolve => setTimeout(resolve, 5000));
     }
-    if (!ready) throw new Error('Host observation remains pending.');
-    const actual = await gate.observe();
-    if (action === 'status') { console.log(JSON.stringify(actual, null, 2)); return; }
+    if (!generation) throw new Error('Fresh generation observation remains pending.');
+    if (action === 'status') { console.log(JSON.stringify(generation, null, 2)); return; }
+    const actual = qualificationObservation(generation);
     const qualified = JSON.parse(readFileSync(resolve(path!), 'utf8'));
     if (!Number.isFinite(Date.parse(qualified.qualifiedAt)) || Object.keys(qualified.images ?? {}).length !== imageArtifacts.length
       || imageArtifacts.some(name => qualified.images[name]?.buildTag !== releaseTag(name))) throw new Error('Build qualification differs from current source inputs.');

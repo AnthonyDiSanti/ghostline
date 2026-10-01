@@ -23,11 +23,11 @@ it('finishes stopping before starting and waits for EC2 health before scheduling
   const aws = mock('stopping'); setEcsPower('start', 'gateway', outputs, aws);
   const calls = aws.mock.calls.map(([args]) => args.join(' '));
   expect(calls[1]).toContain('instance-stopped');
-  const cold = calls.findIndex(c => c.endsWith('--desired-count 0 --force-new-deployment'));
   const launch = calls.findIndex(c => c.includes('start-instances'));
   const healthy = calls.findIndex(c => c.includes('instance-status-ok'));
   const restore = calls.findIndex(c => c.endsWith('--desired-count 1'));
-  expect(cold).toBeLessThan(launch); expect(launch).toBeLessThan(healthy); expect(healthy).toBeLessThan(restore);
+  expect(calls.some(c => c.includes('--force-new-deployment'))).toBe(false);
+  expect(launch).toBeLessThan(healthy); expect(healthy).toBeLessThan(restore);
   expect(calls.some(c => c.includes('--desired-count 1 --force-new-deployment'))).toBe(false);
 });
 
@@ -70,7 +70,7 @@ it('stops replicas before draining the daemon and reactivates it before resuming
   joined = calls.map(args => args.join(' '));
   expect(position('update-container-instances-state')).toBeLessThan(position('describe-tasks'));
   expect(position('describe-tasks')).toBeLessThan(position('--desired-count 1'));
-  expect(position('--service network --force-new-deployment')).toBeLessThan(position('start-instances'));
+  expect(joined.some(call => call.includes('--force-new-deployment'))).toBe(false);
   expect(hostStatus).toBe('ACTIVE');
 });
 
