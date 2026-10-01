@@ -4,6 +4,7 @@ import { CloudAssembly } from 'aws-cdk-lib/cx-api';
 import type { GuardDutyClient } from '@aws-sdk/client-guardduty';
 import { discoverGuardDuty, guardDutyForDeployment } from '../lib/guardduty-discovery.js';
 import { ensureGuardDuty, verifyGuardDuty } from '../lib/guardduty.js';
+import { hostTemplates } from '../lib/host-slot.js';
 import { buildApp } from '../lib/app.js';
 import { getDeployment } from '../lib/config.js';
 
@@ -48,12 +49,12 @@ it('supports the complete no-service path without GuardDuty calls or agent infra
   expect(await verifyGuardDuty(client, support, 'host')).toMatchObject({ status: 'UNAVAILABLE' });
   expect(send).not.toHaveBeenCalled();
   const resources = Template.fromStack(buildApp(config, support).stack).toJSON().Resources;
-  expect(resources.Instance.Type).toBe('AWS::EC2::Instance');
+  const slot = JSON.parse(hostTemplates(config, false).a).Resources;
+  expect(slot.Instance.Type).toBe('AWS::EC2::Instance');
   expect(resources.GatewayTask.Properties.ContainerDefinitions).toHaveLength(3);
   expect(resources.GuardDutyEndpoint).toBeUndefined();
   expect(resources.GuardDutySecurityGroup).toBeUndefined();
-  expect(resources.Instance.DependsOn).not.toContain('GuardDutyEndpoint');
-  expect(resources.Instance.Properties.Tags).not.toContainEqual({ Key: 'GuardDutyManaged', Value: 'true' });
+  expect(slot.Instance.Properties.Tags).not.toContainEqual({ Key: 'GuardDutyManaged', Value: 'true' });
   const policies = Object.values(resources).filter((r: any) => r.Type === 'AWS::IAM::Policy');
   expect(JSON.stringify(policies)).not.toMatch(/ssm:GetManifest|ssm:DescribeDocument|ssm:GetDocument/);
 });

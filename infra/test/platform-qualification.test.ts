@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { imageArtifacts } from '../lib/image-artifacts.js';
 import { qualifiedOs, qualifyNativePlatform } from '../lib/platform-qualification.js';
 import type { QualifiedImage } from '../lib/releases/image-publication.js';
-import type { StackObservation } from '../lib/releases/stack-action.js';
+import type { StackObservation } from '../lib/releases/runtime-identity.js';
 
 function fixture() {
   const hash = `sha256:${'a'.repeat(64)}`, child = `sha256:${'b'.repeat(64)}`;
@@ -14,10 +14,16 @@ function fixture() {
 it('reuses native evidence only for identical platform inputs and runtime manifests', () => {
   const f = fixture(); const proof = qualifyNativePlatform(f.images, f.actual, f.at);
   expect(qualifiedOs(f.images, proof)?.compatibleVersions).toEqual(['1.65.0']);
+  expect(qualifiedOs(f.images, proof)?.targetVersion).toBe('1.65.0');
   f.images.bootstrap.imageId = `sha256:${'d'.repeat(64)}`; // An outer provenance index can change around identical executed bytes.
   expect(qualifiedOs(f.images, proof)).toEqual(proof.os);
   f.images.bootstrap.runtimeDigest = `sha256:${'e'.repeat(64)}`;
   expect(qualifiedOs(f.images, proof)).toBeUndefined();
+});
+it('requires a selected qualified OS rather than choosing a new AMI independently in each region', () => {
+  const f = fixture(); const proof = qualifyNativePlatform(f.images, f.actual, f.at);
+  proof.os.targetVersion = '9.0.0'; expect(qualifiedOs(f.images, proof)).toBeUndefined();
+  delete proof.os.targetVersion; expect(qualifiedOs(f.images, proof)).toBeUndefined();
 });
 it('refuses stale boot evidence, mismatched candidates and unrecorded local builds', () => {
   const f = fixture(); expect(qualifiedOs(f.images)).toBeUndefined();

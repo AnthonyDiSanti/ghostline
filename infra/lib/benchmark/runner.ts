@@ -1,3 +1,4 @@
+import { regionalOutputs } from '../regional-hosts.js';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -7,7 +8,7 @@ import { ECRClient } from '@aws-sdk/client-ecr';
 import { getDeployment, validateDeployment, type DeploymentConfig } from '../config.js';
 import { EcrRegistry, readRelease } from '../releases/registry.js';
 import { releaseRepository, releaseSelector, repository } from '../releases/model.js';
-import { componentMatches } from '../releases/stack-action.js';
+import { componentMatches } from '../releases/runtime-identity.js';
 import { applicationArtifacts } from '../image-artifacts.js';
 import { lifecycleStore } from '../lifecycle-operator.js';
 import { cleanupBenchmarkClients, prepareBenchmarkCleanup } from './cleanup.js';
@@ -148,7 +149,7 @@ export async function runBenchmark(action: string, input: string): Promise<void>
     localNetwork();
     await cloud.cli('ecs', [config.id, 'profiles']);
     const stack = aws(config.region, ['cloudformation', 'describe-stacks', '--stack-name', config.stackName]).Stacks[0];
-    const outputs: Record<string, string> = Object.fromEntries(stack.Outputs.map((o: any) => [o.OutputKey, o.OutputValue]));
+    const outputs = regionalOutputs(config, Object.fromEntries(stack.Outputs.map((o: any) => [o.OutputKey, o.OutputValue])), args => aws(config.region, args));
     const images = deployedClientImages(config, outputs, args => aws(config.region, args));
     const current = await readRelease(registry(config.region), releaseRepository, releaseSelector);
     if (current?.digest !== selected!.digest) throw new Error('Regional release changed during measurement.');

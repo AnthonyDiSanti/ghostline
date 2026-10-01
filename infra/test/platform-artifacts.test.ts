@@ -7,7 +7,7 @@ it('uses separate explicit build contexts for bootstrap authority and steady-sta
   expect(applicationArtifacts).toEqual(['xray', 'awg', 'gateway-config']);
   const bootstrap = releaseFiles('bootstrap');
   const daemon = releaseFiles('network-daemon');
-  expect(Object.keys(daemon).sort()).toEqual(['Dockerfile', 'daemon.py', 'discovery.py', 'guard.py', 'network.py']);
+  expect(Object.keys(daemon).sort()).toEqual(['Dockerfile', 'daemon.py', 'discovery.py', 'guard.py', 'network.py', 'readiness.py']);
   for (const name of ['bootstrap.py', 'storage.py', 'boot_observation.py', 'host_support.py', 'diagnostics.py', 'isolation.py', 'network-probe.py']) {
     expect(bootstrap[name]).toBeDefined();
     expect(daemon[name]).toBeUndefined();
@@ -26,5 +26,11 @@ it('rejects unsafe existing RAM mounts during bootstrap replay', () => {
 
 it('records actual local image identity and keeps observation out of the boot safety gate', () => {
   const result = spawnSync('python3', ['-B', new URL('./fixtures/bootstrap-observation.py', import.meta.url).pathname], { encoding: 'utf8' });
+  expect(result.status, result.stderr).toBe(0);
+});
+
+it('verifies either host slot and rejects ambiguous diagnostic daemon identities', () => {
+  // Slot B uses a distinct family even though the restricted daemon container has the same name.
+  const result = spawnSync('python3', ['-B', new URL('./fixtures/daemon-diagnostics.py', import.meta.url).pathname], { encoding: 'utf8' });
   expect(result.status, result.stderr).toBe(0);
 });

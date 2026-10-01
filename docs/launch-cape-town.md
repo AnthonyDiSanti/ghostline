@@ -9,6 +9,10 @@ Last active deployment: one official ECS-3 Bottlerocket ARM64 `t4g.small`, versi
 | Xray | `16.28.130.178` | `eipalloc-09b530775698d23bb` | `10.79.0.11` |
 | AWG | `15.240.94.162` | `eipalloc-0d22c628c5fde384e` | `10.79.0.10` |
 
+## Blue-green architecture adoption while parked — 2026-09-28
+
+The release controller and shared endpoint recipe now support native headless blue-green host replacement. Migration did not launch a host or change either endpoint/credential. Fresh parked CDK diff was empty; inventory confirms zero hosts/disks, two original unassociated EIPs and lifecycle `parked`. Controller concurrency is one and invokers are restored. Historical image identities moved into `runtime/images` so retention protects the last observed parked release without inventing a host-slot generation. The next explicit unpark uses the current coherent regional release and the common slot architecture.
+
 ## Parked — 2026-09-27
 
 Anthony requested parking Cape Town after the regional benchmarks. Normal `npm run park cape-town` completed through lifecycle exclusion and a fresh scoped CDK diff. The gateway, daemon, host, both encrypted disks and dedicated networking are removed. Both original EIPs remain allocated and unassociated; regional credentials, all six release/component repositories and release support remain. Persistent lifecycle intent is `parked`, so image arrivals do not reactivate the gateway. It is unavailable to clients until explicitly unparked.
@@ -19,7 +23,7 @@ Restore from `infra/` with `npm run ecs cape-town unpark`; existing client endpo
 
 Cape Town migrated first through the normal retained-IP park/unpark path after central Ireland qualification. Both original allocations/endpoints and every preexisting `/ghostline/prod/` parameter version/timestamp match the captured baseline. Actual bootstrap, daemon and application digests match the complete local release. Existing profiles require no edits.
 
-Both encrypted REALITY/AWG HTTPS probes pass through the original EIPs with direct Mac en0 routes. Private read-only RAM, absent engine secret environments, configuration hashes, memory and bridge isolation pass; diagnostics/admin are disabled and GuardDuty v1.17.1 is HEALTHY. The official OS remains subject to the explicitly accepted #1059 startup limitation and bounded controlled-boot recovery; it is not a patched OS. [Qualification](bottlerocket-trial.md), [policy](platform.md).
+Both encrypted REALITY/AWG HTTPS probes pass through the original EIPs with direct Mac en0 routes. Private read-only RAM, absent engine secret environments, configuration hashes, memory and bridge isolation pass; diagnostics/admin are disabled and GuardDuty v1.17.1 is HEALTHY. The official OS remains subject to the explicitly accepted #1059 startup limitation (the then-current bounded controlled-boot recovery is now retired); it is not a patched OS. [Qualification](bottlerocket-trial.md), [policy](platform.md).
 
 Evidence: `.local/coordinated-release/september26-cape-town-continuity.json`, `.local/deployments/cape-town/ecs/`, and `/private/tmp/ghostline-september26-cape-clients.log`. Stockholm migration and legacy-resource retirement are tracked independently in the handoff.
 

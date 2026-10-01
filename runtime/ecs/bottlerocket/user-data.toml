@@ -12,6 +12,11 @@ reserved-memory = @@RESERVED_MEMORY@@
 allow-privileged-containers = false
 logging-drivers = ["json-file"]
 
+[settings.ecs.instance-attributes]
+ghostline_slot = "@@SLOT@@"
+# Recovery must not depend on a controller restoring a transient placement attribute after reboot.
+ghostline_candidate = "eligible"
+
 [settings.host-containers.admin]
 enabled = false
 

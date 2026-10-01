@@ -6,22 +6,24 @@ import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { deploymentIds, getDeployment, type DeploymentConfig } from '../lib/config.js';
 import { deploymentCommand } from '../lib/commands.js';
-import { assertStartReady } from '../lib/releases/gate.js';
-import { operatorGate } from '../lib/releases/operator.js';
-import { prepareEcsRemoval } from '../lib/ecs-power.js';
-import { bottlerocketOs, verifyOfficialBottlerocketImage } from '../lib/bottlerocket-os.js';
+import { readiness } from '../lib/releases/gate.js';
+import { operatorGate, registry } from '../lib/releases/operator.js';
+import type { Rollout } from '../lib/releases/blue-green.js';
+import { assertNativeDeploymentSettled, removeRegionalHosts } from '../lib/host-slot-lifecycle.js';
+import { verifyOfficialBottlerocketImage } from '../lib/bottlerocket-os.js';
 import { assertInstanceMemory } from '../lib/ecs-memory.js';
-import { assertHostPlatform } from '../lib/platform-lifecycle.js';
 
 const infraDir = fileURLToPath(new URL('../', import.meta.url));
 
 function aws(config: DeploymentConfig, args: string[], region = config.region) {
   // Only nonsecret metadata is queried here; argument arrays avoid shell interpolation.
-  return JSON.parse(execFileSync('aws', ['--profile', 'personal', '--region', region, ...args, '--output', 'json'],
-    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }));
+  const output = execFileSync('aws', ['--profile', 'personal', '--region', region, ...args, '--output', 'json'],
+    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
+  // Successful waiters and several mutations return no body; they still completed successfully.
+  return output.trim() ? JSON.parse(output) : {};
 }
 
-function preflight(config: DeploymentConfig) {
+async function preflight(config: DeploymentConfig) {
   // Fail before diff/deploy if regional prerequisites or the operator's account do not match.
   const identity = aws(config, ['sts', 'get-caller-identity'], 'eu-central-1');
   if (identity.Account !== config.account) throw new Error('AWS profile account does not match deployment.');
@@ -30,7 +32,10 @@ function preflight(config: DeploymentConfig) {
   if (!['opted-in', 'opt-in-not-required'].includes(status)) {
     throw new Error(`${config.region} is not enabled yet (${status}). Enable it explicitly and wait before retrying.`);
   }
-  const channel = bottlerocketOs.latestImageParameter.replace(/\/image_id$/, '');
+  const selectedRelease = await readiness(registry(config.region));
+  const version = selectedRelease.current?.release.os.targetVersion;
+  if (!selectedRelease.ready || !version) throw new Error('Preflight requires a complete local release with a centrally qualified OS.');
+  const channel = `/aws/service/bottlerocket/aws-ecs-3/arm64/${version}`;
   const parameters = aws(config, ['ssm', 'get-parameters', '--names', `${channel}/image_id`, `${channel}/image_version`]).Parameters;
   const selected = (name: string) => parameters.find((p: any) => p.Name === `${channel}/${name}`)?.Value;
   if (!/^ami-[a-f0-9]{17}$/.test(selected('image_id') ?? '')) throw new Error('Official Bottlerocket launch channel is unavailable.');
@@ -58,15 +63,17 @@ if (action === 'list') {
     console.log(`${id}: ${config.account}/${config.region}/${config.stackName}`);
   }
 } else if (action === 'preflight') {
-  preflight(getDeployment(target));
+  await preflight(getDeployment(target));
+} else if (action === 'deploy') {
+  // Both public deployment commands use the same host preparation, lock handoff and native rollout path.
+  const child = spawnSync(process.execPath, ['--import=tsx', resolve(infraDir, 'scripts/ecs.ts'), getDeployment(target).id, 'deploy'],
+    { cwd: infraDir, stdio: 'inherit' });
+  if (child.error) throw child.error;
+  process.exitCode = child.status ?? 1;
 } else {
   const command = deploymentCommand(action ?? '', target, infraDir);
-  if (action !== 'synth') preflight(command.config);
+  if (action === 'diff') await preflight(command.config);
   const operation = async () => {
-    if (action === 'deploy') {
-      assertHostPlatform(command.config, args => aws(command.config, args));
-      await assertStartReady(operatorGate(command.config.id));
-    }
     mkdirSync(command.artifactDir, { recursive: true, mode: 0o700 });
     console.log(`Target: ${command.config.id} (${command.config.account}/${command.config.region}/${command.config.stackName})`);
     const environment = { ...process.env, GHOSTLINE_DEPLOYMENT: command.config.id, GHOSTLINE_LIFECYCLE: action === 'park' ? 'parked' : 'active' };
@@ -77,14 +84,24 @@ if (action === 'list') {
       const diff = spawnSync(process.execPath, [resolve(infraDir, 'node_modules/aws-cdk/bin/cdk'),
         ...deploymentCommand('diff', target, infraDir).args], { cwd: infraDir, stdio: 'inherit', env: environment });
       if (diff.error || diff.status !== 0) throw new Error('Park diff failed.');
-      prepareEcsRemoval(Object.fromEntries(stack.Outputs.map((item: any) => [item.OutputKey, item.OutputValue])), args => aws(command.config, args));
+      removeRegionalHosts(command.config, Object.fromEntries(stack.Outputs.map((item: any) => [item.OutputKey, item.OutputValue])), args => aws(command.config, args));
     }
     const child = spawnSync(process.execPath, [resolve(infraDir, 'node_modules/aws-cdk/bin/cdk'), ...command.args], {
       cwd: infraDir, stdio: 'inherit', env: environment,
     });
     if (child.error) throw child.error;
     if (child.status !== 0) throw new Error('Scoped CDK operation failed.');
+    if (action === 'park') {
+      // Park deliberately removes both generations. Preserve failure history without making old hooks/retries own a later activation.
+      const gate = await operatorGate(command.config.id);
+      const rollout = await gate.record<Rollout>('rollout/current');
+      if (rollout && rollout.phase !== 'retired') await gate.save({ ...rollout, phase: 'retired', version: rollout.version + 1 }, rollout);
+      await gate.progress(false);
+    }
   };
-  if (action === 'deploy' || action === 'park') await withLifecycle(command.config, action, operation, action === 'park' ? 'parked' : 'active');
+  if (action === 'park') {
+    assertNativeDeploymentSettled(command.config, args => aws(command.config, args));
+    await withLifecycle(command.config, action, operation, 'parked');
+  }
   else await operation();
 }

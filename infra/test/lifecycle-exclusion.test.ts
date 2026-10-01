@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest';
-import { claimLifecycle, completeLifecycle, coordinatedRelease, failLifecycle, type LifecycleState, type LifecycleStore } from '../lib/releases/lifecycle.js';
-function memory() {
-  let state: LifecycleState | undefined;
+import { claimLifecycle, completeLifecycle, coordinatedRelease, failLifecycle, handoffToRelease, type LifecycleState, type LifecycleStore } from '../lib/releases/lifecycle.js';
+function memory(initial = true) {
+  let state: LifecycleState | undefined = initial ? { version: 1, mode: 'active' } : undefined;
   const store: LifecycleStore = { read: async () => structuredClone(state), replace: async (next, before) => {
     if (state?.version !== before?.version) return false;
     state = structuredClone(next); return true;
@@ -16,6 +16,29 @@ it('excludes release changes throughout stop/park/destroy and preserves power in
     await completeLifecycle(store, claim);
     expect(await coordinatedRelease(store, run)).toBe('lifecycle-held'); expect(run).not.toHaveBeenCalled();
   }
+});
+it('does not activate an uninitialized region just because an image arrived', async () => {
+  const { store } = memory(false); const run = vi.fn(async () => 'already-running');
+  expect(await coordinatedRelease(store, run)).toBe('lifecycle-held'); expect(run).not.toHaveBeenCalled();
+});
+it('permits explicit failed-generation cleanup while stopped without authorizing a release or changing power intent', async () => {
+  const { store, state } = memory();
+  const claim = (await claimLifecycle(store, 'stop', 'owner', 'stopped'))!;
+  await completeLifecycle(store, claim);
+  const cleanup = vi.fn(async mode => { expect(mode).toBe('stopped'); return 'action-in-progress'; });
+  expect(await coordinatedRelease(store, cleanup, true)).toBe('action-in-progress');
+  expect(await coordinatedRelease(store, async () => 'wrong')).toBe('lifecycle-held');
+  expect(await coordinatedRelease(store, async () => 'cleaned', true)).toBe('cleaned');
+  expect(state()).toMatchObject({ mode: 'stopped' }); expect(state()?.operation).toBeUndefined();
+});
+it('hands a prepared infrastructure rollout to hooks without unlocking it for another writer', async () => {
+  const { store } = memory(); const cli = (await claimLifecycle(store, 'deploy', 'cli'))!;
+  await handoffToRelease(store, cli);
+  expect(await claimLifecycle(store, 'stop', 'other')).toBeUndefined();
+  await expect(completeLifecycle(store, cli)).rejects.toThrow('ownership changed');
+  expect(await coordinatedRelease(store, async () => 'action-in-progress')).toBe('action-in-progress');
+  expect(await coordinatedRelease(store, async () => 'complete')).toBe('complete');
+  expect(await claimLifecycle(store, 'stop', 'other')).toBeDefined();
 });
 it('holds one release across wakeups until completion and excludes a racing CLI writer', async () => {
   const { store, state } = memory();

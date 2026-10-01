@@ -1,23 +1,15 @@
 import { BatchDeleteImageCommand, DescribeImagesCommand } from '@aws-sdk/client-ecr';
 import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
-import { ECSClient } from '@aws-sdk/client-ecs';
 import type { AwsCredentialIdentityProvider } from '@smithy/types';
 import type { DeploymentConfig } from '../config.js';
 import { withLifecycle } from '../lifecycle-operator.js';
-import { artifacts, digestPattern, releaseRepository, releaseSelector, repository, repositoryArtifacts } from './model.js';
+import { releaseRepository, releaseSelector, repository, repositoryArtifacts } from './model.js';
 import { readRelease, type EcrRegistry } from './registry.js';
 import { releaseHistory } from './publication.js';
-import { observeEcsService } from './ecs-observation.js';
 import { planArtifactCleanup, type ArtifactInventory, type ArtifactReference } from './retention.js';
-import type { ActionObservation } from './stack-reconcile.js';
 import type { LifecycleState } from './lifecycle.js';
-
-export function observationReferences(actual: ActionObservation): ArtifactReference[] | undefined {
-  // A missing component means the snapshot cannot protect a complete cold-recovery set.
-  const refs = artifacts.map(name => ({ repository: repository(name), digest: name === 'bootstrap' ? actual.bootstrap?.digest
-    : name === 'network-daemon' ? actual.daemon?.digest : actual.gateway?.images[name] }));
-  return refs.every(ref => ref.digest && digestPattern.test(ref.digest)) ? refs as ArtifactReference[] : undefined;
-}
+import type { Rollout } from './blue-green.js';
+import { generationReferences, runtimeImageReferences, rolloutReferences, type RuntimeImages } from './runtime-retention.js';
 
 async function retainedRuntime(config: DeploymentConfig, credentials: AwsCredentialIdentityProvider): Promise<ArtifactReference[] | undefined> {
   const db = new DynamoDBClient({ region: config.region, credentials });
@@ -25,22 +17,18 @@ async function retainedRuntime(config: DeploymentConfig, credentials: AwsCredent
     const response = await db.send(new GetItemCommand({ TableName: 'ghostline-prod-release-attempts', Key: { id: { S: id } }, ConsistentRead: true }));
     return response.Item?.record?.S ? JSON.parse(response.Item.record.S) as T : undefined;
   };
-  const [lifecycle, stored] = await Promise.all([record<LifecycleState>('lifecycle'), record<{ at: number; observation: ActionObservation }>('host/observed')]);
+  const [lifecycle, stored, rollout] = await Promise.all([record<LifecycleState>('lifecycle'),
+    record<RuntimeImages>('runtime/images'), record<Rollout>('rollout/current')]);
   if (!lifecycle || lifecycle.operation?.kind !== 'image-retention' || !stored) return undefined;
-  const previous = observationReferences(stored.observation);
-  if (!previous) return undefined;
-  if (['stopped', 'parked'].includes(lifecycle.mode)) return previous;
-  if (lifecycle.mode !== 'active' || Date.now() - stored.at > 75 * 60_000) return undefined;
-  // The current service read catches task turnover after the last hourly bootstrap observation.
-  const ecs = new ECSClient({ region: config.region, credentials });
-  const [gateway, daemon] = await Promise.all([
-    observeEcsService(ecs, config.resourceName, `${config.resourceName}-gateway`, 'gateway'),
-    observeEcsService(ecs, config.resourceName, `${config.resourceName}-network`, 'daemon'),
-  ]);
-  if (!gateway?.stable || !daemon?.stable) return undefined;
-  const current = observationReferences({ ...stored.observation, gateway,
-    daemon: { ...daemon, digest: daemon.images['network-daemon'] } });
-  return current ? [...previous, ...current] : undefined;
+  const previous = runtimeImageReferences(stored.images), selected = rolloutReferences(rollout);
+  if (!previous || !selected) return undefined;
+  if (['stopped', 'parked'].includes(lifecycle.mode)) return [...previous, ...selected];
+  if (lifecycle.mode !== 'active' || rollout && !['complete', 'cleaned', 'retired'].includes(rollout.phase)) return undefined;
+  // Use the same fresh host/daemon/task proof as rollout selection; mutable aliases and stale hourly records are not runtime evidence.
+  const { operatorGate } = await import('./operator.js');
+  const actual = await (await operatorGate(config.id)).generation();
+  const current = actual && generationReferences(actual);
+  return current ? [...previous, ...selected, ...current] : undefined;
 }
 
 export async function pruneRegionalArtifacts(registry: EcrRegistry, credentials: AwsCredentialIdentityProvider,

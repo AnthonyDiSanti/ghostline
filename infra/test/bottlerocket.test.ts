@@ -3,6 +3,7 @@ import { Template } from 'aws-cdk-lib/assertions';
 import { describe, expect, it } from 'vitest';
 import { buildApp } from '../lib/app.js';
 import { getDeployment } from '../lib/config.js';
+import { hostTemplates } from '../lib/host-slot.js';
 import { gatewayPlatform } from '../lib/gateway-platform.js';
 const config = getDeployment('stockholm-ecs');
 const registry = `${config.account}.dkr.ecr.${config.region}.amazonaws.com`;
@@ -26,7 +27,7 @@ describe('Bottlerocket gateway boundaries', () => {
     }
     expect(task.Volumes.map((v: any) => v.Host.SourcePath)).toEqual([
       '/mnt/ghostline/config', '/mnt/ghostline/config/xray', '/mnt/ghostline/config/awg']);
-    const host = resources.find(r => r.Type === 'AWS::EC2::Instance').Properties;
+    const host = JSON.parse(hostTemplates(config, true).a).Resources.Instance.Properties;
     expect(host.BlockDeviceMappings.map((d: any) => [d.DeviceName, d.Ebs.Encrypted])).toEqual([
       ['/dev/xvda', true], ['/dev/xvdb', true]]);
     expect(resources.filter(r => r.Type === 'AWS::EC2::EIP').every(r => r.DeletionPolicy === 'Retain')).toBe(true);
@@ -60,7 +61,7 @@ describe('Bottlerocket gateway boundaries', () => {
   });
 
   it('confines the network daemon and accounts for its memory once', () => {
-    const resources = Template.fromStack(buildApp(config, { service: true, runtime: true }).stack).toJSON().Resources;
+    const resources = JSON.parse(hostTemplates(config, true).a).Resources;
     const task = resources.NetworkTask.Properties;
     expect(task.NetworkMode).toBe('host');
     expect(task.Memory).toBe('64');
@@ -77,7 +78,7 @@ describe('Bottlerocket gateway boundaries', () => {
     expect(container.DockerSecurityOptions).toEqual(['no-new-privileges']);
     expect(resources.NetworkService.Properties.SchedulingStrategy).toBe('DAEMON');
     expect(resources.NetworkService.Properties.DesiredCount).toBeUndefined();
-    expect(resources.GatewayService.DependsOn).toContain('NetworkService');
+    expect(resources.NetworkService.Properties.PlacementConstraints).toEqual([{ Type: 'memberOf', Expression: 'attribute:ghostline_slot == a' }]);
     const data = gatewayPlatform(config, true).userData;
     expect(data).toContain('reserved-memory = 602');
     expect(data).not.toContain('ghostline-network');

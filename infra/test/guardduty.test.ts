@@ -2,6 +2,7 @@ import { afterAll, expect, it, vi } from 'vitest';
 import { Template } from 'aws-cdk-lib/assertions';
 import { CloudAssembly } from 'aws-cdk-lib/cx-api';
 import { type GuardDutyClient } from '@aws-sdk/client-guardduty';
+import { hostTemplates } from '../lib/host-slot.js';
 import { buildApp } from '../lib/app.js';
 import { getDeployment } from '../lib/config.js';
 import { ensureGuardDuty, verifyGuardDuty } from '../lib/guardduty.js';
@@ -26,7 +27,7 @@ it('keeps regional settings outside both active and parked CloudFormation lifecy
     expect(app.app.synth().stacks).toHaveLength(1);
     const endpoint = Template.fromStack(app.stack).toJSON();
     if (lifecycle === 'active') {
-      expect(endpoint.Resources.Instance.Properties.Tags).toContainEqual({ Key: 'GuardDutyManaged', Value: 'true' });
+      expect(JSON.parse(hostTemplates(config, true).a).Resources.Instance.Properties.Tags).toContainEqual({ Key: 'GuardDutyManaged', Value: 'true' });
       expect(endpoint.Resources.GuardDutyEndpoint.Properties.Tags).not.toContainEqual({ Key: 'GuardDutyManaged', Value: 'true' });
     } else expect(endpoint.Resources.GuardDutyEndpoint).toBeUndefined();
   }

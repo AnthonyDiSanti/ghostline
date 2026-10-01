@@ -13,15 +13,23 @@ import network
 from host_support import ROOT, command, configuration, diagnostic_peers, prepare_tools
 
 
-def daemon_posture(config):
-    # Inspect exact runtime confinement without exposing environment values or host credential endpoints.
-    ids = command(['docker', 'ps', '--filter', f'label=com.amazonaws.ecs.task-definition-family={config["family"]}-network',
-                   '--format', '{{.ID}}']).split()
+def daemon_identity(config):
+    # Either slot may own this host. Match exact families and container name, then reject ambiguous ownership.
+    ids = []
+    for suffix in ('-network', '-network-b'):
+        ids.extend(command(['docker', 'ps', '--filter', f'label=com.amazonaws.ecs.task-definition-family={config["family"]}{suffix}',
+                            '--filter', 'label=com.amazonaws.ecs.container-name=network', '--format', '{{.ID}}']).split())
     if len(ids) != 1:
         raise RuntimeError('Expected one network daemon')
-    data = json.loads(command(['docker', 'inspect', '--format', '{{json .HostConfig}}', ids[0]]))
-    mounts = json.loads(command(['docker', 'inspect', '--format', '{{json .Mounts}}', ids[0]]))
-    pid = int(command(['docker', 'inspect', '--format', '{{.State.Pid}}', ids[0]]))
+    return ids[0]
+
+
+def daemon_posture(config):
+    # Inspect exact runtime confinement without exposing environment values or host credential endpoints.
+    daemon = daemon_identity(config)
+    data = json.loads(command(['docker', 'inspect', '--format', '{{json .HostConfig}}', daemon]))
+    mounts = json.loads(command(['docker', 'inspect', '--format', '{{json .Mounts}}', daemon]))
+    pid = int(command(['docker', 'inspect', '--format', '{{.State.Pid}}', daemon]))
     status = dict(line.split(':', 1) for line in Path(f'/proc/{pid}/status').read_text().splitlines() if ':' in line)
     label = Path(f'/proc/{pid}/attr/current').read_text().strip()
     if data['Privileged'] or not data['ReadonlyRootfs'] or data['NetworkMode'] != 'host' or data['PidMode']:
@@ -32,7 +40,7 @@ def daemon_posture(config):
         raise RuntimeError('Daemon kernel confinement differs')
     if ':container_t:' not in label:
         raise RuntimeError('Daemon SELinux confinement differs')
-    if command(['docker', 'inspect', '--format', '{{.State.Health.Status}}', ids[0]]) != 'healthy':
+    if command(['docker', 'inspect', '--format', '{{.State.Health.Status}}', daemon]) != 'healthy':
         raise RuntimeError('Network daemon is not healthy')
     return {'capabilities': ['NET_ADMIN', 'NET_RAW'], 'hostMounts': False, 'hostPid': False, 'seccomp': True,
             'noNewPrivileges': True, 'selinuxLabel': label, 'healthy': True}

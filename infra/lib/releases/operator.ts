@@ -14,13 +14,14 @@ import { EventBridgeClient } from '@aws-sdk/client-eventbridge';
 import { LambdaClient, GetFunctionConfigurationCommand } from '@aws-sdk/client-lambda';
 import { fromIni } from '@aws-sdk/credential-providers';
 import { catalogPath, deploymentIds, getDeployment, getPublication } from '../config.js';
-import { AwsStackGate } from './aws-stack.js';
+import { AwsBlueGreen } from './aws-blue-green.js';
+import { retryObservations } from './clients.js';
 import { EcrRegistry, copyImage, readRelease } from './registry.js';
 import { artifacts, releaseRepository, repository, repositoryPrefix, releaseSelector } from './model.js';
 import { EcrReplicationCluster, replicationRulesEqual, type PublicationProfile, type ReplicationRule } from './topology.js';
 import { applyPromotion, cleanPublicationProtection, releaseHistory } from './publication.js';
 import { pruneRegionalArtifacts } from './retention-operator.js';
-import { withLifecycle } from '../lifecycle-operator.js';
+import { withLifecycle, type LifecycleControl } from '../lifecycle-operator.js';
 
 export const root = fileURLToPath(new URL('../../../', import.meta.url));
 export const profilePath = catalogPath;
@@ -49,7 +50,7 @@ export function persistPublication(profile: PublicationProfile): void {
   writeFileSync(profilePath, JSON.stringify(json, null, 2) + '\n');
 }
 
-export async function deployReleaseRegion(region: string, automation = true): Promise<void> {
+export async function deployReleaseRegion(region: string, automation = true, lifecycle?: LifecycleControl): Promise<void> {
   // Independent account protection precedes any regional audit-producer migration.
   await accountAudit(account, region);
   const endpoint = deploymentIds.map(getDeployment).find(config => config.region === region);
@@ -72,7 +73,7 @@ export async function deployReleaseRegion(region: string, automation = true): Pr
     } catch (error) { if ((error as Error).name !== 'ResourceNotFoundException') throw error; }
   }
   // Existing controllers/CLI must agree on exclusion. Only a genuinely new region has no lifecycle store yet.
-  if (endpoint && existing) await withLifecycle(endpoint, 'release-infrastructure', deploy);
+  if (endpoint && existing && !lifecycle) await withLifecycle(endpoint, 'release-infrastructure', deploy);
   else await deploy();
 }
 
@@ -132,14 +133,19 @@ export async function seedRegion(source: EcrRegistry, target: EcrRegistry): Prom
   await applyPromotion(target, manifest!);
 }
 
-export function operatorGate(target: string): AwsStackGate {
+export async function operatorGate(target: string): Promise<AwsBlueGreen> {
   const config = getDeployment(target);
   const options = { region: config.region, credentials, maxAttempts: 1 };
-  // CLI observations share the same fixed read-only host document and exact physical ownership contract.
-  return new AwsStackGate(registry(config.region), { stack: config.stackName, cluster: config.resourceName,
-    service: `${config.resourceName}-gateway`, daemon: `${config.resourceName}-network`,
-    table: 'ghostline-prod-release-attempts', topic: `arn:aws:sns:${config.region}:${account}:ghostline-prod-release-alerts`,
-    observerDocument: 'GhostlineObserveHost', progressRule: 'ghostline-prod-release-progress' },
-  { cfn: new CloudFormationClient(options), ec2: new EC2Client(options), ecs: new ECSClient(options),
-    db: new DynamoDBClient(options), ssm: new SSMClient(options), sns: new SNSClient(options), events: new EventBridgeClient(options) }, 'active');
+  // Use the immutable template coordinates actually deployed with the controller, never an unuploaded local filename.
+  const deployed = await new LambdaClient(options).send(new GetFunctionConfigurationCommand({ FunctionName: 'ghostline-prod-release-gate' }));
+  const env = deployed.Environment?.Variables;
+  if (!env?.SLOT_TEMPLATES || !env.SLOT_ROLE || !env.OWNER_TAGS || env.ENDPOINT_STACK !== config.stackName || env.ACCOUNT !== config.account) {
+    throw new Error('Deploy the blue-green release infrastructure before host-slot operations.');
+  }
+  return new AwsBlueGreen({ endpoint: config.stackName, account: config.account, region: config.region, cluster: config.resourceName,
+    service: `${config.resourceName}-gateway`, table: 'ghostline-prod-release-attempts', topic: env.TOPIC!,
+    observerDocument: env.OBSERVER_DOCUMENT!, progressRule: env.PROGRESS_RULE!, templates: JSON.parse(env.SLOT_TEMPLATES),
+    role: env.SLOT_ROLE, tags: JSON.parse(env.OWNER_TAGS) },
+    { cfn: retryObservations(new CloudFormationClient(options)), ec2: retryObservations(new EC2Client(options)), ecs: retryObservations(new ECSClient(options)),
+      db: retryObservations(new DynamoDBClient(options)), ssm: retryObservations(new SSMClient(options)), sns: new SNSClient(options), events: new EventBridgeClient(options) }, registry(config.region), 'active');
 }

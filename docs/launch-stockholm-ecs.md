@@ -2,7 +2,7 @@
 
 Primary target `stockholm-ecs`; profile `personal`; account `757999402784`; region `eu-north-1`, AZ `eu-north-1a`. Endpoint stack `GhostlineEcsTrial`, release repositories `GhostlineRelease`, resource prefix `ghostline-ecs-stockholm`. These are stable cloud identities for the common [gateway recipe](ecs.md).
 
-One official ECS-3 Bottlerocket ARM64 `t4g.small`, version `1.66.0-1ad6b4a4`, AMI `ami-0c0df096a3b9de91b`, encrypted 2 GiB OS and 30 GiB data disks. Current host `i-0876f4c923fb6a0d1`, ENI `eni-00ba60f36a4a0d96f`. Separate bootstrap and restricted network-daemon images use the common regional release pipeline.
+One official ECS-3 Bottlerocket ARM64 `t4g.small`, version `1.66.0-1ad6b4a4`, AMI `ami-0c0df096a3b9de91b`, encrypted 2 GiB OS and 30 GiB data disks. Current slot A host `i-0f7d1662a08973c96`, ENI `eni-0354008393055e2d9`. Separate bootstrap and restricted network-daemon images use the common regional release pipeline.
 
 | Protocol | EIP | Allocation | Private address |
 | --- | --- | --- | --- |
@@ -10,6 +10,22 @@ One official ECS-3 Bottlerocket ARM64 `t4g.small`, version `1.66.0-1ad6b4a4`, AM
 | AWG | `16.16.73.146` | `eipalloc-07627e295d844e8de` | `10.79.0.10` |
 
 Original client identities and existing primary profiles remain valid. Anthony accepted both iOS ARM64 protocols on September 15; the current recovery evidence below uses real automated clients. Mac REALITY uses OneXraySE, AWG uses Amnezia. Repeated sleep/wake remains separate in [client stability](mac-client-stability.md).
+
+## Corrected diagnostic release — 2026-09-28
+
+Release `825ab64d-1b91-4817-b859-fbac1b502002` / `sha256:09053dfcd46a0fd0fadf967df59fd3bf0fe9e5bdf9383c17a69ac3ed207a8f77` passed central image/native qualification in Ireland, including slot-B diagnostics and boot replay. Normal ECR arrival started native deployment `Uk3fI-l1RspfV0qXt2S3O`, which succeeded at 11:50:26 UTC after its five-minute bake. Both original endpoints now serve slot A above; only the diagnostic/bootstrap artifact has different runtime bytes. After native deployment started, Xray passed 269/269 probes and AWG 266/269. AWG's three handoff failures were bracketed by successful probes 29.149 seconds apart. Both protocols passed at close; this is not session-state migration or zero-downtime evidence. Source cleanup completed at 12:00:39 UTC; independent inventory confirms one host/two encrypted disks/two original allocations, unchanged credential versions/timestamps and active lifecycle intent. Reconciliation reports `already-running` and preserves the exact observed host/boot/task generation and native deployment history. The explicitly approved production security verification subsequently passed on October 1 as recorded below.
+
+## Production security closeout — 2026-10-01
+
+The maintained `ecs stockholm-ecs verify` passed on the same slot-A host after Anthony explicitly approved temporary privileged diagnostics. Both runtime configuration hashes match Parameter Store; engine-specific EIP egress, bridge isolation, private read-only tmpfs, absent engine secret environments, disabled swap and enforcing SELinux pass. The task enforces 1,126 MiB, with 602 MiB ECS reserve and 64 MiB daemon; no task OOM events were observed. GuardDuty reports HEALTHY with agent v1.17.1.
+
+The verifier's cleanup disabled diagnostics and read back diagnostic/admin containers disabled plus non-superpowered control before credential comparison and coverage checks. No reboot, release, credential change or client reconfiguration occurred. This completes blue-green closeout; no new native-device or uninterrupted-session claim is inferred. Nonsecret local evidence: `.local/blue-green/production-verify-2026-10-01.log` and `verification-2026-10-01/`.
+
+## Native blue-green adoption — 2026-09-28
+
+The first native rollout `qPLiPrBNsAYZ-TMkhNqdS` passed readiness, direct EIP handoff, five-minute observation and automatic source retirement. Slot B host `i-00cdacfcfbe4245c3`, ENI `eni-0b31b2478cee55312`, boot `3559d1f1-f051-4cc8-9fbb-ceb5824578a6` initially served the original public endpoints; private addresses are Xray `10.79.0.21` and AWG `10.79.0.20`. Gateway task definition remains revision 6. The independent inventory shows one host/two encrypted disks/two original allocations and unchanged credential parameter versions/timestamps.
+
+The exact original host resources were retained/imported into slot A before rollout; source preparation/import preserved its boot, gateway task and EIPs. The original slot-A host was retired. Both encrypted clients pass after handoff. Final privileged verification identified an obsolete daemon-family lookup on slot B; access was disabled afterward and the corrected diagnostic image subsequently passed isolated qualification and normal publication as recorded above. This first-generation check was not final runtime diagnostic acceptance. Evidence: ignored `.local/blue-green/production-migration/`, [migration record](../.context/scratch/2026-09-28-blue-green/migration.md).
 
 ## Coordinated platform release — 2026-09-26
 

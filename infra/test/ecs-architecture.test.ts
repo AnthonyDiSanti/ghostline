@@ -1,6 +1,7 @@
 import { afterAll, expect, it } from 'vitest';
 import { Template } from 'aws-cdk-lib/assertions';
 import { CloudAssembly } from 'aws-cdk-lib/cx-api';
+import { hostTemplates } from '../lib/host-slot.js';
 import { buildApp } from '../lib/app.js';
 import { getDeployment } from '../lib/config.js';
 import { assertImagePlatform } from '../lib/ecs-images.js';
@@ -13,12 +14,15 @@ it('instantiates the same ARM64 gateway in independent regions without adding li
     const config = { ...getDeployment('stockholm-ecs'), account: '000000000000',
       id: `test-${region}`, region, availabilityZone: `${region}a`, stackName: 'TestGateway', resourceName: 'test-gateway' };
     const template = Template.fromStack(buildApp(config, { service: true, runtime: true }).stack);
-    template.resourceCountIs('AWS::EC2::Instance', 1);
+    template.resourceCountIs('AWS::EC2::Instance', 0);
     template.resourceCountIs('AWS::EC2::EIP', 2);
-    template.resourceCountIs('AWS::ECS::TaskDefinition', 2);
+    template.resourceCountIs('AWS::ECS::TaskDefinition', 1);
     template.hasResourceProperties('AWS::ECS::TaskDefinition', {
       RuntimePlatform: { CpuArchitecture: 'ARM64', OperatingSystemFamily: 'LINUX' }, NetworkMode: 'bridge',
     });
+    const slot = JSON.parse(hostTemplates(config, true).b);
+    expect(slot.Resources.Instance.Type).toBe('AWS::EC2::Instance');
+    expect(slot.Resources.NetworkTask.Properties.RuntimePlatform.CpuArchitecture).toBe('ARM64');
     const policies = JSON.stringify(template.findResources('AWS::IAM::Policy'));
     expect(policies).toContain(`arn:aws:ssm:${region}:000000000000:parameter/ghostline/prod/server/`);
     expect(policies).not.toContain('ssm:PutParameter');

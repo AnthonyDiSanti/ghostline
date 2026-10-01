@@ -4,6 +4,6 @@ LABEL org.opencontainers.image.title="Ghostline network daemon" \
     org.opencontainers.image.description="Restricted ECS host networking and renewable forwarding leases; no host filesystem or secret access"
 RUN apk add --no-cache python3=3.14.7-r1 iproute2=7.0.0-r0 iptables=1.8.13-r0 \
     ipset=7.24-r0 conntrack-tools=1.4.9-r0
-COPY daemon.py discovery.py guard.py network.py /opt/ghostline/
+COPY daemon.py discovery.py guard.py network.py readiness.py /opt/ghostline/
 ENV PYTHONDONTWRITEBYTECODE=1
 ENTRYPOINT ["python3", "/opt/ghostline/daemon.py"]
