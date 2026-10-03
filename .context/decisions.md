@@ -1,5 +1,9 @@
 # Current decisions
 
+## 2026-10-03 — Accept Parameter Store and on-demand exports for recovery (Anthony)
+
+Close the recovery-strategy review. Preserve regional Parameter Store identities and export client profiles as needed; no manual LastPass backups, mandatory local archives, dedicated backup infrastructure or new emergency-reset tooling are required. Anthony accepts explicit new-identity provisioning, redeployment, device re-enrolment and downtime after total credential loss. This supersedes the October 1 options review and earlier vault-closeout requirement. Pipeline access to LastPass remains prohibited. Normal deploy does not silently generate identities; destroy retains parameters and import refuses conflicts, so identity reset is explicit operator work if disaster occurs. No secret reads, rotation, IAM/cloud changes or local-copy deletion occurred. [Current recovery contract](../docs/secrets.md#recovery-and-changes).
+
 ## 2026-09-28 — Keep direct EIPs for blue-green deployment (Anthony)
 
 Reject NLBs: roughly $39–$42 additional fixed monthly cost per active Stockholm region is too high when multiplied across exits. Preserve direct protocol EIPs and matching ingress/egress identity. Use ECS headless deployment stages with Lambda lifecycle hooks for the EIP handoff, sharing regional lifecycle exclusion and durable retry/rollback state. Keep temporary host overlap and one-host steady state. The selected ownership model was subsequently qualified and deployed: shared infrastructure retains allocations, reusable host slots own compute/network/daemon resources, and the controller journals associations. Production security closeout passed October 1 without relaxing isolation. [Plan](../docs/deployment-lifecycle.md#blue-green-deployments--direct-eips-and-ecs-lifecycle-hooks).

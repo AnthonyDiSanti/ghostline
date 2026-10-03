@@ -12,7 +12,7 @@ Ghostline gives Anthony a usable private connection from Dubai for ordinary brow
 | Protocols | Xray / VLESS / REALITY TCP 443 and independently credentialed AmneziaWG UDP 443 |
 | Clients | Off-the-shelf apps; manual protocol/exit selection |
 | Credentials | Regional Parameter Store; separate server/device values; identity-preserving rebuilds |
-| Recovery | Protected local copies and owner-mediated LastPass, with vault closeout deferred by Anthony |
+| Recovery | Regional Parameter Store and on-demand profile exports; accept new identities/device re-enrolment after total credential loss, without dedicated backups or LastPass integration |
 | IPv6 | Block client IPv6 while using an IPv4 tunnel; validate actual client/network behavior |
 | Cost | Explicit start/stop, retained-IP park and full endpoint release; keep IPs only when useful |
 

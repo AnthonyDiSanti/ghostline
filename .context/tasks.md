@@ -85,11 +85,15 @@ At major work-unit transitions and To Do reviews, check [Amnezia #2933](https://
 
 October 1 milestone recheck: #2933 remains open, last updated September 9. GitHub marks September 18 release [5.0.3.0](https://github.com/amnezia-vpn/amnezia-client/releases/tag/5.0.3.0) latest stable; its notes do not identify this deadlock fix. No fixed Mac build has been identified or locally validated.
 
+October 3 owner-requested client check: the installed macOS app, its About screen and installer receipt are already 5.0.3.0; the AWG 3.1 profile is still visible. #2933 is open, with no linked closing PR or later comment explaining a fix; the release notes say only general stability improvement. No reinstall or REALITY trial was performed. Continue using accepted OneXraySE for REALITY until a specific released repair passes a coordinated Mac trial.
+
 ## Recurring Bottlerocket release check
 
-At the same milestones, check [core-kit #1059](https://github.com/bottlerocket-os/bottlerocket-core-kit/issues/1059), [our PR #1063](https://github.com/bottlerocket-os/bottlerocket-core-kit/pull/1063) and [official releases](https://github.com/bottlerocket-os/bottlerocket/releases). Record maintainer feedback, merge status and an available ECS-3 ARM64 build containing the reviewed fix. A newer OS or closed issue is not repair evidence. The in-place recovery exception is already retired with blue-green. Keep the limitation until an official build passes isolated bootstrap replay/repeated boot/recovery and is adopted; failed green boots require diagnosis.
+At the same major work-unit transitions and To Do reviews, monitor [core-kit #1059](https://github.com/bottlerocket-os/bottlerocket-core-kit/issues/1059) together with [our PR #1063](https://github.com/bottlerocket-os/bottlerocket-core-kit/pull/1063) and [official releases](https://github.com/bottlerocket-os/bottlerocket/releases). Record dated issue feedback, PR reviews/requested changes, merge status and an available ECS-3 ARM64 build containing the reviewed fix; surface any next action for our contribution. A newer OS or closed issue is not repair evidence. The in-place recovery exception is already retired with blue-green. Keep the limitation until an official build passes isolated bootstrap replay/repeated boot/recovery and is adopted; failed green boots require diagnosis.
 
 October 1 milestone recheck: #1059 remains open and PR #1063 is open at `6a4c053`, September 28 ancestry was zero behind/two ahead of `develop` (`209347b`), so that housekeeping needed no rebase/push. October 1 metadata shows no PR comments; ancestry and reviews were not rechecked in this verification-only closeout. It retains an actual failing-before/passing-after `pullImage` integration regression and passing Go/race tests. GitHub marks v1.66.0 latest; its release predates our report and is not a verified repair. Anthony replaced the original official-fix hold with accepted startup availability risk after completed central qualification and production adoption; blue-green now replaces the earlier bounded-reboot controller. No custom OS or submodule is selected.
+
+October 3 milestone check: #1059 and PR #1063 remain open; PR head is `6a4c053`, with no reviews or new comments. Latest official Bottlerocket release remains v1.66.0. No official repair or new contribution action is identified; isolated replay/recovery qualification remains outstanding.
 
 ## Recurring IPv6 proposal and release check
 
@@ -97,13 +101,19 @@ At the same major work-unit transitions and To Do reviews, check [Bottlerocket #
 
 October 1 milestone check: owner-approved proposal remains OPEN with zero comments; submitted body was verified against the approved draft. Await maintainer feedback on API shape and repository responsibilities; implementation has not started. [Proposal and research](knowledge/bottlerocket-ipv6-upstream.md).
 
+October 3 milestone check: #4954 remains open with zero comments and no maintainer feedback. No official Docker bridge IPv6 implementation or qualification was identified; await feedback before contribution work.
+
 ## Previously completed
 
 - `15f5748`: one maintained AL2023 ARM64 shared ECS gateway architecture; Cape Town migrated with original IPs/credentials. Obsolete provisioners/targets removed. Common initializer, protocol-private RAM mounts, resource budget and unattended lifecycle validated.
 - `db5c372`: official stable image resolution, authenticated public metadata, exact-artifact encrypted compatibility/publication tests and rollout to both regions. September 20 native macOS/iPhone acceptance through both Stockholm protocols is sufficient for that rollout. [Image policy](../docs/images.md), regional launch records and handoff retain the evidence.
 
-## Owner recovery
+## Completed — Owner recovery policy, October 3
 
-Anthony deferred LastPass updates until architecture settles. Preserve private local recovery copies and regional parameters; do not repeatedly request intermediate vault saves.
+Anthony accepts regional Parameter Store plus on-demand client exports. Close the backup-strategy/LastPass-closeout task: no manual vault backups, mandatory local archives, dedicated backup infrastructure or new emergency-reset tooling are required. Total credential loss permits explicit generation/import of new matching identities, redeployment and client re-enrolment with accepted downtime. Existing deployment preserves identities; destroy retains parameters and import refuses conflicts. No actual credential reset, cloud action or local-copy deletion occurred. Pipeline access to LastPass remains prohibited. [Recovery behavior](../docs/secrets.md#recovery-and-changes).
 
 September 28 11:48 UTC blue-green qualification milestone: all three upstream watches rechecked unchanged; #2933 open/latest 5.0.3.0, #1059 and #1063 open/unmerged/latest official 1.66.0, #4954 open/no comments. No upgrade or upstream write followed.
+
+October 1 To Do review: fresh GitHub API readback confirms all three watches unchanged. Amnezia #2933 remains open (last update September 9); latest stable 5.0.3.0 has a macOS package but no identified deadlock repair. Core-kit #1059 and PR #1063 remain open/unmerged at `6a4c053`, with no PR comments/reviews; latest official Bottlerocket is v1.66.0. IPv6 #4954 remains open with zero comments and no implementation identified. No upgrade, qualification, cloud action or upstream write followed. Next selected feature work remains on-demand lifecycle planning; classic WireGuard waits until Miami and IPv6 waits for official support. The recovery review opened here was closed by the October 3 owner decision above.
+
+October 3 recovery closeout metadata recheck: all three issues remain open; #1063 is unmerged at `6a4c053` with no comments/reviews, and #4954 has zero comments. Amnezia #2933 still has five comments but its update timestamp is now October 2; latest stable releases remain Amnezia 5.0.3.0 and Bottlerocket v1.66.0. This metadata readback does not establish any repaired/qualified build. No upgrade or upstream write followed.

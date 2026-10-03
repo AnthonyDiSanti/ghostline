@@ -1,5 +1,23 @@
 # Handoff
 
+## Recovery policy closed — October 3
+
+Anthony accepts Parameter Store plus on-demand client exports, with explicit new matching identities/redeployment/device re-enrolment after total credential loss. Close LastPass/backup-strategy work; no dedicated backup infrastructure, mandatory local archives or new emergency-reset tooling is needed. Preserve pipeline exclusion from LastPass. Clarify that normal deployment does not generate credentials, destroy retains them and import refuses conflicts; reset is operator work if needed. Updated current docs/instructions and the decision/task records; prior review entries below are historical. No secret reads, cloud changes, rotation or local-copy deletion occurred. Documentation whitespace checks and 88 local link targets across seven changed Markdown files pass; no runtime suite is warranted for this documentation-only change. All three upstream watch metadata checks remain open/unmerged with stable releases unchanged; tasks records the exact readback limits. Next selected feature work remains on-demand lifecycle planning.
+
+## Amnezia Mac client check — October 3
+
+Anthony requested a configuration-preserving upgrade after an in-app reinstall notice. Live About screen and installer receipt both report 5.0.3.0; GitHub lists 5.0.3.0 as the latest stable release. The existing AWG 3.1 profile remains visible and disconnected. No reinstall, data deletion, profile export, VPN connection, sleep trial or cloud change was needed or performed. Amnezia #2933 remains open with no linked closing PR or documented fix in this release; the installed version is not a validated return to Amnezia for REALITY. Keep OneXraySE as the accepted REALITY client and continue the upstream watch. The three-watch readback is recorded in [tasks](tasks.md).
+
+## Recovery options — October 1
+
+Inspected credential import, generation helpers, profile exports and lifecycle retention without reading secret values. Infrastructure deployment consumes regional Parameter Store identities; protected copies preserve those identities after source loss, and generation is not an automatic production recovery path. Anthony prefers avoiding manual LastPass backups and prohibits pipeline access to LastPass. Replace the old vault-closeout requirement with recovery-strategy review; current [options and failure behavior](../docs/secrets.md#recovery-and-changes) are documented, with no backup design selected, secret rotation or cloud action. AGENTS.md now records the preference so future work does not reinstate the manual vault requirement.
+
+## To Do review — October 1
+
+Read the current tasks/decisions and completed blue-green closeout, then refresh all three upstream watches through GitHub API readback. No new fix or maintainer feedback changes the queue; [tasks](tasks.md) records the results. Next selected work is on-demand lifecycle planning; scheduled cloud builds and optional security/product evaluations remain separate, classic WireGuard waits for Miami, IPv6 waits for official support, and LastPass closeout remains owner-deferred. Documentation-only review; no runtime/cloud changes, staging or commit.
+
+Anthony reaffirmed monitoring core-kit issue #1059 with associated PR #1063 and our Bottlerocket Docker bridge IPv6 proposal #4954. Make the issue/PR pairing explicit in AGENTS.md and track dated feedback/requested changes and contribution next actions in tasks.md. Preserve the existing milestone/To Do cadence and official-release qualification requirements; no background schedule was requested or created.
+
 ## Commit-prep — October 1
 
 Reviewed the entire dirty blue-green work unit, including untracked implementation/tests and the earlier current-network acceptance closeout. Reconciled stale migration/decision wording with completed production evidence. Fresh targeted checks pass 31 tests; the full Node 24 gate passes 396 tests/67 files, typecheck, fixture syntax/ShellCheck/Hadolint and offline synthesis. The approved Stockholm security verifier passed immediately before prep with diagnostic/admin lockdown and HEALTHY GuardDuty. No image build, qualification stamp, publication or deployment was performed during prep; the producer-owned qualification record is unchanged. The index remains unchanged and empty. No commit blocker; known upstream startup/IPv6 limitations remain tracked, and next work is on-demand lifetime planning.
