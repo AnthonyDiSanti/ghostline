@@ -4,7 +4,8 @@ import { isIPv4 } from 'node:net';
 
 export interface NetworkObservation {
   healthy: boolean;
-  peers: Partial<Record<'xray' | 'awg', { id: string; ip: string; task: string; started: string; restarts: number }>>;
+  peers: Partial<Record<'xray' | 'awg' | 'dns-policy',
+    { id: string; ip: string; task: string; started: string; restarts: number }>>;
 }
 
 export interface HostObservation {
@@ -37,7 +38,7 @@ function parseNetworkObservation(value: unknown): NetworkObservation | undefined
   if (value === undefined || value === null) return undefined;
   const report = value as NetworkObservation & { schema: number };
   if (report.schema !== 1 || typeof report.healthy !== 'boolean' || !report.peers || Array.isArray(report.peers)
-    || Object.keys(report.peers).some(name => !['xray', 'awg'].includes(name))
+    || Object.keys(report.peers).some(name => !['xray', 'awg', 'dns-policy'].includes(name))
     || (!report.healthy && Object.keys(report.peers).length)) throw new Error('Network observation is malformed.');
   for (const peer of Object.values(report.peers)) {
     if (!peer || !/^[a-f0-9]{64}$/.test(peer.id) || !isIPv4(peer.ip)

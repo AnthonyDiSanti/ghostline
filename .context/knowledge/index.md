@@ -10,6 +10,8 @@ Consult before infrastructure/vendor work. Current behavior belongs in `docs/`; 
 - [Account CloudTrail](../../docs/cloudtrail.md) — discover/reuse organization/shadow coverage, preserve external ownership, converge on a finite-retention neutral baseline; shared migration verified live.
 - [GuardDuty](../../docs/guardduty.md) — live service/telemetry discovery, accepted capability gaps, enable-only defaults, tagged enrollment and bounded coverage checks.
 - [On-demand lifecycle research](on-demand-lifecycle.md) — protocol presence limits, exact-version Xray/AWG signals, renewable leases, controller strategies and reporting/IAM tradeoffs; proposal only.
+- [Retired Tor access research](tor-integration.md) — historical hostname and browser limits behind the abandoned gateway Tor experiment; current behavior is in [DNS](../../docs/dns.md).
+- [Shared upstream DNS assessment](dns-forwarder.md) — historical trial proof, existing EIP reuse and CoreDNS/Unbound comparison behind the selected resolver.
 - [Regional lifecycle](../../docs/deployment-lifecycle.md) — retention/release ownership, EIP adoption, GuardDuty-created deletion dependencies, publisher aliases across regions and optional expiration questions.
 - [Image provenance and policy](../../docs/images.md) — stable build resolution, official Xray mirror, native AWG source build, exact-artifact publication tests and provenance limits.
 - [ECR placement, cost and retention](ecr-placement.md) — live inventory, completed cleanup, full regional price CSV, proposed reusable publisher pair, retention and regional-outage/cache limits.

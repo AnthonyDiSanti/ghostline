@@ -8,3 +8,8 @@ export function slotAddresses(slot: HostSlot) {
   // Each host retains a protocol-private source pair while public addresses move between hosts.
   return slot === 'a' ? { awg: '10.79.0.10', xray: '10.79.0.11' } : { awg: '10.79.0.20', xray: '10.79.0.21' };
 }
+
+export function slotPrimaryAddress(slot: HostSlot): string {
+  // DNS egress follows the ENI's primary address even if its protocol assignment changes later.
+  return slotAddresses(slot).awg;
+}

@@ -17,12 +17,14 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { NotificationRegistry, ParameterEmailSubscription } from '@ghostline/aws-notifications';
 import { repositoryArtifacts, lifecyclePolicy, repository, type RepositoryArtifact } from './model.js';
 import { imageArrivalPattern, imageAliasPattern } from './events.js';
+import type { ReleaseAutomationMode } from './automation.js';
 
 import { gateName, hookName, tableName, emailParameter, observerDocumentName, progressRuleName, assetBucketName } from './names.js';
 export * from './names.js';
 import { rolloutInfrastructure } from './rollout-infrastructure.js';
 import { hostSlots, slotStackName, daemonServiceName } from '../host-slot-model.js';
 import type { DeploymentConfig } from '../config.js';
+import type { PlatformImageInputs } from '../gateway-platform.js';
 
 export class ReleaseAssetsStack extends Stack {
   constructor(scope: Construct, id: string, props: StackProps & { tags: Record<string, string> }) {
@@ -54,7 +56,8 @@ export class ImageDistribution extends Construct {
 
 export class RegionalReleaseStack extends Stack {
   readonly repositories: Record<RepositoryArtifact, ecr.IRepository>;
-  constructor(scope: Construct, id: string, props: StackProps & { deployment?: DeploymentConfig; guardDuty?: boolean; automation: boolean; tags: Record<string, string> }) {
+  constructor(scope: Construct, id: string, props: StackProps & { deployment?: DeploymentConfig; guardDuty?: boolean;
+    automation: ReleaseAutomationMode; tags: Record<string, string>; candidatePlatformImages?: PlatformImageInputs }) {
     super(scope, id, { ...props, synthesizer: props.deployment ? new CliCredentialsStackSynthesizer({
       fileAssetsBucketName: assetBucketName(props.env!.account!, props.env!.region!),
     }) : new LegacyStackSynthesizer() });
@@ -87,10 +90,11 @@ export class RegionalReleaseStack extends Stack {
       deadLetterQueue: deadLetters, logGroup: new logs.LogGroup(this, 'Logs', { retention: logs.RetentionDays.ONE_WEEK, removalPolicy: RemovalPolicy.RETAIN }),
       bundling: { minify: true, externalModules: [] },
       environment: { ACCOUNT: this.account, CLUSTER: cluster, SERVICE: service, TABLE: table.tableName,
-        TOPIC: topic.topicArn, ENDPOINT_STACK: config.stackName,
+        TOPIC: topic.topicArn, ENDPOINT_STACK: config.stackName, DNS_REQUIRED: config.dnsRequired ? 'true' : 'false',
         OBSERVER_DOCUMENT: observer.ref, PROGRESS_RULE: progressRuleName,
-        LIFECYCLE_SCHEMA: '1', AUTOMATION: props.automation ? 'enabled' : 'disabled' } });
-    const rollout = rolloutInfrastructure(this, handler, config, props.guardDuty);
+        LIFECYCLE_SCHEMA: '1', AUTOMATION: props.automation === 'active' ? 'enabled' : 'disabled',
+        OPERATOR_ONLY: props.automation === 'manual' ? 'enabled' : 'disabled' } });
+    const rollout = rolloutInfrastructure(this, handler, config, props.guardDuty, props.candidatePlatformImages);
     handler.addEnvironment('SLOT_TEMPLATES', rollout.templates);
     handler.addEnvironment('SLOT_ROLE', rollout.role);
     handler.addEnvironment('OWNER_TAGS', rollout.tags);
@@ -131,9 +135,9 @@ export class RegionalReleaseStack extends Stack {
     // This is continuation of an accepted action/observation, not minute-by-minute release reconciliation while idle.
     new events.Rule(this, 'Progress', { ruleName: progressRuleName, enabled: false,
       schedule: events.Schedule.rate(Duration.minutes(1)), targets: [target] });
-    new events.Rule(this, 'Arrivals', { enabled: props.automation, eventPattern: imageArrivalPattern, targets: [target] });
-    new events.Rule(this, 'AliasUpdated', { enabled: props.automation, eventPattern: imageAliasPattern, targets: [target] });
-    new events.Rule(this, 'Hourly', { enabled: props.automation, schedule: events.Schedule.rate(Duration.hours(1)), targets: [target] });
+    new events.Rule(this, 'Arrivals', { enabled: props.automation === 'active', eventPattern: imageArrivalPattern, targets: [target] });
+    new events.Rule(this, 'AliasUpdated', { enabled: props.automation === 'active', eventPattern: imageAliasPattern, targets: [target] });
+    new events.Rule(this, 'Hourly', { enabled: props.automation === 'active', schedule: events.Schedule.rate(Duration.hours(1)), targets: [target] });
     new events.Rule(this, 'DeploymentCompleted', { eventPattern: { source: ['aws.ecs'], detailType: ['ECS Deployment State Change'],
       resources: [serviceArn, ...daemonArns], detail: { eventName: ['SERVICE_DEPLOYMENT_COMPLETED'] } }, targets: [target] });
     const failed = new events.Rule(this, 'DeploymentFailure', { eventPattern: { source: ['aws.ecs'], detailType: ['ECS Deployment State Change'],

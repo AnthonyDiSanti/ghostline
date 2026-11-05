@@ -15,6 +15,14 @@ it('reuses already-published exact qualified bytes without a rebuild or a push',
   const result = await publishQualifiedImage(f.registry, 'test/bootstrap', 'bootstrap', { imageId, buildTag: releaseTag('bootstrap') }, f.docker);
   expect(result.digest).toBe(f.manifest.digest); expect(f.docker).not.toHaveBeenCalled();
 });
+it('accepts a DNS candidate only when its own tested source tag matches', async () => {
+  const f = fixture();
+  const selected = await publishQualifiedImage(f.registry, 'test/dns-policy', 'dns-policy',
+    { imageId, buildTag: releaseTag('dns-policy') }, f.docker);
+  expect(selected).toMatchObject({ repository: 'test/dns-policy', digest: f.manifest.digest });
+  expect(f.get).toHaveBeenCalledWith('test/dns-policy', `sha-${imageId.slice(7)}`);
+  expect(f.docker).not.toHaveBeenCalled();
+});
 it('rejects stale source qualification before touching the registry', async () => {
   const f = fixture();
   await expect(publishQualifiedImage(f.registry, 'test/bootstrap', 'bootstrap', { imageId, buildTag: 'old' }, f.docker)).rejects.toThrow('Qualification');

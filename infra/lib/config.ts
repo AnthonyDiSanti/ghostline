@@ -20,6 +20,8 @@ export interface DeploymentConfig {
   instanceType: string;
   dataVolumeGiB: number;
   globalTags: Record<string, string>;
+  dnsRequired?: boolean;
+  parameterPrefix?: string;
 }
 
 export function validateGlobalTags(tags: Record<string, string>): Record<string, string> {
@@ -70,9 +72,15 @@ export function validateDeployment(config: DeploymentConfig): DeploymentConfig {
     || !Number.isInteger(config.dataVolumeGiB) || config.dataVolumeGiB < 30) {
     throw new Error('Deployment requires a supported t4g instance and at least 30 GiB.');
   }
+  if (config.dnsRequired !== undefined && typeof config.dnsRequired !== 'boolean') {
+    throw new Error('DNS migration setting must be a boolean.');
+  }
+  if (config.parameterPrefix !== undefined && !/^\/ghostline\/(?:prod|trial\/[a-z0-9-]+)$/.test(config.parameterPrefix)) {
+    throw new Error('Invalid credential parameter prefix.');
+  }
   // Reject unsupported configuration instead of retaining an implicit alternative deployment mode.
   const fields = new Set(['id', 'stackName', 'resourceName', 'account', 'region', 'availabilityZone',
-    'instanceType', 'dataVolumeGiB', 'globalTags']);
+    'instanceType', 'dataVolumeGiB', 'globalTags', 'dnsRequired', 'parameterPrefix']);
   if (Object.keys(config).some(key => !fields.has(key))) throw new Error('Unknown deployment configuration field.');
   return { ...config, globalTags: validateGlobalTags(config.globalTags) };
 }

@@ -11,6 +11,23 @@ it('retains a complete parked image snapshot without inventing host or slot iden
   expect(runtimeImageReferences(images)).toBeUndefined();
   images.bootstrap = 'keep-production';
   expect(runtimeImageReferences(images)).toBeUndefined();
+  images.bootstrap = digest('bootstrap'); images.unexpected = digest('unexpected');
+  expect(runtimeImageReferences(images)).toBeUndefined();
+});
+
+it('protects a six-image parked runtime and a v3 blue during a v4 rollout', () => {
+  // A DNS-enabled source and mixed-schema overlap must keep both exact image sets through cleanup.
+  const oldImages = Object.fromEntries(artifacts.map(name => [name, digest(`old-${name}`)]));
+  const newImages = { ...oldImages, 'dns-policy': digest('new-dns') };
+  expect(runtimeImageReferences(newImages)).toContainEqual({ repository: repository('dns-policy'), digest: newImages['dns-policy'] });
+  const intent = { schemaVersion: 4, images: Object.fromEntries(Object.keys(newImages).map(name => [name, {
+    repository: repository(name as keyof typeof newImages), digest: digest(`new-${name}`), runtimeDigest: digest(`child-${name}`),
+  }])) } as Release;
+  const rollout = { phase: 'held', source: { images: oldImages }, intent, release: digest('v4-document') } as Rollout;
+  const protectedSet = rolloutReferences(rollout)!;
+  expect(protectedSet).toHaveLength(18);
+  expect(protectedSet).toContainEqual({ repository: repository('dns-policy'), digest: intent.images['dns-policy']!.digest });
+  expect(protectedSet).toContainEqual({ repository: repository('xray'), digest: oldImages.xray });
 });
 
 it('protects both host generations and the held document beyond the MRU window', () => {

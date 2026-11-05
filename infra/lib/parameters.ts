@@ -7,11 +7,18 @@ import type { DeploymentConfig } from './config.js';
 
 export interface CredentialParameter { name: string; value: string; system: string }
 
-export const serverParameterNames = ['xray', 'awg'].map(protocol => `/ghostline/prod/server/${protocol}`);
+export function serverParameterNamesFor(prefix = '/ghostline/prod'): string[] {
+  // Keep metadata preflight and task secret references in the same validated namespace.
+  if (!/^\/ghostline\/(?:prod|trial\/[a-z0-9-]+)$/.test(prefix)) throw new Error('Invalid credential parameter prefix.');
+  return ['xray', 'awg'].map(protocol => `${prefix}/server/${protocol}`);
+}
 
-export function assertServerParameterMetadata(parameters: Array<{ Name?: string; Type?: string }>): void {
+export const serverParameterNames = serverParameterNamesFor();
+
+export function assertServerParameterMetadata(parameters: Array<{ Name?: string; Type?: string }>, prefix = '/ghostline/prod'): void {
   // Deployment needs existence/type only; avoid decrypting server credentials just to discard their values.
-  if (parameters.length !== serverParameterNames.length || !serverParameterNames.every(name =>
+  const names = serverParameterNamesFor(prefix);
+  if (parameters.length !== names.length || !names.every(name =>
     parameters.some(parameter => parameter.Name === name && parameter.Type === 'SecureString'))) {
     throw new Error('Both server parameters must exist as SecureStrings before deployment.');
   }
@@ -45,15 +52,16 @@ export function validateAwgIdentity(server: string, client: string): void {
   }
 }
 
-export function credentialParameters(root: string): CredentialParameter[] {
+export function credentialParameters(root: string, prefix = '/ghostline/prod'): CredentialParameter[] {
   // Import complete preserved identities, never regenerate credentials as a side effect of deployment.
+  serverParameterNamesFor(prefix);
   const bundlePath = resolve(root, 'server/xray.json');
   const bundleText = protectedFile(bundlePath);
   const bundle = validateXrayBundle(parseJson(bundleText));
   const server = parseJson(Buffer.from(bundle.files['server.json']!, 'base64').toString());
   const ids = server.inbounds[0].settings.clients.map((client: { id: string }) => client.id);
-  const result: CredentialParameter[] = [{ name: '/ghostline/prod/server/xray', value: bundleText, system: 'xray' },
-    { name: '/ghostline/prod/server/awg', value: protectedFile(resolve(root, 'server/awg.conf')), system: 'amneziawg' }];
+  const result: CredentialParameter[] = [{ name: `${prefix}/server/xray`, value: bundleText, system: 'xray' },
+    { name: `${prefix}/server/awg`, value: protectedFile(resolve(root, 'server/awg.conf')), system: 'amneziawg' }];
   for (const device of ['macos', 'ios']) {
     const value = protectedFile(resolve(root, `clients/${device}/xray.json`));
     const profile = parseJson(value);
@@ -62,8 +70,8 @@ export function credentialParameters(root: string): CredentialParameter[] {
     }
     const awg = protectedFile(resolve(root, `clients/${device}/awg.conf`));
     validateAwgIdentity(result[1]!.value, awg);
-    result.push({ name: `/ghostline/prod/clients/${device}/xray`, value, system: 'xray' },
-      { name: `/ghostline/prod/clients/${device}/awg`, value: awg, system: 'amneziawg' });
+    result.push({ name: `${prefix}/clients/${device}/xray`, value, system: 'xray' },
+      { name: `${prefix}/clients/${device}/awg`, value: awg, system: 'amneziawg' });
   }
   if (result.some(parameter => Buffer.byteLength(parameter.value) > 4096)) throw new Error('Credential parameter exceeds Standard tier size.');
   return result;

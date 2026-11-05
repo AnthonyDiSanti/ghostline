@@ -14,7 +14,8 @@ def withdraw():
 
 def install():
     # No engine discovery, addressing or NAT belongs in the pre-Docker boot guard.
-    network.command(['ipset', 'create', LEASE, 'hash:ip', 'timeout', str(LEASE_SECONDS), '-exist'])
+    # The expiring guard recognizes only currently discovered bridge peers.
+    network.command(['ipset', 'create', LEASE, 'hash:net', 'timeout', str(LEASE_SECONDS), '-exist'])
     withdraw()
     network.replace_chain('filter', 'GHOSTLINE_LEASE', [
         f'-i docker0 -m set ! --match-set {LEASE} src -j DROP',

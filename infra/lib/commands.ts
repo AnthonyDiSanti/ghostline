@@ -8,6 +8,8 @@ export function deploymentCommand(action: string, target: string | undefined, in
   const artifactDir = resolve(infraDir, '../.local/deployments', config.id);
   const args = [action === 'park' ? 'deploy' : action, config.stackName, '--profile', 'personal', '--region', config.region,
     '--output', resolve(artifactDir, 'cdk.out')];
+  // Template diffs do not create an AWS change set while reviewing a candidate deployment.
+  if (action === 'diff') args.push('--method', 'template');
   if (action === 'deploy' || action === 'park') args.push('--outputs-file', resolve(artifactDir, 'outputs.json'));
   // Explicit park authorization removes this target's IAM resources; never hang on CDK's interactive prompt.
   if (action === 'park') args.push('--require-approval', 'never');
@@ -21,6 +23,7 @@ export function ecsDeploymentCommand(action: 'diff' | 'deploy', target: string, 
   const name = config.stackName;
   const args = [action, name, '--profile', 'personal',
     '--region', config.region, '--output', resolve(artifactDir, 'cdk.out')];
+  if (action === 'diff') args.push('--method', 'template');
   if (action === 'deploy') args.push('--require-approval', 'never');
   return { config, artifactDir, args };
 }

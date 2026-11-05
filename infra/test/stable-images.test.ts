@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { arm64Digest, resolveStableImages, stableRelease, type ReleaseReader } from '../lib/stable-images.js';
+import { arm64Digest, resolveStableCoreDns, resolveStableImages, stableRelease, type ReleaseReader } from '../lib/stable-images.js';
 import { validateImageInputs } from '../lib/image-inputs.js';
 import { imageArtifacts, imageInputs, releaseBuildArgs, releaseTag } from '../lib/ecs-release.js';
 
@@ -10,6 +10,7 @@ function upstream(overrides: Record<string, unknown> = {}) {
   const requests: string[] = [];
   const records: Record<string, unknown> = {
     'XTLS/Xray-core/releases/latest': { tag_name: 'v26.3.27', draft: false, prerelease: false },
+    'coredns/coredns/releases/latest': { tag_name: 'v1.15.0', draft: false, prerelease: false },
     'amnezia-vpn/amneziawg-tools/releases/latest': { tag_name: 'v3.1.20260812', draft: false, prerelease: false },
     'amnezia-vpn/amneziawg-go/releases?per_page=1': [],
     'amnezia-vpn/amneziawg-go/tags?per_page=100&page=1': [
@@ -28,7 +29,7 @@ function upstream(overrides: Record<string, unknown> = {}) {
       );
       throw new Error(`Unexpected fixture URL: ${url}`);
     },
-    manifest: image => { requests.push(image); return image.startsWith('ghcr.io/') ? manifest : { digest }; },
+    manifest: image => { requests.push(image); return image.startsWith('ghcr.io/') || image.startsWith('coredns/coredns:') ? manifest : { digest }; },
   };
   return { reader, requests };
 }
@@ -41,14 +42,16 @@ describe('official stable selection', () => {
     { tag_name: 'v26.9.9-rc1', draft: false, prerelease: false },
     { tag_name: 'latest', draft: false, prerelease: false },
   ])('rejects an unstable or unclassified latest response', value => expect(() => stableRelease(value)).toThrow('stable'));
-  it('selects official latest for Xray/tools and the highest numeric published daemon tag', () => {
+  it('selects classified Xray, tools and CoreDNS releases plus the published daemon tag', () => {
     const { reader, requests } = upstream();
     const result = resolveStableImages(reader, new Date('2026-09-19T00:00:00Z'));
     expect(result.xray.tag).toBe('v26.3.27');
     expect(result.awg.daemon.tag).toBe('v3.10.0');
     expect(result.awg.tools.tag).toBe('v3.1.20260812');
+    expect(result.coredns).toEqual({ tag: 'v1.15.0', commit: sha, imageDigest: digest });
     expect(result.awg.daemon.archiveSha256).toMatch(/^[a-f0-9]{64}$/);
     expect(requests).toContain('amneziavpn/amneziawg-go:3.10.0');
+    expect(requests).toContain('coredns/coredns:1.15.0');
     expect(requests.some(url => url.includes('tar.gz/v') || url.endsWith(':latest'))).toBe(false);
   });
   it('continues tag pagination instead of assuming the first page contains the newest version', () => {
@@ -69,6 +72,19 @@ describe('official stable selection', () => {
     reader.download = url => url.includes('build-if-tag.yml') ? Buffer.from('tags: latest') : download(url);
     expect(() => resolveStableImages(reader)).toThrow('policy changed');
   });
+  it('rejects an unclassified CoreDNS release or missing ARM64 image', () => {
+    const unclassified = upstream({ 'coredns/coredns/releases/latest': { tag_name: 'v1.15.1', prerelease: false } });
+    expect(() => resolveStableImages(unclassified.reader)).toThrow('stable');
+    const unpublished = upstream();
+    const manifest = unpublished.reader.manifest;
+    unpublished.reader.manifest = image => image.startsWith('coredns/coredns:') ? { manifests: [] } : manifest(image);
+    expect(() => resolveStableImages(unpublished.reader)).toThrow('ARM64');
+  });
+  it('resolves CoreDNS independently without querying engine release channels', () => {
+    const { reader, requests } = upstream();
+    expect(resolveStableCoreDns(reader)).toEqual({ tag: 'v1.15.0', commit: sha, imageDigest: digest });
+    expect(requests.every(request => request.includes('coredns'))).toBe(true);
+  });
   it('requires a policy review if the daemon introduces GitHub release classifications', () => {
     const { reader } = upstream({ 'amnezia-vpn/amneziawg-go/releases?per_page=1': [{ tag_name: 'v3.10.0', prerelease: true }] });
     expect(() => resolveStableImages(reader)).toThrow('release channel changed');
@@ -78,6 +94,14 @@ describe('official stable selection', () => {
     const download = reader.download;
     let calls = 0;
     reader.download = url => url.includes('XTLS/Xray-core/commits/') && ++calls > 1
+      ? Buffer.from(JSON.stringify({ sha: 'c'.repeat(40) })) : download(url);
+    expect(() => resolveStableImages(reader)).toThrow('tag moved');
+  });
+  it('rejects a CoreDNS tag that moves during resolution', () => {
+    const { reader } = upstream();
+    const download = reader.download;
+    let calls = 0;
+    reader.download = url => url.includes('coredns/coredns/commits/') && ++calls > 1
       ? Buffer.from(JSON.stringify({ sha: 'c'.repeat(40) })) : download(url);
     expect(() => resolveStableImages(reader)).toThrow('tag moved');
   });
@@ -102,15 +126,23 @@ describe('recorded build identity', () => {
     expect(releaseTag('gateway-config', changed)).toBe(releaseTag('gateway-config'));
     changed.xray.imageDigest = `sha256:${'e'.repeat(64)}`;
     expect(releaseTag('xray', changed)).not.toBe(releaseTag('xray'));
+    changed.coredns.imageDigest = `sha256:${'f'.repeat(64)}`;
+    expect(releaseTag('dns-policy', changed)).not.toBe(releaseTag('dns-policy'));
+    expect(releaseTag('gateway-config', changed)).toBe(releaseTag('gateway-config'));
   });
   it('passes both exact source commits and checksums into BuildKit', () => {
     expect(releaseBuildArgs('awg')).toEqual({ AWG_COMMIT: imageInputs.awg.daemon.commit,
       AWG_SHA256: imageInputs.awg.daemon.archiveSha256, TOOLS_COMMIT: imageInputs.awg.tools.commit,
       TOOLS_SHA256: imageInputs.awg.tools.archiveSha256 });
+    expect(releaseBuildArgs('dns-policy')).toEqual({ COREDNS_VERSION: imageInputs.coredns.tag.slice(1),
+      COREDNS_DIGEST: imageInputs.coredns.imageDigest });
   });
   it('rejects mutable refs and argument injection in recorded inputs', () => {
     const changed = structuredClone(imageInputs);
     changed.awg.daemon.commit = 'main --build-arg unsafe';
+    expect(() => validateImageInputs(changed)).toThrow('Invalid');
+    changed.awg.daemon.commit = imageInputs.awg.daemon.commit;
+    changed.coredns.imageDigest = 'latest';
     expect(() => validateImageInputs(changed)).toThrow('Invalid');
   });
 });

@@ -40,3 +40,18 @@ it('requires the full bounded historical document window and excludes other proj
   f.inventory.push({...f.extra('b'),repository:'another/project'});
   expect(() => planArtifactCleanup(f.inventory, f.window, [], true, now)).toThrow('unowned');
 });
+it('protects the DNS descriptor and child in a mixed v4 and historical release window', () => {
+  const f = fixture();
+  const old = f.window[0]!;
+  const next: Release = { ...old.release, schemaVersion: 4, history: [old.digest],
+    os: { ...old.release.os, targetVersion: '1.65.0' },
+    images: { ...old.release.images, 'dns-policy': { repository: repository('dns-policy'),
+      digest: hash('b'), runtimeDigest: hash('c'), buildTag: `sha-${'b'.repeat(64)}` } } };
+  const inventory: ArtifactInventory[] = [...f.inventory, { repository: repository('dns-policy'), digest: hash('b'),
+    pushedAt: 0, tags: [], children: [hash('c')] }, { repository: repository('dns-policy'), digest: hash('c'),
+    pushedAt: 0, tags: [], children: [] }, { repository: releaseRepository, digest: hash('d'), pushedAt: 0, tags: [], children: [] }];
+  const plan = planArtifactCleanup(inventory, [{ digest: hash('d'), release: next }, old], [], true, now);
+  expect(plan.reason).toBeUndefined();
+  expect(plan.remove).not.toContainEqual({ repository: repository('dns-policy'), digest: hash('b') });
+  expect(plan.remove).not.toContainEqual({ repository: repository('dns-policy'), digest: hash('c') });
+});

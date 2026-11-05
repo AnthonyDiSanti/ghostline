@@ -1,4 +1,4 @@
-const repositories = '(?:XTLS/Xray-core|amnezia-vpn/amneziawg-(?:go|tools))';
+const repositories = '(?:XTLS/Xray-core|amnezia-vpn/amneziawg-(?:go|tools)|coredns/coredns)';
 const metadata = new RegExp(`^/repos/${repositories}/(?:releases/latest|releases\\?per_page=1|tags\\?per_page=100&page=[1-9]\\d*|commits/v\\d+\\.\\d+\\.\\d+)$`);
 const archive = new RegExp(`^/${repositories}/tar\\.gz/[a-f0-9]{40}$`);
 const workflow = /^\/amnezia-vpn\/amneziawg-go\/[a-f0-9]{40}\/\.github\/workflows\/build-if-tag\.yml$/;

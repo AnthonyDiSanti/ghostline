@@ -2,12 +2,20 @@
 
 Backup target `cape-town`; profile `personal`; account `757999402784`; region `af-south-1`, AZ `af-south-1a`. Endpoint stack `GhostlineCapeTown`, release repositories `GhostlineRelease`, resource prefix `ghostline-cape-town`. It uses the same [gateway recipe](ecs.md) as Stockholm, with independent regional images and credential parameters.
 
-Last active deployment: one official ECS-3 Bottlerocket ARM64 `t4g.small`, version `1.66.0-1ad6b4a4`, AMI `ami-08d7677b7fb19b172`, encrypted 2 GiB OS and 30 GiB data disks. Former host `i-03d4e6e915a94d94c`, ENI `eni-09f3256b8de20342b`. `GhostlineRelease` supplies separate bootstrap and network-daemon images alongside the three application images and authoritative OCI release document.
+Last active deployment: one official ECS-3 Bottlerocket ARM64 `t4g.small`, version `1.66.0-1ad6b4a4`, AMI `ami-08d7677b7fb19b172`, encrypted 2 GiB OS and 30 GiB data disks. October 26 validation used slot A host `i-021b96c1cc24ff625`, ENI `eni-0f5fcd79d966981e6`, then returned to parked state. `GhostlineRelease` retains the six application/platform images and authoritative OCI release document.
 
 | Protocol | Preserved EIP | Allocation | Private address |
 | --- | --- | --- | --- |
 | Xray | `16.28.130.178` | `eipalloc-09b530775698d23bb` | `10.79.0.11` |
 | AWG | `15.240.94.162` | `eipalloc-0d22c628c5fde384e` | `10.79.0.10` |
+
+October 31 selection is the native-qualified minimal-CoreDNS release `sha256:0aca4d364d55bafd8ac093bc0169cbddceb9dc0f4d80c8f94a2778c903f37c9a`, with `ready:true`. Cape Town remains parked with no host or gateway task; its original EIPs and retained image identities remain. Release automation was restored to active mode without unparking. The new Go-probe image and ECS health command passed isolated Ireland and live Stockholm qualification, but have not run on a Cape Town host. The next `ecs unpark` must synthesize the current gateway task definition before accepting traffic.
+
+## Shared CoreDNS acceptance and return to parked state — 2026-10-26
+
+Normal `ecs unpark` selected the exact six-image schema-v4 release `sha256:c315a613f6401c92d1bdeaada6127ce2fb06eacc6b25ac766f19fdd9260c3524` on gateway task revision 7, including DNS image `sha256:2418cbeda31d4bfc62866277fcda405d06c6051d7e929d70a13d5ed7cc6d66ed`. Both original EIPs and client identities were preserved. Native host verification passed engine configuration, bridge isolation, private RAM, EIP egress, memory limits, no swap and HEALTHY GuardDuty v1.17.3. Both engine namespaces resolved A, AAAA and MX through intercepted port 53; live conntrack showed Cloudflare `1.1.1.1:853` and reply destination at the host primary `10.79.0.10`. Direct-path disposable REALITY and AWG clients loaded HTTPS through their original EIPs.
+
+`npm run park cape-town` then removed the host, task, disks and regional network through the standard lifecycle. CloudFormation completed with only the two original EIP outputs; the endpoint is unavailable while parked. Release repositories, selected six-image aliases, credentials and the original allocations remain for the next unpark. This does not establish fresh physical-phone acceptance or client-side DoH. [DNS contract](dns.md), [current handoff](../.context/handoff.md).
 
 ## Blue-green architecture adoption while parked — 2026-09-28
 

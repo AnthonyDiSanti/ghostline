@@ -5,6 +5,6 @@ LABEL org.opencontainers.image.title="Ghostline host bootstrap" \
 RUN apk add --no-cache python3=3.14.7-r1 iproute2=7.0.0-r0 iptables=1.8.13-r0 \
     iptables-legacy=1.8.13-r0 ipset=7.24-r0 conntrack-tools=1.4.9-r0 \
     docker-cli=29.5.3-r1 util-linux=2.42.3-r1 coreutils=9.11-r0
-COPY bootstrap.py storage.py boot_observation.py host_support.py diagnostics.py isolation.py guard.py network.py network-probe.py /opt/ghostline/
+COPY bootstrap.py storage.py boot_observation.py host_support.py diagnostics.py isolation.py guard.py network.py network-probe.py dns-policy.json /opt/ghostline/
 ENV PYTHONDONTWRITEBYTECODE=1
 ENTRYPOINT ["python3", "/opt/ghostline/bootstrap.py"]

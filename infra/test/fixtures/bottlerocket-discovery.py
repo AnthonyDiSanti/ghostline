@@ -38,6 +38,29 @@ rejected(lambda: discovery.destinations(rules.replace('172.17.0.3', '172.17.0.2'
 rejected(lambda: discovery.destinations(rules.replace('DNAT', 'ACCEPT'), '172.17.0.0/16'))
 rejected(lambda: discovery.destinations(rules.replace('! -i docker0', '-i eth0'), '172.17.0.0/16'))
 assert discovery.discover({'family': 'trial'}, lambda args: json.dumps(bridge) if args[0] == 'ip' else '', document) == {}
+dns = {'Name': 'dns-policy', 'DockerId': 'c' * 64, 'StartedAt': '2026-09-21T00:00:00Z',
+       'RestartCount': 0, 'Ports': [{'ContainerPort': 5353, 'HostPort': 55353, 'Protocol': protocol}
+                                   for protocol in ('tcp', 'udp')]}
+with_dns = document()
+with_dns['Tasks'][0]['Containers'].append(dns)
+dns_rules = rules + '\n' + '\n'.join(
+    f'-A DOCKER ! -i docker0 -p {protocol} -m {protocol} --dport 55353 -j DNAT --to-destination 172.17.0.4:5353'
+    for protocol in ('tcp', 'udp'))
+with_dns_command = lambda args: json.dumps(bridge) if args[0] == 'ip' else dns_rules
+assert discovery.discover({'family': 'trial'}, with_dns_command, lambda: with_dns)['dns-policy']['ip'] == '172.17.0.4'
+pending = copy.deepcopy(with_dns)
+pending['Tasks'][0]['KnownStatus'] = 'PENDING'
+assert set(discovery.identities(pending, 'trial')) == {'dns-policy'}
+assert set(discovery.discover({'family': 'trial'}, with_dns_command, lambda: pending)) == {'dns-policy'}
+rejected(lambda: discovery.discover({'family': 'trial'}, command, lambda: pending))
+pending['Tasks'][0]['DesiredStatus'] = 'STOPPED'
+assert discovery.identities(pending, 'trial') == {}
+
+
+rejected(lambda: discovery.discover({'family': 'trial'}, command, lambda: with_dns))
+rejected(lambda: discovery.destinations(dns_rules.replace('172.17.0.4:5353', '172.17.0.3:5353'), '172.17.0.0/16'))
+rejected(lambda: discovery.destinations(dns_rules.replace('172.17.0.4:5353', '172.17.0.4:5354'), '172.17.0.0/16'))
+rejected(lambda: discovery.destinations(dns_rules.rsplit('\n', 1)[0], '172.17.0.0/16'))
 bad = document()
 bad['Tasks'] *= 2
 rejected(lambda: discovery.identities(bad, 'trial'))

@@ -13,6 +13,14 @@ it('uses direct full mesh, excludes self and emits no empty rule for a lone memb
     }
   }
 });
+it('retires the last member without replacing unrelated registry rules', () => {
+  // A disposable single-region catalog becomes empty before its former source is reconciled.
+  const cluster = new EcrReplicationCluster([], ['ghostline/prod/']);
+  const old: ReplicationRule[] = [{ destinations: [{ registryId: account, region: 'us-west-2' }], repositoryFilters: [
+    { filter: 'personal-assistant/', filterType: 'PREFIX_MATCH' }, { filter: 'ghostline/prod/', filterType: 'PREFIX_MATCH' } ] }];
+  expect(cluster.reconciliationMembers(members.slice(0, 1))).toEqual(members.slice(0, 1));
+  expect(cluster.rules(old, members[0]!)).toEqual([{ ...old[0], repositoryFilters: [old[0]!.repositoryFilters![0]!] }]);
+});
 it('reconciles old/new union, clears retired outgoing rules and preserves unrelated filters/destinations', () => {
   const cluster = new EcrReplicationCluster(members.slice(0,2), ['ghostline/prod/']);
   const old: ReplicationRule[] = [{ destinations: [{ registryId: account, region: 'us-west-2' }], repositoryFilters: [

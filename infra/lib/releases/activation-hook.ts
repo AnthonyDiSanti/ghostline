@@ -8,7 +8,6 @@ import { bootstrapReady, daemonReady, gatewayReady } from './generation-proof.js
 import { readServiceTasks } from './ecs-observation.js';
 
 export async function activationHook(gate: AwsBlueGreen, lifecycle: LifecycleState | undefined, hook: DeploymentHook): Promise<'SUCCEEDED' | 'IN_PROGRESS' | undefined> {
-  if (!lifecycle?.operation || !['deploy', 'unpark', 'start'].includes(lifecycle.operation.kind)) return undefined;
   if (!deploymentStages.includes(hook.lifecycleStage) || !hook.executionId) throw new Error('Unsupported activation hook stage.');
   const service = `arn:aws:ecs:${gate.config.region}:${gate.config.account}:service/${gate.config.cluster}/${gate.config.service}`;
   if (hook.executionDetails?.serviceArn !== service || !hook.resourceArn?.startsWith(service.replace(':service/', ':service-deployment/') + '/')) {
@@ -21,13 +20,14 @@ export async function activationHook(gate: AwsBlueGreen, lifecycle: LifecycleSta
   const detail = await gate.clients.ecs.send(new DescribeServicesCommand({ cluster: gate.config.cluster, services: [gate.config.service] }));
   if (detail.failures?.length || detail.services?.length !== 1) throw new Error('Activation service observation is unavailable.');
   const tasks = await readServiceTasks(gate.clients.ecs, gate.config.cluster, gate.config.service);
-  // Updating an intentionally empty service may still invoke hooks. Acknowledge its empty state without moving any address or waking a host.
+  // An empty service has no activation work even when CloudFormation updates its task definition outside a lifecycle claim.
   if (detail.services[0]?.desiredCount === 0 && !tasks.length) return 'SUCCEEDED';
+  if (!lifecycle?.operation || !['deploy', 'unpark', 'start'].includes(lifecycle.operation.kind)) return undefined;
   const activation = await gate.record<Activation>('activation/current');
   if (!activation || activation.phase !== 'gateway' || !deployment.createdAt
     || deployment.createdAt.getTime() < lifecycle.operation.startedAt - 5_000
     || deployment.sourceServiceRevisions?.some(source => (source.runningTaskCount ?? 0) > 0)) return undefined;
-  const ready = await readiness(gate.registry);
+  const ready = await readiness(gate.registry, gate.config.dnsRequired);
   if (!ready.ready || ready.current?.digest !== activation.release) return 'IN_PROGRESS';
   const host = await gate.observer.read('a');
   if (host.stack?.id !== activation.stack || !host.instance?.InstanceId || !host.container?.containerInstanceArn || !host.container.agentConnected || host.tasks.length !== 1) return 'IN_PROGRESS';

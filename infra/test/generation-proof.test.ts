@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import type { Task } from '@aws-sdk/client-ecs';
-import { failedRuntimeEvidence, bootstrapReady, daemonReady, gatewayReady } from '../lib/releases/generation-proof.js';
+import { failedRuntimeEvidence, bootstrapReady, daemonReady, gatewayReady, observedRelease } from '../lib/releases/generation-proof.js';
 import { artifacts, repository, type Release } from '../lib/releases/model.js';
 import type { HostObservation } from '../lib/platform-observation.js';
 
@@ -48,6 +48,36 @@ it('rejects duplicated, absent or freshly started containers and mismatched exec
   f.task.startedAt = new Date(0); f.task.containers![1]!.imageDigest = `sha256:${'b'.repeat(64)}`; expect(f.ready()).toBe(false);
 });
 
+it('requires an exact healthy DNS peer for a six-image release', () => {
+  // The v4 release must not inherit a passing two-engine observation from historical v3.
+  const f = fixture();
+  f.intent.schemaVersion = 4;
+  f.intent.images['dns-policy'] = { repository: repository('dns-policy'), digest: f.digest,
+    runtimeDigest: f.digest, buildTag: `sha-${'a'.repeat(64)}` };
+  expect(f.ready()).toBe(false);
+  f.host.network!.peers['dns-policy'] = { id: 'dns-runtime', ip: '172.17.0.4', task: 'task/green',
+    started: '2026-09-28T00:00:00Z', restarts: 0 };
+  f.task.containers!.push({ name: 'dns-policy', runtimeId: 'dns-runtime', imageDigest: f.digest,
+    lastStatus: 'RUNNING', healthStatus: 'HEALTHY' });
+  expect(f.ready()).toBe(true);
+  f.task.containers![3]!.healthStatus = 'UNKNOWN'; expect(f.ready()).toBe(false);
+  f.task.containers![3]!.healthStatus = 'HEALTHY'; f.host.network!.peers['dns-policy']!.id = 'old-runtime';
+  expect(f.ready()).toBe(false);
+});
+
+it('reconstructs only complete five- or six-image observed generations', () => {
+  // Source rollback uses the source's observed schema, independent of the new release's schema.
+  const images = Object.fromEntries(artifacts.map(name => [name, `sha256:${'a'.repeat(64)}`]));
+  const legacy = observedRelease(images, '1.66.0', 'eu-west-1', 0);
+  expect(legacy?.schemaVersion).toBe(3);
+  expect(legacy?.images['dns-policy']).toBeUndefined();
+  const dns = { ...images, 'dns-policy': `sha256:${'b'.repeat(64)}` };
+  expect(observedRelease(dns, '1.66.0', 'eu-west-1', 0)?.schemaVersion).toBe(4);
+  expect(observedRelease({ ...dns, unknown: images.xray }, '1.66.0', 'eu-west-1', 0)).toBeUndefined();
+  delete images.awg;
+  expect(observedRelease(images, '1.66.0', 'eu-west-1', 0)).toBeUndefined();
+});
+
 it('detects independently confirmed host or task failure even when SSM cannot answer', () => {
   const tasks: any[] = [{ lastStatus: 'RUNNING', desiredStatus: 'RUNNING', containers: [{ name: 'xray', lastStatus: 'RUNNING' }] }];
   expect(failedRuntimeEvidence('stopped', false, true, tasks, undefined, false)).toBe(true);
@@ -55,6 +85,8 @@ it('detects independently confirmed host or task failure even when SSM cannot an
   expect(failedRuntimeEvidence('running', true, false, tasks, undefined, false)).toBe(true);
   expect(failedRuntimeEvidence('running', true, true, [], undefined, false)).toBe(true);
   expect(failedRuntimeEvidence('running', true, true, [{ ...tasks[0], healthStatus: 'UNHEALTHY' }], undefined, false)).toBe(true);
+  expect(failedRuntimeEvidence('running', true, true, [{ ...tasks[0], containers: [
+    { name: 'dns-policy', lastStatus: 'STOPPED' }] }], undefined, false)).toBe(true);
 });
 it('does not turn missing SSM alone into a negative runtime observation', () => {
   const tasks: any[] = [{ lastStatus: 'RUNNING', desiredStatus: 'RUNNING' }];

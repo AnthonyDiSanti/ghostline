@@ -1,13 +1,14 @@
 import { App, Tags } from 'aws-cdk-lib';
 import { deploymentIds, getDeployment, getPublication } from '../lib/config.js';
 import { RegionalReleaseStack, ReleaseAssetsStack, releaseStackName, assetStackName } from '../lib/releases/stack.js';
+import { allowedReleaseMode } from '../lib/releases/automation.js';
 import { guardDutyForDeployment } from '../lib/guardduty-discovery.js';
 import cdk from '../cdk.json' with { type: 'json' };
 
 const [region, mode = 'active', ...extra] = process.argv.slice(2);
 const publication = getPublication();
 const catalog = deploymentIds.map(getDeployment);
-if (!region || extra.length || !['active', 'held'].includes(mode)
+if (!region || extra.length || !['active', 'manual', 'held'].includes(mode)
   || (!publication.members.includes(region) && !catalog.some(c => c.region === region))) {
   throw new Error('Select an enrolled release region.');
 }
@@ -21,4 +22,4 @@ const env = { account: catalog[0]!.account, region };
 const tags = { ...catalog[0]!.globalTags, System: 'shared' };
 if (gateway) new ReleaseAssetsStack(app, assetStackName, { env, tags });
 new RegionalReleaseStack(app, releaseStackName, { env, tags, deployment: endpoint, guardDuty: endpoint ? guardDutyForDeployment(endpoint).runtime : undefined,
-  automation: publication.automation && mode === 'active' });
+  automation: allowedReleaseMode(publication.automation, mode as 'active' | 'manual' | 'held') });

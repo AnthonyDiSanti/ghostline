@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
-import { imageArtifacts } from '../lib/image-artifacts.js';
-import { qualifiedOs, qualifyNativePlatform } from '../lib/platform-qualification.js';
+import { dnsReleaseArtifacts, imageArtifacts } from '../lib/image-artifacts.js';
+import { releaseTag } from '../lib/ecs-release.js';
+import { assertCurrentBuildQualification, qualifiedOs, qualifyNativePlatform } from '../lib/platform-qualification.js';
 import type { QualifiedImage } from '../lib/releases/image-publication.js';
 import type { StackObservation } from '../lib/releases/runtime-identity.js';
 
@@ -39,4 +40,20 @@ it('carries the accepted limitation and rejects evidence that silently omits it'
   expect(() => qualifiedOs(f.images, proof)).toThrow('availability limitation');
   f.actual.host!.version = '1.67.0';
   expect(qualifyNativePlatform(f.images, f.actual, f.at).os.knownLimitations).toBeUndefined();
+});
+
+it('selects the exact qualified build set for five- and six-image regions', () => {
+  const images = Object.fromEntries(dnsReleaseArtifacts.map(name => [name, { buildTag: releaseTag(name),
+    imageId: `sha256:${'a'.repeat(64)}`, runtimeDigest: `sha256:${'b'.repeat(64)}` }]));
+  const record = { qualifiedAt: '2026-10-12T00:00:00Z', images };
+  expect(() => assertCurrentBuildQualification(record, dnsReleaseArtifacts)).not.toThrow();
+  expect(() => assertCurrentBuildQualification(record, imageArtifacts)).toThrow('differs');
+  const legacy = { ...record, images: Object.fromEntries(imageArtifacts.map(name => [name, images[name]])) };
+  expect(() => assertCurrentBuildQualification(legacy, imageArtifacts)).not.toThrow();
+  expect(() => assertCurrentBuildQualification(legacy, dnsReleaseArtifacts)).toThrow('differs');
+  images['dns-policy']!.buildTag = 'sha-' + '0'.repeat(64);
+  expect(() => assertCurrentBuildQualification(record, dnsReleaseArtifacts)).toThrow('differs');
+  images['dns-policy']!.buildTag = releaseTag('dns-policy');
+  images['dns-policy']!.runtimeDigest = '';
+  expect(() => assertCurrentBuildQualification(record, dnsReleaseArtifacts)).toThrow('differs');
 });

@@ -2,15 +2,17 @@ import { App, CfnCondition, CfnOutput, CfnParameter, Fn, LegacyStackSynthesizer,
 import { CfnInstance, CfnLaunchTemplate, CfnNetworkInterface, CfnEIP } from 'aws-cdk-lib/aws-ec2';
 import { CfnService, CfnTaskDefinition } from 'aws-cdk-lib/aws-ecs';
 import type { Construct } from 'constructs';
-import { gatewayPlatform, slotAddresses, daemonServiceName, networkTaskDefinition, type HostSlot } from './gateway-platform.js';
+import { gatewayPlatform, slotAddresses, daemonServiceName, networkTaskDefinition,
+  type HostSlot, type PlatformImageInputs } from './gateway-platform.js';
 import type { DeploymentConfig } from './config.js';
 import cdkConfig from '../cdk.json' with { type: 'json' };
 
-import { slotStackName, transitionAddressStackName } from './host-slot-model.js';
+import { slotPrimaryAddress, slotStackName, transitionAddressStackName } from './host-slot-model.js';
 export { slotStackName, transitionAddressStackName, type SlotPhase } from './host-slot-model.js';
 
 export class HostSlotStack extends Stack {
-  constructor(scope: Construct, id: string, props: StackProps & { deployment: DeploymentConfig; slot: HostSlot; guardDuty: boolean }) {
+  constructor(scope: Construct, id: string, props: StackProps & { deployment: DeploymentConfig; slot: HostSlot; guardDuty: boolean;
+    images?: PlatformImageInputs }) {
     super(scope, id, { ...props, synthesizer: new LegacyStackSynthesizer() });
     const { deployment: config, slot } = props;
     // The controller submits only this CDK-owned template. Phase changes do not give it arbitrary user-data authority.
@@ -24,9 +26,11 @@ export class HostSlotStack extends Stack {
     const hasNetwork = new CfnCondition(this, 'HasNetwork', { expression: Fn.conditionNot(Fn.conditionEquals(phase.valueAsString, 'absent')) });
     const running = new CfnCondition(this, 'IsRunning', { expression: Fn.conditionEquals(phase.valueAsString, 'running') });
     const addresses = slotAddresses(slot);
-    const platform = gatewayPlatform(config, props.guardDuty, slot);
+    const primaryAddress = slotPrimaryAddress(slot);
+    const platform = gatewayPlatform(config, props.guardDuty, slot, props.images);
     const nic = new CfnNetworkInterface(this, 'NetworkInterface', { subnetId: subnet.valueAsString, groupSet: [security.valueAsString],
-      privateIpAddresses: [{ privateIpAddress: addresses.awg, primary: true }, { privateIpAddress: addresses.xray, primary: false }] });
+      privateIpAddresses: [primaryAddress, ...Object.values(addresses).filter(address => address !== primaryAddress)]
+        .map(address => ({ privateIpAddress: address, primary: address === primaryAddress })) });
     nic.cfnOptions.condition = hasNetwork;
     // Version-specific public channel preserves regional AMI mapping without selecting a newer unqualified OS at launch.
     const template = new CfnLaunchTemplate(this, 'HostLaunchTemplate', {
@@ -72,13 +76,14 @@ export class TransitionAddressStack extends Stack {
   }
 }
 
-export function hostTemplates(config: DeploymentConfig, guardDuty: boolean): Record<HostSlot | 'addresses', string> {
+export function hostTemplates(config: DeploymentConfig, guardDuty: boolean,
+  images?: PlatformImageInputs): Record<HostSlot | 'addresses', string> {
   // Render standalone templates as assets of the regional release stack, without cross-stack exports or another image pipeline.
   const app = new App({ context: cdkConfig.context });
   const props = { env: { account: config.account, region: config.region }, tags: { ...config.globalTags, System: 'shared' } };
   for (const [key, value] of Object.entries(props.tags)) Tags.of(app).add(key, value);
-  const a = new HostSlotStack(app, slotStackName(config.stackName, 'a'), { ...props, deployment: config, slot: 'a', guardDuty });
-  const b = new HostSlotStack(app, slotStackName(config.stackName, 'b'), { ...props, deployment: config, slot: 'b', guardDuty });
+  const a = new HostSlotStack(app, slotStackName(config.stackName, 'a'), { ...props, deployment: config, slot: 'a', guardDuty, images });
+  const b = new HostSlotStack(app, slotStackName(config.stackName, 'b'), { ...props, deployment: config, slot: 'b', guardDuty, images });
   const addresses = new TransitionAddressStack(app, transitionAddressStackName(config.stackName), props);
   const assembly = app.synth();
   return Object.fromEntries(Object.entries({ a, b, addresses }).map(([name, stack]) => [name,

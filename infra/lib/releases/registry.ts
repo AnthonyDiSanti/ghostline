@@ -119,7 +119,11 @@ export class EcrRegistry implements Registry {
 
   async putRelease(repository: string, release: Release, tag: string): Promise<Manifest> {
     // Historical v2 bytes can be seeded unchanged; they cannot authorize a new host rollout or new publication.
-    if (release.schemaVersion !== 3) throw new Error('New releases require a qualified target OS (schema v3).');
+    if (![3, 4].includes(release.schemaVersion)) throw new Error('New releases require a qualified target OS (schema v3 or v4).');
+    // A DNS candidate can be staged under its promotion tag; the qualified publisher alone moves selectors.
+    if (release.schemaVersion === 4 && tag !== `release-${release.promotionId}`) {
+      throw new Error('DNS candidate upload requires its release identity tag.');
+    }
     const manifest = releaseManifest(release);
     await this.uploadBlob(repository, emptyConfig);
     await this.uploadBlob(repository, Buffer.from(JSON.stringify(release)));

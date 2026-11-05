@@ -21,9 +21,15 @@ follow those terms. See upstream
   startup and pinned direct packages, without a third-party supervisor.
 - Shared initializer: Alpine 3.24.1, jq 1.8.2-r0 and Ghostline's renderers.
   It writes protocol-private RAM files; engines mount their own files read-only.
+- Shared DNS: CoreDNS 1.15.0 official ARM64 binary and CA certificates by pinned
+  upstream digest, packaged with a static Ghostline Go health command and
+  Corefile in a minimal `scratch` runtime. CoreDNS uses the
+  [Apache 2.0 license](LICENSE.coredns), included in the image at
+  `/usr/share/licenses/coredns/LICENSE`. Its upstream source remains at
+  [coredns/coredns](https://github.com/coredns/coredns). [Scope](../docs/dns.md).
 
 - Host bootstrap: `ecs/bottlerocket/bootstrap.Dockerfile` packages finite RAM/quarantine preparation and separately invoked diagnostics on Alpine 3.24.1, with explicitly versioned tools.
-- Network daemon: `ecs/bottlerocket/network-daemon.Dockerfile` packages only continued network/lease reconciliation, without Docker CLI or diagnostic/mount tooling. Both join the same five-image release pipeline. [Native qualification](../infra/platform-qualification.json) identifies qualified runtime bytes; AWS's official Bottlerocket AMI supplies the verified host OS/ECS agent and control container under their upstream terms.
+- Network daemon: `ecs/bottlerocket/network-daemon.Dockerfile` packages only continued network/lease reconciliation, without Docker CLI or diagnostic/mount tooling. Both join the same six-image release pipeline. [Native qualification](../infra/platform-qualification.json) identifies qualified runtime bytes; AWS's official Bottlerocket AMI supplies the verified host OS/ECS agent and control container under their upstream terms.
 
 No image contains server credentials or desktop-client code. Regional ECR
 publication uses immutable content identities. [Image policy](../docs/images.md)

@@ -1,0 +1,10 @@
+{
+  "upstreams": [
+    { "address": "1.1.1.1", "tlsName": "one.one.one.one" },
+    { "address": "1.0.0.1", "tlsName": "one.one.one.one" },
+    { "address": "8.8.8.8", "tlsName": "dns.google" },
+    { "address": "8.8.4.4", "tlsName": "dns.google" }
+  ],
+  "listenPort": 5353,
+  "hostPort": 55353
+}

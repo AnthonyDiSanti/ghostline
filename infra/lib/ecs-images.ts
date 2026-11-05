@@ -1,6 +1,7 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { imageArchitecture, imageInputs, imagePlatform, localImage, officialXrayImage, releaseBuildArgs, releaseFiles, releaseTag, type ImageArtifact } from './ecs-release.js';
+import { imageArchitecture, imageInputs, imagePlatform, localImage, officialXrayImage, releaseBuildArgs, releaseFiles, releaseTag } from './ecs-release.js';
+import type { BuildArtifact } from './image-artifacts.js';
 
 export type DockerCommand = (args: string[]) => string;
 
@@ -19,7 +20,7 @@ export function assertOfficialXray(image: string, docker: DockerCommand): void {
   if (actual !== expected || JSON.parse(actual).architecture !== imageArchitecture || JSON.parse(actual).os !== 'linux') throw new Error('Mirrored Xray image differs from resolved upstream content.');
 }
 
-export function prepareImage(artifact: ImageArtifact, work: string, docker: DockerCommand): string {
+export function prepareImage(artifact: BuildArtifact, work: string, docker: DockerCommand): string {
   // Shared by publication and AWS-free tests; disposable contexts contain only allowed source files.
   const image = localImage(artifact);
   mkdirSync(work, { recursive: true, mode: 0o700 });

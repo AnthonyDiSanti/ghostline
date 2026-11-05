@@ -4,13 +4,13 @@ Every regional gateway uses AWS's official ECS-3 ARM64 Bottlerocket OS. The supp
 
 ## Images and ownership
 
-The common pipeline builds, qualifies and publishes five images: bootstrap, network-daemon, gateway-config, Xray and AWG. `GhostlineRelease` owns their local `ghostline/prod/` repositories plus the non-runnable `releases` metadata repository. There is no independent helper release cadence. CDK owns static local `keep-production` references and native settings; publication owns their targets and the authoritative whole-stack document. [Release workflow](releases.md).
+The common pipeline builds, qualifies and publishes six images: bootstrap, network-daemon, gateway-config, Xray, AWG and private CoreDNS policy. `GhostlineRelease` owns their local `ghostline/prod/` repositories plus the non-runnable `releases` metadata repository. There is no independent helper release cadence. CDK owns static local `keep-production` references and native settings; publication owns their targets and the authoritative whole-stack document. [Release workflow](releases.md).
 
 The finite bootstrap image contains host preparation and explicitly invoked diagnostics. The separate daemon image excludes Docker CLI, mount tools, diagnostic fixtures and bootstrap-only dependencies. They share pure guard/network primitives in source, not authority or lifecycle. A successful `infra/platform-qualification.json` binds reusable native evidence to exact platform runtime manifests and build inputs; local image checks remain mandatory for each build. **Fresh native qualification must record the accepted startup availability limitation described below; prior failure evidence is never relabeled as a successful rollout.**
 
 ## OS policy
 
-Select the latest official stable ECS-3 ARM64 version centrally, qualify it, and record `os.targetVersion` in the v3 release document. New hosts use `resolve:ssm:/aws/service/bottlerocket/aws-ecs-3/arm64/<targetVersion>/image_id`. EC2 resolves that version's regional AMI at launch; it does not independently choose a newer unqualified OS. Preflight verifies Amazon ownership, ARM64, available state and the exact image name/version. The global document contains no regional AMI ID.
+Select the latest official stable ECS-3 ARM64 version centrally, qualify it, and record `os.targetVersion` in the whole-stack release document. New hosts use `resolve:ssm:/aws/service/bottlerocket/aws-ecs-3/arm64/<targetVersion>/image_id`. EC2 resolves that version's regional AMI at launch; it does not independently choose a newer unqualified OS. Preflight verifies Amazon ownership, ARM64, available state and the exact image name/version. The global document contains no regional AMI ID.
 
 Every meaningful app, daemon, bootstrap, qualified OS or host-template change prepares a temporary green host, then uses the same [native ECS rollout and EIP handoff](releases.md#regional-state-machine). The host OS remains an AWS AMI, not an OCI image. An ordinary reboot retains that host's OS. The in-place TUF update command is retired; a newly qualified OS is delivered by green-host replacement. Scheduled cloud builds remain separate future work.
 
@@ -20,6 +20,7 @@ npm run platform <qualification-target> qualify /absolute/path/to/qualified.json
 ```
 
 `qualify` records actual runtime/OS evidence only after the disposable native experiment and live security checks. Local package tests alone cannot qualify a new host/platform path.
+DNS-enabled qualification requires the exact six-image local build record, including the DNS image. Ireland passed selected ECS service generation, manual-mode blue-green handoff and native failed-green rollback with explicit cleanup. The October 26 source bytes also passed central platform qualification; this does not prove client-side DoH or ordinary-browser `.onion` access.
 
 ## Recovery and evidence limits
 

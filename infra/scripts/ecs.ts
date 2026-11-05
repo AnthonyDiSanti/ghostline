@@ -16,7 +16,7 @@ import { GuardDutyClient } from '@aws-sdk/client-guardduty';
 import { fromIni } from '@aws-sdk/credential-providers';
 import { getDeployment } from '../lib/config.js';
 import { ecsDeploymentCommand } from '../lib/commands.js';
-import { assertServerParameterMetadata, credentialParameters, importParameters, serverParameterNames } from '../lib/parameters.js';
+import { assertServerParameterMetadata, credentialParameters, importParameters, serverParameterNamesFor } from '../lib/parameters.js';
 import { regionalHosts, regionalOutputs } from '../lib/regional-hosts.js';
 import { assertNativeDeploymentSettled, stopRegionalHosts } from '../lib/host-slot-lifecycle.js';
 import { setEcsPower } from '../lib/ecs-power.js';
@@ -24,6 +24,7 @@ import { deployedClientImages, testEcsClients } from '../lib/ecs-client-test.js'
 import { imagePlatform } from '../lib/ecs-release.js';
 import { assertStartReady } from '../lib/releases/gate.js';
 import { operatorGate, deployReleaseRegion } from '../lib/releases/operator.js';
+import { releaseAutomationMode, type ReleaseAutomationMode } from '../lib/releases/automation.js';
 import { ecsMemoryBudget } from '../lib/ecs-memory.js';
 import { hostRemote, verifyHost } from '../lib/ecs-verification.js';
 import { networkDaemonMemory } from '../lib/gateway-platform.js';
@@ -44,6 +45,8 @@ const work = resolve(root, '.local/deployments', config.id, 'ecs');
 mkdirSync(work, { recursive: true, mode: 0o700 });
 const environment = { ...process.env, GHOSTLINE_DEPLOYMENT: config.id };
 const parameters = new SSMClient({ region: config.region, credentials: fromIni({ profile: 'personal' }) });
+const parameterPrefix = config.parameterPrefix ?? '/ghostline/prod';
+const selectedServerParameterNames = serverParameterNamesFor(parameterPrefix);
 const guardDuty = new GuardDutyClient({ region: config.region, credentials: fromIni({ profile: 'personal' }) });
 
 function run(command: string, args: string[], input?: string | Buffer, visible = false): string {
@@ -71,13 +74,13 @@ function cdk(action: 'diff' | 'deploy', empty?: boolean) {
   const command = ecsDeploymentCommand(action, config.id, resolve(root, 'infra'));
   // CDK diff has no parameter option. Show the explicit lifecycle input beside its template diff; pass it only to deploy.
   if (empty !== undefined) console.log(`Lifecycle parameter: ${config.stackName}:EmptyGatewayOnCreate=${empty}.`);
+  // Task-definition replacement requires CloudFormation rollback to remain enabled; CDK rejects --no-rollback here.
   run(process.execPath, [resolve(root, 'infra/node_modules/aws-cdk/bin/cdk'), ...command.args,
-    ...(action === 'deploy' && empty !== undefined ? ['--parameters', `${config.stackName}:EmptyGatewayOnCreate=${empty}`] : []),
-    ...(action === 'deploy' ? ['--no-rollback'] : [])], undefined, true);
+    ...(action === 'deploy' && empty !== undefined ? ['--parameters', `${config.stackName}:EmptyGatewayOnCreate=${empty}`] : [])], undefined, true);
 }
 
 async function parameter(name: string): Promise<string> {
-  const result = await parameters.send(new GetParameterCommand({ Name: `/ghostline/prod/${name}`, WithDecryption: true }));
+  const result = await parameters.send(new GetParameterCommand({ Name: `${parameterPrefix}/${name}`, WithDecryption: true }));
   if (result.Parameter?.Type !== 'SecureString' || !result.Parameter.Value) throw new Error('Expected nonempty SecureString.');
   return result.Parameter.Value;
 }
@@ -146,18 +149,20 @@ async function profiles() {
 
 try {
   if (aws(['sts', 'get-caller-identity']).Account !== config.account) throw new Error('AWS account mismatch.');
+  let releaseMode: ReleaseAutomationMode = 'active';
   const operation = async (control?: LifecycleControl) => {
     switch (action) {
-      case 'import': console.log(await importParameters(parameters, config, credentialParameters(resolve(extra[0]!)))); break;
+      case 'import': console.log(await importParameters(parameters, config, credentialParameters(resolve(extra[0]!), parameterPrefix))); break;
       case 'unpark':
       case 'deploy': {
         // Updating controller templates while holding the endpoint claim prevents ECR/hourly events racing this IaC rollout.
-        await deployReleaseRegion(config.region, true, control!);
+        if (releaseMode === 'held') throw new Error('Held regional release controller cannot complete a gateway deployment.');
+        await deployReleaseRegion(config.region, releaseMode, control!);
         run(process.execPath, ['--import=tsx', 'scripts/deployment.ts', 'preflight', config.id], undefined, true);
         assertServerParameterMetadata(aws(['ssm', 'describe-parameters', '--parameter-filters',
-          JSON.stringify([{ Key: 'Name', Option: 'Equals', Values: serverParameterNames }])]).Parameters);
+          JSON.stringify([{ Key: 'Name', Option: 'Equals', Values: selectedServerParameterNames }])]).Parameters, parameterPrefix);
         const gate = await operatorGate(config.id);
-        await assertStartReady(gate);
+        await assertStartReady(gate, config.dnsRequired);
         const support = discoverGuardDuty(config);
         if (support.service) await guardDutyPreflight(guardDuty);
         const stacks = aws(['cloudformation', 'describe-stacks']).Stacks;
@@ -189,7 +194,7 @@ try {
         if (protection.status !== 'RUNTIME_ENABLED') console.log(`GuardDuty: ${protection.status}; ${protection.reason}`);
         await monitoring(state()); break;
       }
-      case 'start': await assertStartReady(await operatorGate(config.id)); power(action); break;
+      case 'start': await assertStartReady(await operatorGate(config.id), config.dnsRequired); power(action); break;
       case 'stop': power(action); break;
       case 'status': {
         const outputs = state();
@@ -217,8 +222,9 @@ try {
     if (action === 'deploy' || action === 'unpark') {
       // Only a brand-new region lacks a lifecycle table. Existing controllers are updated inside the same deployment claim.
       try {
-        await new LambdaClient({ region: config.region, credentials: fromIni({ profile: 'personal' }) })
+        const gate = await new LambdaClient({ region: config.region, credentials: fromIni({ profile: 'personal' }) })
           .send(new GetFunctionConfigurationCommand({ FunctionName: 'ghostline-prod-release-gate' }));
+        releaseMode = releaseAutomationMode(gate.Environment?.Variables?.AUTOMATION, gate.Environment?.Variables?.OPERATOR_ONLY);
       } catch (error) {
         if ((error as Error).name !== 'ResourceNotFoundException') throw error;
         await deployReleaseRegion(config.region);

@@ -6,14 +6,16 @@ import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Asset } from 'aws-cdk-lib/aws-s3-assets';
 import type { IFunction } from 'aws-cdk-lib/aws-lambda';
 import type { DeploymentConfig } from '../config.js';
+import type { PlatformImageInputs } from '../gateway-platform.js';
 import { hostTemplates } from '../host-slot.js';
 import { slotProvisionerName } from '../host-slot-authority.js';
 import { hostSlots, slotStackName, transitionAddressStackName } from '../host-slot-model.js';
 
-export function rolloutInfrastructure(stack: Stack, handler: IFunction, config: DeploymentConfig, guardDuty: boolean) {
+export function rolloutInfrastructure(stack: Stack, handler: IFunction, config: DeploymentConfig, guardDuty: boolean,
+  images?: PlatformImageInputs) {
   // Host templates use the same regional CDK file-asset publication as Lambda code, never Docker image assets.
   const folder = mkdtempSync(join(tmpdir(), 'ghostline-slot-templates-'));
-  const templates = hostTemplates(config, guardDuty);
+  const templates = hostTemplates(config, guardDuty, images);
   const urls = Object.fromEntries(Object.entries(templates).map(([name, value]) => {
     const file = join(folder, `${name}.json`); writeFileSync(file, value);
     const asset = new Asset(stack, `HostTemplate${name}`, { path: file });

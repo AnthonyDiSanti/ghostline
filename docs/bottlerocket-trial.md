@@ -4,7 +4,7 @@ Use a disposable regional instance of the **common** `EcsEndpointStack` to quali
 
 ## Qualification sequence
 
-1. Run `images:build` and the full local gate. All five artifacts use the same source-input hashing, exact image capture and OCI publication functions. Bootstrap/daemon package checks alone do not prove native host behavior.
+1. Run `images:build` and the full local gate. All six artifacts use the same source-input hashing, exact image capture and OCI publication functions. Bootstrap/daemon package checks alone do not prove native host behavior.
 2. Publish the exact candidate bytes into isolated repositories using the common transfer path. Instantiate the common stack with explicit candidate image inputs when the platform is not yet qualified for the production aliases. Do not alter production selectors to bootstrap an experiment.
 3. Verify actual OS/architecture, mandatory per-boot RAM setup and empty forwarding quarantine, restricted daemon cold readiness with no engines, then initializer SUCCESS and both engines. Preserve the protocol-private RAM and secret boundaries.
 4. Exercise identity/address churn, daemon death/lease expiry, repeated boot, ordered stop/start and retained-IP park/unpark. Run fault fixtures only against their explicitly guarded disposable identities. Confirm forwarding closes when leases expire and recovers through ECS daemon replacement; disable temporary diagnostics afterward. Verify actual task digests, boot IDs, endpoints and configuration hashes.

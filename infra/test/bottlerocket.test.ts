@@ -13,13 +13,13 @@ describe('Bottlerocket gateway boundaries', () => {
     const resources = Object.values(template.Resources) as any[];
     const task = resources.find(r => r.Type === 'AWS::ECS::TaskDefinition').Properties;
     expect(task.TaskRoleArn).toBeUndefined();
-    expect(task.ContainerDefinitions).toHaveLength(3);
+    expect(task.ContainerDefinitions).toHaveLength(4);
     const initializer = task.ContainerDefinitions.find((c: any) => c.Name === 'gateway-config');
     expect(initializer.DisableNetworking).toBe(true);
     expect(initializer.Secrets.map((s: any) => s.ValueFrom)).toEqual(['xray', 'awg'].map(name =>
       `arn:aws:ssm:eu-north-1:757999402784:parameter/ghostline/prod/server/${name}`));
-    for (const engine of task.ContainerDefinitions.filter((c: any) => c.Name !== 'gateway-config')) {
-      expect(engine.DependsOn).toEqual([{ ContainerName: 'gateway-config', Condition: 'SUCCESS' }]);
+    for (const engine of task.ContainerDefinitions.filter((c: any) => ['xray', 'awg'].includes(c.Name))) {
+      expect(engine.DependsOn).toEqual([{ ContainerName: 'gateway-config', Condition: 'SUCCESS' }, { ContainerName: 'dns-policy', Condition: 'HEALTHY' }]);
       expect(engine.Secrets).toBeUndefined();
       expect(engine.Privileged).not.toBe(true);
       expect(engine.MountPoints).toEqual([expect.objectContaining({ ReadOnly: true })]);

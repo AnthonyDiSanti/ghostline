@@ -1,16 +1,17 @@
 import { writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { testEcsImages } from '../lib/ecs-image-tests.js';
-import { imageArtifacts, releaseTag } from '../lib/ecs-release.js';
+import { releaseTag } from '../lib/ecs-release.js';
+import { dnsReleaseArtifacts, type BuildArtifact } from '../lib/image-artifacts.js';
 import { inspectQualifiedImage, type QualifiedImage } from '../lib/releases/image-publication.js';
 import { qualifiedOs, loadNativeQualification } from '../lib/platform-qualification.js';
 
 if (process.argv.length > 2) throw new Error('Usage: npm run test:ecs-images');
 const images = await testEcsImages();
-// Only the central stable-build workflow requests a qualification record for later publication.
+// Record the complete release set so publication can bind exact tested bytes to native qualification.
 if (process.env.GHOSTLINE_QUALIFIED_OUTPUT) {
-  const captured = {} as Record<typeof imageArtifacts[number], QualifiedImage>;
-  for (const name of imageArtifacts) {
+  const captured = {} as Record<BuildArtifact, QualifiedImage>;
+  for (const name of dnsReleaseArtifacts) {
     const identity = await inspectQualifiedImage(images[name], args => { execFileSync('docker', args, { stdio: 'pipe' }); });
     captured[name] = { imageId: images[name], buildTag: releaseTag(name), runtimeDigest: identity.runtime.digest };
   }

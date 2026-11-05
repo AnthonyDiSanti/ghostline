@@ -76,7 +76,7 @@ it('runs one bridge task with isolated engines, one secret recipient and shared 
   expect(task).toMatchObject({ NetworkMode: 'bridge', Memory: '1126' });
   expect(task.TaskRoleArn).toBeUndefined();
   expect(task.PidMode).toBeUndefined();
-  expect(task.ContainerDefinitions).toHaveLength(3);
+  expect(task.ContainerDefinitions).toHaveLength(4);
   for (const container of task.ContainerDefinitions) {
     expect(container.VersionConsistency).toBe('enabled');
     expect(JSON.stringify(container.Image)).toContain(':keep-production');
@@ -93,7 +93,7 @@ it('runs one bridge task with isolated engines, one secret recipient and shared 
     expect(engine).toMatchObject({ Essential: true, ReadonlyRootFilesystem: true,
       User: protocol === 'xray' ? '65532:65532' : '0:65532',
       RestartPolicy: { Enabled: true, RestartAttemptPeriod: 60 },
-      DependsOn: [{ ContainerName: 'gateway-config', Condition: 'SUCCESS' }],
+      DependsOn: [{ ContainerName: 'gateway-config', Condition: 'SUCCESS' }, { ContainerName: 'dns-policy', Condition: 'HEALTHY' }],
       MountPoints: [{ SourceVolume: `${protocol}-config`, ContainerPath: protocol === 'xray' ? '/usr/local/etc/xray' : '/etc/ghostline/awg', ReadOnly: true }] });
     for (const field of ['Secrets', 'Environment', 'Memory', 'MemoryReservation', 'Privileged', 'EntryPoint']) expect(engine[field]).toBeUndefined();
     expect(engine.LinuxParameters.Capabilities.Drop).toEqual(['ALL']);
@@ -116,6 +116,56 @@ it('runs one bridge task with isolated engines, one secret recipient and shared 
   expect(resources.GatewayService.Properties.PlacementConstraints).toEqual([{ Type: 'memberOf', Expression: 'attribute:ghostline_candidate == eligible' }]);
   expect(releaseFiles('xray')).toEqual({});
   expect(officialXrayImage).toMatch(/^ghcr.io\/xtls\/xray-core@sha256:[a-f0-9]{64}$/);
+});
+
+it('keeps a DNS-enabled gateway in the same essential task and host lease domain', () => {
+  // The maintained DNS peer must share task scheduling and the daemon's guarded lease domain.
+  const enabled = config;
+  const dnsResources = resources;
+  const task = dnsResources.GatewayTask.Properties;
+  const containers = task.ContainerDefinitions;
+  expect(task.NetworkMode).toBe('bridge');
+  expect(task.TaskRoleArn).toBeUndefined();
+  expect(task.Memory).toBe(resources.GatewayTask.Properties.Memory);
+  expect(containers.map((container: any) => container.Name).sort()).toEqual(['awg', 'dns-policy', 'gateway-config', 'xray']);
+  const dns = containers.find((container: any) => container.Name === 'dns-policy');
+  expect(dns).toMatchObject({ Essential: true, User: '65532:65532', ReadonlyRootFilesystem: true,
+    RestartPolicy: { Enabled: true, RestartAttemptPeriod: 60 },
+    HealthCheck: { Command: ['CMD', '/usr/local/bin/dns-health'],
+      Interval: 30, Timeout: 20, Retries: 3, StartPeriod: 30 },
+    LinuxParameters: { Capabilities: { Drop: ['ALL'] } },
+    PortMappings: [{ ContainerPort: 5353, HostPort: 55353, Protocol: 'tcp' },
+      { ContainerPort: 5353, HostPort: 55353, Protocol: 'udp' }] });
+  expect(JSON.stringify(dns.Image)).toContain('ghostline/prod/dns-policy:keep-production');
+  expect(dns.Secrets).toBeUndefined();
+  expect(dns.MountPoints).toBeUndefined();
+  for (const name of ['xray', 'awg']) {
+    expect(containers.find((container: any) => container.Name === name).DependsOn).toContainEqual(
+      { ContainerName: 'dns-policy', Condition: 'HEALTHY' });
+  }
+  const daemon = JSON.parse(hostTemplates(enabled, true).a).Resources.NetworkTask.Properties.ContainerDefinitions[0];
+  expect(JSON.parse(daemon.Environment[0].Value).dnsRequired).toBe(true);
+  expect(JSON.stringify(dnsResources.SecurityGroup.Properties.SecurityGroupIngress)).not.toContain('55353');
+});
+
+it('uses the selected credential namespace only for the initializer and its execution role', () => {
+  // Private trial identities must survive a park/unpark without reading the maintained production namespace.
+  const trial = { ...config, dnsRequired: true, parameterPrefix: '/ghostline/trial/dns-native' };
+  const trialResources = Template.fromStack(buildApp(trial, { service: true, runtime: true }).stack).toJSON().Resources as Record<string, any>;
+  const secrets = trialResources.GatewayTask.Properties.ContainerDefinitions.find((container: any) =>
+    container.Name === 'gateway-config').Secrets;
+  const expected = ['xray', 'awg'].map(protocol =>
+    `arn:aws:ssm:eu-north-1:000000000000:parameter/ghostline/trial/dns-native/server/${protocol}`);
+  expect(secrets.map((secret: any) => secret.ValueFrom)).toEqual(expected);
+  const policies = Object.entries(trialResources).filter(([id, resource]) =>
+    id.startsWith('GatewayExecutionRoleDefaultPolicy') && (resource as any).Type === 'AWS::IAM::Policy');
+  expect(policies).toHaveLength(1);
+  const reads = (policies[0]![1] as any).Properties.PolicyDocument.Statement.filter((statement: any) =>
+    (Array.isArray(statement.Action) ? statement.Action : [statement.Action]).includes('ssm:GetParameters'));
+  expect(reads).toHaveLength(1);
+  expect(reads[0].Resource).toEqual([...expected].reverse());
+  expect(trialResources.GatewayTask.Properties.ContainerDefinitions.filter((container: any) =>
+    container.Name !== 'gateway-config').every((container: any) => container.Secrets === undefined)).toBe(true);
 });
 
 it('keeps build identities separate from static deployment aliases', () => {

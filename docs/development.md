@@ -12,7 +12,7 @@ Use Node 24 and the strict TypeScript package under `infra/`, including its reus
 | `infra/lib/releases/`, `infra/lambda/release-gate.ts`, `infra/scripts/release.ts` | Global publication, regional image infrastructure and static-task deployment gate |
 | `infra/packages/notifications/` | Independent SNS event/alarm routing and private-parameter email subscription |
 | `infra/lib/ecs-memory.ts`, `infra/lib/bottlerocket-os.ts` | Memory budget and AWS host-image checks |
-| `infra/lib/ecs-release.ts`, `infra/lib/ecs-images.ts` | Five ARM64 image artifacts, content identities and publication |
+| `infra/lib/ecs-release.ts`, `infra/lib/ecs-images.ts` | Six ARM64 image artifacts, content identities and publication |
 | `infra/lib/stable-images.ts`, `infra/lib/upstream-download.ts`, `infra/image-inputs.json` | Stable resolution, scoped authenticated metadata reads and recorded verified build inputs |
 | `infra/lib/parameters.ts`, `infra/lib/xray-config.ts` | Portable credential validation and regional SecureString import |
 | `infra/lib/ecs-power.ts`, `infra/lib/lifecycle.ts` | Scoped start/stop, deletion and retained-address release |
@@ -27,7 +27,7 @@ From `infra/`, run `npm ci` then `npm test`. Typecheck without emitting files; k
 
 Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra/test/fixtures/`, including nested programs. Bottlerocket TOML settings live beside the platform fixtures. `renderFixture()` replaces exact `@@NAME@@` slots once and rejects missing/unused inputs; it does not perform shell escaping or recursive expansion. Validate identifiers and encode transported files before rendering.
 
-`gatewayPlatform()` renders nonsecret Bottlerocket settings. The common five-image pipeline publishes distinct bootstrap/diagnostic and restricted daemon artifacts. Every meaningful component, host-template or qualified OS change prepares a temporary green host through the same native ECS/EIP rollout; unchanged releases remain no-ops. [Platform workflow](platform.md).
+`gatewayPlatform()` renders nonsecret Bottlerocket settings. The common six-image pipeline publishes distinct bootstrap/diagnostic and restricted daemon artifacts alongside the private DNS policy. Every meaningful component, host-template or qualified OS change prepares a temporary green host through the same native ECS/EIP rollout; unchanged releases remain no-ops. [Platform workflow](platform.md).
 
 ## Commands
 
@@ -39,8 +39,9 @@ Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra
 | `npm run lint:shell` / `npm run lint:docker` | Focused asset linting |
 | `npm run test:cdk` | Fresh offline synthesis of the maintained catalog |
 | `npm test` | Full local gate: typecheck, asset checks, synth and Vitest |
-| `npm run images:build` | Resolve official stable engines, build/test locally, then record the successful selection |
-| `npm run test:ecs-images` | Build/test five ARM64 artifacts, platform package boundaries and real local encrypted tunnels with synthetic credentials |
+| `npm run images:build` | Resolve official stable engines and CoreDNS, build/test the six-image release locally, then record the successful selection |
+| `npm run images:build -- coredns` | Refresh only official stable CoreDNS while reusing recorded engines; run the same six-image gate before recording |
+| `npm run test:ecs-images` | Build/test six release ARM64 artifacts, platform package boundaries and real local encrypted tunnels with synthetic credentials |
 | `npm run platform <target> status` | Observe actual boot, OS and component identities |
 | `npm run platform <target> qualify <qualified-file>` | Close central native qualification after the documented experiment; verify runtime and record exact platform/OS compatibility |
 | `npm run deployments` | List maintained targets; allocate nothing |
@@ -49,6 +50,7 @@ Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra
 | `npm run ecs <target> import <directory>` | Import six validated protected credential files; refuse conflicting values |
 | `npm run release publish <target-or-region>` | Publish centrally qualified bytes once; native replication and regional gates handle rollout |
 | `npm run release status [target]` / `reconcile <target>` / `retry <target>` | Inspect, reconcile or explicitly retry a release |
+| `npm run release mode <target> <active\|manual\|held>` | Set regional release selection mode; manual continues only a CLI-handed-off rollout, pending native qualification |
 | `npm run release cleanup-failed <target>` | Remove held green only after verified rollback or explicit stopped-blue proof |
 | `npm run release activate <target>` | Prepare/seed a member before enabling outbound replication and automation |
 | `npm run ecs <target> deploy` / `unpark` | Check parameter metadata/images/live support, diff/deploy gateway, enable available protection and verify its reported coverage |
@@ -59,10 +61,13 @@ Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra
 | `npm run ecs <target> test` | Test real encrypted HTTPS through both protocols using disposable local clients |
 | `npm run park <target>` | Remove endpoint compute/disk/networking while retaining its two tracked EIPs |
 | `npm run destroy <target>` | Remove owned endpoint and regional release/runtime support, local images and EIPs; retain deliberate security/credential/expiring-log classes |
+| `npm run purge-region <region> plan` / `execute` | After destroy, review then delete owned residual parameters, log groups, queues and ECS task definitions across that region; preserve GuardDuty, shared CloudTrail and local files |
 
 The primary target is `stockholm-ecs`; the backup target is `cape-town`. Npm accepts these positional arguments without `--`; the delimiter is only useful when forwarding options such as `npm run test:assets -- --docker`. AWS commands use profile `personal`. CDK receives `GHOSTLINE_DEPLOYMENT` from the wrapper; only explicit `active`/`parked` lifecycle modes are supported. No SSH key or operator CIDR input exists.
 
-Use `images:build` for a new official stable selection with `gh` authenticated to `github.com`; review and commit `image-inputs.json`. Publication and deployment reuse this selection without contacting release channels. [Image workflow and evidence limits](images.md). Use `ecs deploy` for a normal active rollout, including [regional GuardDuty](guardduty.md). First detector creation accepts AWS defaults plus supported Runtime Monitoring; existing detectors are discovered live and receive only missing available protection, preserving other settings. Confirmed service/feature gaps produce explicit reduced-protection results; access/installation failures still surface. `npm run deploy` delegates to the same coordinated ECS lifecycle; there is no second direct deployment path. The [release workflow](releases.md) prepares local images before initial infrastructure deployment; ordinary image updates use its gate without a CDK rollout. Never use `--all`, deploy a retired catalog recipe, or run an unreviewed change against a live exit.
+Maintained targets default to the six `/ghostline/prod` credential paths. An isolated private catalog may set a validated `parameterPrefix` under `/ghostline/trial/<name>`; the common endpoint task/IAM, metadata preflight, import, verification and profile export all use that same namespace. This keeps a disposable region's enrolled device identities separate while exercising the normal `park`/`ecs unpark` lifecycle. It does not add a maintained regional target. [Credential boundary](secrets.md), [Ireland evidence](../.context/scratch/2026-10-19-tor-retirement/tor-dns-trial.md#managed-ireland-trial--october-13-2026).
+
+Use `images:build` for a new whole-set official stable selection with `gh` authenticated to `github.com`; use `images:build -- coredns` when only CoreDNS should advance. Both commands run the six-image local gate before recording `image-inputs.json`; review and commit that file. Publication and deployment reuse the selection without contacting release channels. [Image workflow and evidence limits](images.md). Use `ecs deploy` for a normal active rollout, including [regional GuardDuty](guardduty.md). First detector creation accepts AWS defaults plus supported Runtime Monitoring; existing detectors are discovered live and receive only missing available protection, preserving other settings. Confirmed service/feature gaps produce explicit reduced-protection results; access/installation failures still surface. `npm run deploy` delegates to the same coordinated ECS lifecycle; there is no second direct deployment path. The [release workflow](releases.md) prepares local images before initial infrastructure deployment; ordinary image updates use its gate without a CDK rollout. Never use `--all`, deploy a retired catalog recipe, or run an unreviewed change against a live exit.
 
 ## Asset verification
 

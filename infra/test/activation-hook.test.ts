@@ -25,12 +25,18 @@ function fixture() {
       }
     } } },
   } as unknown as AwsBlueGreen;
-  return { calls, hook, lifecycle, run: () => activationHook(gate, lifecycle, hook),
+  return { calls, hook, lifecycle, gate, run: () => activationHook(gate, lifecycle, hook),
     desired: (count: number) => { desired = count; }, badIdentity: () => { badIdentity = true; } };
 }
 it('acknowledges an empty first deployment without provisioning a host or moving traffic', async () => {
   const f = fixture(); expect(await f.run()).toBe('SUCCEEDED');
   expect(f.calls.every(name => name.startsWith('Describe') || name.startsWith('List'))).toBe(true);
+});
+it('acknowledges a verified empty service update without a lifecycle claim', async () => {
+  const f = fixture();
+  expect(await activationHook(f.gate, undefined, f.hook)).toBe('SUCCEEDED');
+  f.desired(1);
+  expect(await activationHook(f.gate, undefined, f.hook)).toBeUndefined();
 });
 it('requires a matching activation journal before acknowledging nonempty service startup', async () => {
   const f = fixture(); f.desired(1); expect(await f.run()).toBeUndefined();

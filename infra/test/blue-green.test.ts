@@ -86,6 +86,28 @@ it('holds failed green until explicit cleanup and preserves blue when health is 
   f.observation.deployment!.status = 'ROLLBACK_SUCCESSFUL'; f.observation.sourceHealthy = true; await f.step(undefined, true);
   expect(f.state()).toMatchObject({ phase: 'drain', retiring: 'b' });
 });
+it('cleans a failed six-image green only after native rollback restores blue', async () => {
+  const f = fixture();
+  // The DNS release uses the same durable rollback journal as the five-image gateway.
+  f.state().intent.schemaVersion = 4;
+  f.state().intent.images['dns-policy'] = { repository: repository('dns-policy'),
+    digest: `sha256:${'a'.repeat(64)}`, runtimeDigest: `sha256:${'a'.repeat(64)}`, buildTag: `sha-${'a'.repeat(64)}` };
+  f.deploy(); f.observation.greenFailure = true;
+  await f.step(); f.tick(15_000); await f.step();
+  expect(f.effects).toEqual([{ kind: 'rollback' }]);
+  await f.step(undefined, true); expect(f.state().phase).toBe('deployment');
+  f.observation.deployment!.status = 'ROLLBACK_SUCCESSFUL';
+  await f.step(); expect(f.state().phase).toBe('held');
+  await f.step(undefined, true); expect(f.state()).toMatchObject({ phase: 'drain', retiring: 'b' });
+  for (const condition of ['retiredTasksStopped', 'retiredHostAbsent', 'retiredAddressesDetached',
+    'retiredNetworkAbsent', 'temporaryAddressesAbsent'] as const) {
+    await f.step(); f.observation[condition] = true; await f.step();
+  }
+  expect(f.state().phase).toBe('cleaned');
+  expect(f.effects.filter(effect => effect.kind !== 'associate').map(effect => effect.kind)).toEqual([
+    'rollback', 'restore-placement', 'drain', 'remove-host', 'unwire', 'remove-network', 'release-addresses',
+  ]);
+});
 it('allows a held deployment to finish native return-to-blue hooks without resuming forward action', async () => {
   const f = fixture(); f.deploy(); f.state().phase = 'held'; f.state().addresses = f.observation.addresses;
   expect((await f.step(f.hook('blue'))).hookStatus).toBe('SUCCEEDED');

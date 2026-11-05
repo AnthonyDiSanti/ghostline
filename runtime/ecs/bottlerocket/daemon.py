@@ -83,7 +83,9 @@ def qualify(config):
             raise RuntimeError('Connection tracking capability missing')
         peers = discovery.discover(config, command)
         # A cold host can qualify permissions before its gateway is allowed to start.
-        if peers and set(peers) != {'xray', 'awg'}:
+        expected = {'xray', 'awg', 'dns-policy'} if config.get('dnsRequired') else {'xray', 'awg'}
+        # During the DNS health gate, the verified resolver is the only eligible peer.
+        if peers and set(peers) not in (expected, {'dns-policy'} if config.get('dnsRequired') else expected):
             raise RuntimeError('Qualification found an incomplete gateway')
         print(json.dumps({'qualified': True, 'engines': sorted(peers)}), flush=True)
     finally:

@@ -25,6 +25,7 @@
     "deployments": "node --import=tsx scripts/deployment.ts list",
     "park": "node --import=tsx scripts/deployment.ts park",
     "destroy": "node --import=tsx scripts/destroy.ts",
+    "purge-region": "node --import=tsx scripts/purge-region.ts",
     "ecs": "node --import=tsx scripts/ecs.ts",
     "release": "node --import=tsx scripts/release.ts",
     "platform": "node --import=tsx scripts/platform.ts",

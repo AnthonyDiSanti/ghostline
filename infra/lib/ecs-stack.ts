@@ -13,6 +13,7 @@ import type { DeploymentConfig } from './config.js';
 import type { GuardDutySupport } from './guardduty-discovery.js';
 import { applicationArtifacts as artifacts } from './image-artifacts.js';
 import { production, repository } from './releases/model.js';
+import dnsPolicy from '../../runtime/ecs/dns-policy.json' with { type: 'json' };
 
 export interface GatewayPlatform {
   bootstrapImage: string;
@@ -27,7 +28,7 @@ export interface GatewayPlatform {
 export interface GatewayInputs {
   platform?: GatewayPlatform;
   parameterPrefix?: string;
-  images?: Record<(typeof artifacts)[number], string>;
+  images?: Record<(typeof artifacts)[number], string> & Partial<Record<'dns-policy', string>>;
 }
 
 export class EcsEndpointStack extends Stack {
@@ -38,9 +39,23 @@ export class EcsEndpointStack extends Stack {
     super(scope, id, props);
     const config = props.deployment;
     // Isolated host experiments reuse the application graph without touching regional production inputs.
-    const parameterPrefix = props.gateway?.parameterPrefix ?? '/ghostline/prod';
+    const parameterPrefix = props.gateway?.parameterPrefix ?? config.parameterPrefix ?? '/ghostline/prod';
+    if (!/^\/ghostline\/(?:prod|trial\/[a-z0-9-]+)$/.test(parameterPrefix)) throw new Error('Invalid gateway parameter prefix.');
     // Durable regional repositories are activated separately and never owned by the disposable endpoint.
-    const repositories = Object.fromEntries(artifacts.map(name => [name, ecr.Repository.fromRepositoryName(this, `${name}Repository`, repository(name))]));
+    const repositoryNames = config.dnsRequired ? [...artifacts, 'dns-policy'] as const : artifacts;
+    if (props.gateway?.images) {
+      // Candidate task references must bind every executable member to an immutable regional manifest.
+      const selected = props.gateway.images;
+      if (Object.keys(selected).length !== repositoryNames.length) throw new Error('Candidate gateway image set is incomplete.');
+      for (const name of repositoryNames) {
+        const prefix = `${config.account}.dkr.ecr.${config.region}.amazonaws.com/${repository(name)}@`;
+        if (!selected[name]?.startsWith(prefix) || !/^sha256:[a-f0-9]{64}$/.test(selected[name]!.slice(prefix.length))) {
+          throw new Error(`Invalid ${name} candidate image reference.`);
+        }
+      }
+    }
+    const repositories = Object.fromEntries(repositoryNames.map(name =>
+      [name, ecr.Repository.fromRepositoryName(this, `${name}Repository`, repository(name))]));
     for (const protocol of ['xray', 'awg'] as const) {
       const eip = new ec2.CfnEIP(this, `${protocol}Address`, { domain: 'vpc' });
       eip.applyRemovalPolicy(RemovalPolicy.RETAIN);
@@ -136,7 +151,8 @@ export class EcsEndpointStack extends Stack {
       dockerSecurityOptions: ['no-new-privileges'],
       portMappings: [{ containerPort: 443, hostPort: 443, protocol: protocol === 'xray' ? 'tcp' : 'udp' }],
       user: protocol === 'xray' ? '65532:65532' : '0:65532',
-      dependsOn: [{ containerName: 'gateway-config', condition: 'SUCCESS' }],
+      dependsOn: [{ containerName: 'gateway-config', condition: 'SUCCESS' },
+        ...(config.dnsRequired ? [{ containerName: 'dns-policy', condition: 'HEALTHY' }] : [])],
       mountPoints: [{ sourceVolume: `${protocol}-config`, containerPath: protocol === 'xray' ? '/usr/local/etc/xray' : '/etc/ghostline/awg', readOnly: true }],
       ...(protocol === 'xray' ? {
         command: ['run', '-config', '/usr/local/etc/xray/server.json'],
@@ -149,13 +165,29 @@ export class EcsEndpointStack extends Stack {
         { namespace: 'net.ipv4.conf.all.src_valid_mark', value: '1' }] } : {}),
       logConfiguration: { logDriver: 'json-file', options: { 'max-size': '1m', 'max-file': '1' } },
     }));
+    const dns = config.dnsRequired ? [{
+      // This private forwarder starts before either engine and receives no credentials or task role.
+      name: 'dns-policy', essential: true,
+      image: props.gateway?.images?.['dns-policy'] ?? `${repositories['dns-policy']!.repositoryUri}:${production}`,
+      versionConsistency: 'enabled', cpu: 64, readonlyRootFilesystem: true, user: '65532:65532',
+      restartPolicy: { enabled: true, restartAttemptPeriod: 60 },
+      dockerSecurityOptions: ['no-new-privileges'],
+      portMappings: (['tcp', 'udp'] as const).map(protocol => ({ containerPort: dnsPolicy.listenPort,
+        hostPort: dnsPolicy.hostPort, protocol })),
+      // Bound two real-name attempts before replacing a task for sustained DNS failure.
+      healthCheck: { command: ['CMD', '/usr/local/bin/dns-health'],
+        interval: 30, timeout: 20, retries: 3, startPeriod: 30 },
+      linuxParameters: { initProcessEnabled: true,
+        capabilities: { drop: ['ALL'] } },
+      logConfiguration: { logDriver: 'json-file', options: { 'max-size': '1m', 'max-file': '1' } },
+    }] : [];
     const definition = new ecs.CfnTaskDefinition(this, 'GatewayTask', {
       family: `${config.resourceName}-gateway`, networkMode: 'bridge', requiresCompatibilities: ['EC2'],
       memory: String(memory.task), executionRoleArn: execution.roleArn,
       runtimePlatform: { cpuArchitecture: 'ARM64', operatingSystemFamily: 'LINUX' },
       volumes: [{ name: 'gateway-config', host: { sourcePath: configDirectory } },
         ...(['xray', 'awg'] as const).map(protocol => ({ name: `${protocol}-config`, host: { sourcePath: `${configDirectory}/${protocol}` } }))],
-      containerDefinitions: [...engines, {
+      containerDefinitions: [...engines, ...dns, {
         // Only the short-lived writer receives credentials. Both engines wait for the entire configuration set.
         name: 'gateway-config', essential: false, startTimeout: 60,
         image: props.gateway?.images?.['gateway-config'] ?? `${repositories['gateway-config']!.repositoryUri}:${production}`,

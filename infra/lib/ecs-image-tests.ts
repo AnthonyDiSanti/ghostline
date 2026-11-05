@@ -5,14 +5,15 @@ import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { imageArtifacts, imagePlatform, platformArtifacts, type ImageArtifact } from './ecs-release.js';
+import { imageArtifacts, imageInputs, imagePlatform, platformArtifacts, type ImageArtifact } from './ecs-release.js';
+import type { BuildArtifact } from './image-artifacts.js';
 import { assertImagePlatform, assertOfficialXray, prepareImage } from './ecs-images.js';
 import { generateXrayProfiles } from './xray.js';
 import { generateAwgProfiles } from './awg.js';
 import { createTestRamStorage } from './ecs-test-storage.js';
 import { probeImageTunnel } from './ecs-image-probes.js';
 
-export async function testEcsImages(images?: Record<ImageArtifact, string>): Promise<Record<ImageArtifact, string>> {
+export async function testEcsImages(images?: Record<ImageArtifact, string>): Promise<Record<BuildArtifact, string>> {
   // Central qualification captures exact image IDs before tests; publication consumes those same bytes.
   const root = fileURLToPath(new URL('../../', import.meta.url));
   const parent = resolve(root, '.local/deployments/image-tests');
@@ -56,6 +57,30 @@ export async function testEcsImages(images?: Record<ImageArtifact, string>): Pro
       console.log(docker(['run', '--rm', ...common, '--network', 'none', '--user', '65532:65532',
         '-v', `${packagingProbe}:/test/probe.py:ro`, '--entrypoint', 'python3', selected[artifact], '-B', '/test/probe.py', artifact]));
     }
+    // Exercise the CoreDNS image under its intended ECS privileges without relying on public resolvers.
+    const dns = prepareImage('dns-policy', work, docker);
+    const dnsImageId = docker(['image', 'inspect', dns, '--format', '{{.Id}}']);
+    assertImagePlatform(dnsImageId, docker);
+    const dnsName = `${stem}-dns`;
+    try {
+      docker(['run', '-d', '--name', dnsName, ...common, '--network', 'none', '--user', '65532:65532',
+        dnsImageId]);
+      let healthy = false;
+      for (let attempt = 0; attempt < 20 && !healthy; attempt++) {
+        healthy = execute(['exec', dnsName, '/usr/local/bin/dns-health', '--local'], false).status === 0;
+        if (!healthy) await new Promise(resolve => setTimeout(resolve, 250));
+      }
+      assert.ok(healthy, 'DNS policy must answer local UDP and TCP health probes');
+      assert.notEqual(execute(['exec', dnsName, '/usr/local/bin/dns-health'], false).status, 0,
+        'Full DNS health must fail without encrypted upstream access');
+      docker(['exec', dnsName, '/usr/local/bin/dns-health', '--offline']);
+      console.log('DNS policy: ordinary UDP/TCP queries fail closed without encrypted upstream access.');
+      assert.equal(docker(['image', 'inspect', dnsImageId, '--format', '{{.Config.User}}']), '65532:65532');
+      assert.equal(docker(['inspect', dnsName, '--format', '{{.Config.User}}']), '65532:65532');
+      assert.ok(docker(['exec', dnsName, '/usr/local/bin/coredns', '-version']).includes(`CoreDNS-${imageInputs.coredns.tag.slice(1)}`),
+        'CoreDNS binary must match the selected stable release');
+      console.log('DNS policy: CoreDNS version, local UDP/TCP health and non-root steady state pass.');
+    } finally { execute(['rm', '-f', '-v', dnsName], false); }
     // Test-only probes remain ordinary shell files and are mounted read-only, outside the image release.
     const configProbe = resolve(work, 'image-config.sh');
     copyFileSync(new URL('../test/fixtures/image-config.sh', import.meta.url), configProbe);
@@ -211,6 +236,6 @@ export async function testEcsImages(images?: Record<ImageArtifact, string>): Pro
         }
       }
     }
-    return selected;
+    return { ...selected, 'dns-policy': dnsImageId };
   } finally { rmSync(work, { recursive: true, force: true }); }
 }

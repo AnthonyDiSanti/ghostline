@@ -11,7 +11,7 @@ it('limits whole-stack effects to owned services, exact tagged host and a fixed 
   const app = new App({ context: { '@aws-cdk/core:explicitStackTags': true } });
   const stack = new RegionalReleaseStack(app, 'ReleaseTest', { env: { account: '000000000000', region: 'eu-north-1' },
     tags: { Project: 'ghostline', Environment: 'prod', System: 'shared' },
-    deployment: { ...getDeployment('stockholm-ecs'), account: '000000000000', resourceName: 'test-gateway', stackName: 'TestEndpoint' }, guardDuty: true, automation: true });
+    deployment: { ...getDeployment('stockholm-ecs'), account: '000000000000', resourceName: 'test-gateway', stackName: 'TestEndpoint' }, guardDuty: true, automation: 'active' });
   Tags.of(stack).add('Project', 'ghostline'); Tags.of(stack).add('Environment', 'prod'); Tags.of(stack).add('System', 'shared');
   const template = Template.fromStack(stack);
   const resources = template.toJSON().Resources as Record<string, any>;
@@ -19,6 +19,8 @@ it('limits whole-stack effects to owned services, exact tagged host and a fixed 
   const gate = Object.values(resources).find(r => r.Type === 'AWS::Lambda::Function' && r.Properties.FunctionName === 'ghostline-prod-release-gate');
   expect(gate.Properties.ReservedConcurrentExecutions).toBe(1);
   expect(gate.Properties.Environment.Variables.AUTOMATION).toBe('enabled');
+  expect(gate.Properties.Environment.Variables.OPERATOR_ONLY).toBe('disabled');
+  expect(gate.Properties.Environment.Variables.DNS_REQUIRED).toBe('true');
   expect(gate.Properties.Environment.Variables.LIFECYCLE_SCHEMA).toBe('1');
   const hook = Object.values(resources).find(r => r.Type === 'AWS::Lambda::Function' && r.Properties.FunctionName === 'ghostline-prod-deployment-hook');
   expect(hook.Properties.ReservedConcurrentExecutions).toBe(4);
@@ -65,7 +67,9 @@ it('limits whole-stack effects to owned services, exact tagged host and a fixed 
   ]);
   expect(ecrRules[1].Properties.EventPattern.detail.eventName).toEqual(['PutImage']);
   template.resourceCountIs('AWS::DynamoDB::Table', 1);
-  template.resourceCountIs('AWS::ECR::Repository', 6);
+  template.resourceCountIs('AWS::ECR::Repository', 7);
+  expect(Object.values(resources).filter(r => r.Type === 'AWS::ECR::Repository')
+    .map(r => r.Properties.RepositoryName)).toContain('ghostline/prod/dns-policy');
   template.resourceCountIs('AWS::EC2::Instance', 0);
   template.resourceCountIs('AWS::ECS::TaskDefinition', 0);
   // Destroying this application must never remove account audit coverage or its destination.
@@ -76,9 +80,26 @@ it('limits whole-stack effects to owned services, exact tagged host and a fixed 
 
 it('does not create a gateway or deployment controller in publisher-only regions', () => {
   const app = new App();
-  const stack = new RegionalReleaseStack(app, 'Publisher', { env: { account: '000000000000', region: 'us-east-1' }, automation: true,
+  const stack = new RegionalReleaseStack(app, 'Publisher', { env: { account: '000000000000', region: 'us-east-1' }, automation: 'active',
     tags: { Project: 'ghostline', Environment: 'prod', System: 'shared' } });
   const template = Template.fromStack(stack);
-  template.resourceCountIs('AWS::ECR::Repository', 6);
+  template.resourceCountIs('AWS::ECR::Repository', 7);
   for (const type of ['AWS::Lambda::Function', 'AWS::EC2::Instance', 'AWS::DynamoDB::Table', 'AWS::CloudTrail::Trail']) template.resourceCountIs(type, 0);
+});
+
+it('suppresses release selection events in operator-only mode without disabling the deployment hook', { timeout: 15_000 }, () => {
+  // A manual migration may continue its claimed blue-green action but must not select a new release from ECR arrivals.
+  const app = new App();
+  const stack = new RegionalReleaseStack(app, 'ManualReleaseTest', { env: { account: '000000000000', region: 'eu-north-1' },
+    tags: { Project: 'ghostline', Environment: 'prod', System: 'shared' },
+    deployment: { ...getDeployment('stockholm-ecs'), account: '000000000000', resourceName: 'test-gateway', stackName: 'TestEndpoint', dnsRequired: true },
+    guardDuty: true, automation: 'manual' });
+  const resources = Template.fromStack(stack).toJSON().Resources as Record<string, any>;
+  const gate = Object.values(resources).find(r => r.Type === 'AWS::Lambda::Function' && r.Properties.FunctionName === 'ghostline-prod-release-gate');
+  expect(gate.Properties.Environment.Variables).toMatchObject({ AUTOMATION: 'disabled', OPERATOR_ONLY: 'enabled', DNS_REQUIRED: 'true' });
+  const rules = Object.values(resources).filter(r => r.Type === 'AWS::Events::Rule');
+  expect(rules.filter(r => r.Properties.EventPattern?.source?.includes('aws.ecr'))).toHaveLength(2);
+  expect(rules.filter(r => r.Properties.EventPattern?.source?.includes('aws.ecr')).every(r => r.Properties.State === 'DISABLED')).toBe(true);
+  expect(rules.find(r => r.Properties.ScheduleExpression === 'rate(1 hour)')?.Properties.State).toBe('DISABLED');
+  expect(rules.find(r => r.Properties.EventPattern?.source?.includes('aws.ecs'))?.Properties.State).not.toBe('DISABLED');
 });

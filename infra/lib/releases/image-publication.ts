@@ -2,7 +2,7 @@ import { releaseTag } from '../ecs-release.js';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { ImageArtifact } from '../image-artifacts.js';
+import type { BuildArtifact } from '../image-artifacts.js';
 import { digestPattern, type ReleaseImage } from './model.js';
 import { copyImage, isQualifiedImage, runtimeManifest, type EcrRegistry } from './registry.js';
 import { OciArchive } from './oci-archive.js';
@@ -20,7 +20,7 @@ export async function inspectQualifiedImage(imageId: string, docker: (args: stri
     return { root, runtime };
   } finally { rmSync(folder, { recursive: true, force: true }); }
 }
-export async function publishQualifiedImage(registry: EcrRegistry, repository: string, name: ImageArtifact,
+export async function publishQualifiedImage(registry: EcrRegistry, repository: string, name: BuildArtifact,
   qualified: QualifiedImage, docker: (args: string[]) => void, report: (message: string) => void = () => {}): Promise<ReleaseImage> {
   // Qualification captures immutable local content, not a mutable Docker tag; never rebuild during delivery.
   if (!qualified || qualified.buildTag !== releaseTag(name) || !digestPattern.test(qualified.imageId)) {

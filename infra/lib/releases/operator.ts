@@ -16,10 +16,10 @@ import { fromIni } from '@aws-sdk/credential-providers';
 import { catalogPath, deploymentIds, getDeployment, getPublication } from '../config.js';
 import { AwsBlueGreen } from './aws-blue-green.js';
 import { retryObservations } from './clients.js';
-import { EcrRegistry, copyImage, readRelease } from './registry.js';
-import { artifacts, releaseRepository, repository, repositoryPrefix, releaseSelector } from './model.js';
+import { EcrRegistry, copyImage } from './registry.js';
+import { releaseRepository, repositoryPrefix } from './model.js';
 import { EcrReplicationCluster, replicationRulesEqual, type PublicationProfile, type ReplicationRule } from './topology.js';
-import { applyPromotion, cleanPublicationProtection, releaseHistory } from './publication.js';
+import { cleanPublicationProtection, seedReleaseHistory } from './publication.js';
 import { pruneRegionalArtifacts } from './retention-operator.js';
 import { withLifecycle, type LifecycleControl } from '../lifecycle-operator.js';
 
@@ -50,18 +50,18 @@ export function persistPublication(profile: PublicationProfile): void {
   writeFileSync(profilePath, JSON.stringify(json, null, 2) + '\n');
 }
 
-export async function deployReleaseRegion(region: string, automation = true, lifecycle?: LifecycleControl): Promise<void> {
+export async function deployReleaseRegion(region: string, mode: 'active' | 'manual' | 'held' = 'active', lifecycle?: LifecycleControl): Promise<void> {
   // Independent account protection precedes any regional audit-producer migration.
   await accountAudit(account, region);
   const endpoint = deploymentIds.map(getDeployment).find(config => config.region === region);
   const deploy = async () => {
     const folder = resolve(root, '.local/releases', region);
     mkdirSync(folder, { recursive: true, mode: 0o700 });
-    const args = ['--app', `node --import=tsx bin/releases.ts ${region} ${automation ? 'active' : 'held'}`, '--profile', awsProfile,
+    const args = ['--app', `node --import=tsx bin/releases.ts ${region} ${mode}`, '--profile', awsProfile,
       '--region', region, '--output', resolve(folder, 'cdk.out')];
     // Every mutation follows a fresh diff; publishers need only this durable stack, never a VPN instance.
     for (const stack of endpoint ? ['GhostlineReleaseAssets', 'GhostlineRelease'] : ['GhostlineRelease']) {
-      command(process.execPath, ['node_modules/aws-cdk/bin/cdk', 'diff', stack, ...args], undefined, true);
+      command(process.execPath, ['node_modules/aws-cdk/bin/cdk', 'diff', stack, ...args, '--method', 'template'], undefined, true);
       command(process.execPath, ['node_modules/aws-cdk/bin/cdk', 'deploy', stack, ...args, '--require-approval', 'never'], undefined, true);
     }
   };
@@ -110,27 +110,12 @@ export async function cleanPublicationRegions(): Promise<void> {
   }
 }
 
-export async function seedRegion(source: EcrRegistry, target: EcrRegistry): Promise<void> {
-  const current = await readRelease(source, releaseRepository, releaseSelector);
-  if (!current) throw new Error('Source has no complete production release.');
-  const local = await readRelease(target, releaseRepository, releaseSelector);
-  if (local && Date.parse(local.release.promotedAt) > Date.parse(current.release.promotedAt)) {
-    throw new Error('Seed source is older than this region’s existing production intent.');
-  }
-  // New destinations receive the entire fixed history explicitly; native replication is not a backfill API.
-  for (const record of await releaseHistory(source, current)) {
-    for (const name of artifacts) {
-      const image = record.release.images[name];
-      console.log(`${target.region}: seed ${name} from ${source.region} (${image.digest}).`);
-      await copyImage(source, target, image.repository, repository(name), image.digest, image.buildTag, console.log);
-    }
-    await copyImage(source, target, releaseRepository, releaseRepository, record.digest, `release-${record.release.promotionId}`);
-  }
-  if ((await readRelease(source, releaseRepository, releaseSelector))?.digest !== current.digest) {
-    throw new Error('Seed source changed during transfer; repeat from its new complete snapshot.');
-  }
-  const manifest = await target.get(releaseRepository, current.digest);
-  await applyPromotion(target, manifest!);
+export async function seedRegion(source: EcrRegistry, target: EcrRegistry, dnsRequired = false): Promise<void> {
+  // The target's selected runtime schema bounds which replicated release may become active there.
+  await seedReleaseHistory(source, target, async (repo, imageDigest, tag) => {
+    if (repo !== releaseRepository) console.log(`${target.region}: seed ${repo.slice(repositoryPrefix.length)} from ${source.region} (${imageDigest}).`);
+    await copyImage(source, target, repo, repo, imageDigest, tag, console.log);
+  }, dnsRequired ? 'dns-migration-trial' : 'five-image');
 }
 
 export async function operatorGate(target: string): Promise<AwsBlueGreen> {
@@ -144,6 +129,7 @@ export async function operatorGate(target: string): Promise<AwsBlueGreen> {
   }
   return new AwsBlueGreen({ endpoint: config.stackName, account: config.account, region: config.region, cluster: config.resourceName,
     service: `${config.resourceName}-gateway`, table: 'ghostline-prod-release-attempts', topic: env.TOPIC!,
+    dnsRequired: config.dnsRequired === true,
     observerDocument: env.OBSERVER_DOCUMENT!, progressRule: env.PROGRESS_RULE!, templates: JSON.parse(env.SLOT_TEMPLATES),
     role: env.SLOT_ROLE, tags: JSON.parse(env.OWNER_TAGS) },
     { cfn: retryObservations(new CloudFormationClient(options)), ec2: retryObservations(new EC2Client(options)), ecs: retryObservations(new ECSClient(options)),

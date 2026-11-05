@@ -1,16 +1,17 @@
 import { createHash } from 'node:crypto';
 import { bootstrapRaceIssue } from '../bottlerocket-limitations.js';
-import { imageArtifacts, type ImageArtifact } from '../image-artifacts.js';
+import { dnsReleaseArtifacts, imageArtifacts, legacyReleaseArtifacts, type ImageArtifact } from '../image-artifacts.js';
 
 export const artifacts = imageArtifacts;
-export type Artifact = ImageArtifact;
-export const repositoryArtifacts = [...artifacts, 'releases'] as const;
+export type Artifact = ImageArtifact | 'dns-policy';
+export const repositoryArtifacts = [...dnsReleaseArtifacts, 'releases'] as const;
 export type RepositoryArtifact = typeof repositoryArtifacts[number];
 export const production = 'keep-production';
 export const releaseSelector = `${production}-release`;
 export const releaseAnnotation = 'io.ghostline.release';
 export const manifestType = 'application/vnd.oci.image.manifest.v1+json';
 export const releaseType = 'application/vnd.ghostline.release.v3+json';
+export const dnsReleaseType = 'application/vnd.ghostline.release.v4+json';
 const historicalReleaseType = 'application/vnd.ghostline.release.v2+json';
 export const emptyConfig = Buffer.from('{}');
 export const digest = (bytes: string | Uint8Array) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
@@ -26,25 +27,36 @@ export interface ReleaseImage {
   buildTag: string;
 }
 export interface Release {
-  schemaVersion: 2 | 3;
+  schemaVersion: 2 | 3 | 4;
   promotionId: string;
   promotedAt: string;
   origin: string;
   platform: 'linux/arm64';
-  images: Record<Artifact, ReleaseImage>;
+  images: Record<ImageArtifact, ReleaseImage> & Partial<Record<'dns-policy', ReleaseImage>>;
   os: { variant: 'aws-ecs-3'; architecture: 'arm64'; compatibleVersions: string[]; targetVersion?: string; knownLimitations?: string[] };
   sourceApplicationRelease?: string;
   history: string[];
 }
 
+export function releaseArtifacts(release: Pick<Release, 'schemaVersion'>): readonly Artifact[] {
+  // Historical documents remain exact five-image records; v4 alone owns the DNS artifact.
+  return release.schemaVersion === 4 ? dnsReleaseArtifacts : legacyReleaseArtifacts;
+}
+
+export function observedArtifacts(images: Record<string, unknown>): readonly Artifact[] | undefined {
+  // A live or parked generation must contain exactly one known schema's images before it can authorize recovery.
+  const names = Object.hasOwn(images, 'dns-policy') ? dnsReleaseArtifacts : legacyReleaseArtifacts;
+  return Object.keys(images).length === names.length && names.every(name => Object.hasOwn(images, name)) ? names : undefined;
+}
+
 export function parseRelease(value: unknown): Release {
   // Registry metadata is input, never authority to redirect the gate to another repository or architecture.
   const r = value as Release;
-  if (!r || ![2, 3].includes(r.schemaVersion) || !/^[a-z0-9-]{8,100}$/.test(r.promotionId)
+  if (!r || ![2, 3, 4].includes(r.schemaVersion) || !/^[a-z0-9-]{8,100}$/.test(r.promotionId)
     || !Number.isFinite(Date.parse(r.promotedAt)) || !/^[a-z]{2}(?:-[a-z]+)+-\d+$/.test(r.origin)
     || r.platform !== 'linux/arm64' || !Array.isArray(r.history) || r.history.length > 3
     || r.history.some(d => !digestPattern.test(d)) || new Set(r.history).size !== r.history.length
-    || !r.images || Object.keys(r.images).length !== artifacts.length
+    || !r.images || Object.keys(r.images).length !== releaseArtifacts(r).length
     || r.os?.variant !== 'aws-ecs-3' || r.os.architecture !== 'arm64'
     || !Array.isArray(r.os.compatibleVersions) || !r.os.compatibleVersions.length || r.os.compatibleVersions.length > 32
     || r.os.compatibleVersions.some(v => !/^\d+\.\d+\.\d+$/.test(v))
@@ -52,13 +64,13 @@ export function parseRelease(value: unknown): Release {
     || (r.sourceApplicationRelease !== undefined && !digestPattern.test(r.sourceApplicationRelease))) throw new Error('Invalid release document.');
   if (Object.keys(r).some(key => !['schemaVersion', 'promotionId', 'promotedAt', 'origin', 'platform', 'images', 'os', 'sourceApplicationRelease', 'history'].includes(key))
     || Object.keys(r.os).some(key => !['variant', 'architecture', 'compatibleVersions', 'targetVersion', 'knownLimitations'].includes(key))) throw new Error('Unknown release document field.');
-  // Historical documents remain readable for retention. Only v3 binds new-host launch to one centrally qualified OS.
-  if (r.schemaVersion === 3 ? !r.os.targetVersion || !r.os.compatibleVersions.includes(r.os.targetVersion)
+  // Historical v2 lacks a selected OS; v3/v4 bind new-host launch to one qualified version.
+  if (r.schemaVersion >= 3 ? !r.os.targetVersion || !r.os.compatibleVersions.includes(r.os.targetVersion)
     : r.os.targetVersion !== undefined) throw new Error('Invalid qualified target OS version.');
   // Explicit evidence is carried with the release; arbitrary metadata cannot authorize a recovery policy.
   if (r.os.knownLimitations !== undefined && (!Array.isArray(r.os.knownLimitations) || r.os.knownLimitations.length !== 1
     || r.os.knownLimitations[0] !== bootstrapRaceIssue)) throw new Error('Invalid release limitation.');
-  for (const name of artifacts) {
+  for (const name of releaseArtifacts(r)) {
     const image = r.images[name];
     if (!image || image.repository !== repository(name) || !digestPattern.test(image.digest)
       || !digestPattern.test(image.runtimeDigest) || !/^sha-[a-f0-9]{64}$/.test(image.buildTag)
@@ -72,7 +84,7 @@ export function parseRelease(value: unknown): Release {
 export function releaseManifest(release: Release): string {
   // No subject link: history documents must survive even when an initializer is shared by many releases.
   const document = JSON.stringify(parseRelease(release));
-  const media = release.schemaVersion === 3 ? releaseType : historicalReleaseType;
+  const media = release.schemaVersion === 4 ? dnsReleaseType : release.schemaVersion === 3 ? releaseType : historicalReleaseType;
   return JSON.stringify({ schemaVersion: 2, mediaType: manifestType, artifactType: media,
     config: { mediaType: 'application/vnd.oci.empty.v1+json', digest: digest(emptyConfig), size: emptyConfig.length },
     // ECR requires at least one layer. The annotation lets the gate read the checksum-bound document without blob credentials.
@@ -82,22 +94,23 @@ export function releaseManifest(release: Release): string {
 
 export function readReleaseManifest(manifest: string): Release {
   const value = JSON.parse(manifest);
-  if (value.mediaType !== manifestType || ![releaseType, historicalReleaseType].includes(value.artifactType) || value.subject) throw new Error('Invalid release artifact.');
+  if (value.mediaType !== manifestType || ![dnsReleaseType, releaseType, historicalReleaseType].includes(value.artifactType) || value.subject) throw new Error('Invalid release artifact.');
   const document = value.annotations?.[releaseAnnotation];
   if (typeof document !== 'string' || value.layers?.length !== 1 || value.layers[0].mediaType !== value.artifactType
     || value.layers[0].digest !== digest(document) || value.layers[0].size !== Buffer.byteLength(document)) throw new Error('Release document checksum mismatch.');
   const release = parseRelease(JSON.parse(document));
-  if (value.artifactType !== (release.schemaVersion === 3 ? releaseType : historicalReleaseType)) throw new Error('Release schema and media type differ.');
+  const expected = release.schemaVersion === 4 ? dnsReleaseType : release.schemaVersion === 3 ? releaseType : historicalReleaseType;
+  if (value.artifactType !== expected) throw new Error('Release schema and media type differ.');
   return release;
 }
 
-export function setIdentity(release: Pick<Release, 'images' | 'os'>): string {
+export function setIdentity(release: Pick<Release, 'schemaVersion' | 'images' | 'os'>): string {
   // Index provenance can change without changing any runtime. Do not fill the rollback window with those duplicate sets.
-  return JSON.stringify([artifacts.map(name => release.images[name].runtimeDigest), release.os.variant,
+  return JSON.stringify([releaseArtifacts(release).map(name => release.images[name]!.runtimeDigest), release.os.variant,
     release.os.architecture, [...release.os.compatibleVersions].sort(), release.os.targetVersion ?? null]);
 }
 
-export function retainHistory(next: Pick<Release, 'images' | 'os'>, previous: Array<{ digest: string; release: Release }>): string[] {
+export function retainHistory(next: Pick<Release, 'schemaVersion' | 'images' | 'os'>, previous: Array<{ digest: string; release: Release }>): string[] {
   const seen = new Set([setIdentity(next)]);
   return previous.filter(item => {
     const key = setIdentity(item.release);

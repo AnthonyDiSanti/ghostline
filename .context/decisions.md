@@ -1,5 +1,69 @@
 # Current decisions
 
+## 2026-11-05 — Close shared DNS; track zero-log privacy separately
+
+Treat the shared CoreDNS gateway, authenticated upstream DoT, native protocol qualification and Ireland trial retirement as a complete DNS work unit. Anthony accepts the current device DNS boundary and requires no further client-side DNS work for this project. Imported AWG/REALITY profiles cannot mandate DoH across third-party VPN apps, OS resolvers and browser-managed DNS; ordinary DNS inside the working full tunnel is already encrypted on the local network. Reopen client-side DoH only for a new product requirement with a selected app/OS configuration and per-device routing/leak tests. Keep the zero-log and deploy-time debug-mode goal as a separate open privacy project, without claiming the current Stockholm runtime is zero-log or changing GuardDuty/CloudTrail silently. [Device boundary](../docs/dns.md#device-side-dns-boundary), [privacy requirement](../docs/product.md#acceptance-and-privacy).
+
+## 2026-11-01 — Add a separate regional purge after ordinary destroy (agent implementation for review)
+
+Keep `destroy` as the normal teardown that preserves regional identities and short-lived diagnostics. Add an explicit region-scoped `purge-region` operation for final retirement of Ghostline-owned residual parameters, log groups, queues and ECS task definitions after infrastructure/publication is absent. Require a reviewed metadata-only plan and live ownership checks; exclude regional GuardDuty, shared account CloudTrail and local artifacts. This separates irreversible identity deletion from routine exit retirement and catches old retained generations outside a single target journal. Ireland's separately authorized November 5 execution and zero-residual readback are recorded in the [handoff](handoff.md#ireland-regional-purge--november-5).
+
+## 2026-10-31 — Keep the CoreDNS runtime minimal and self-probing
+
+Package the unchanged official CoreDNS ARM64 binary and CA bundle with the Corefile, license and a static Go DNS health command in a non-root `scratch` image. Go unit tests run in a pinned builder stage and do not enter the runtime. The same shipped command checks local UDP/TCP DNS and real encrypted upstream resolution for ECS; its `--offline` mode supplies the package gate's fail-closed A/AAAA test, so no Python fixture helper is needed. The official image is pinned by exact digest and selected from a classified stable release; the derivative is qualified and published as one of the six release images. This preserves the required in-container ECS health command while avoiding a shell, Python runtime or general-purpose base image. [Runtime contract](../docs/dns.md).
+
+## 2026-10-31 — Discover stable CoreDNS without forcing an engine upgrade
+
+The build now accepts only a classified numeric latest CoreDNS GitHub release and its unique official Linux ARM64 Docker image digest, records the tag/source revision/digest, and gives Docker the exact digest as a build input. The ordinary `images:build` still resolves the whole stable set; `images:build -- coredns` reuses recorded engines but runs the same complete local package gate before changing the record. This keeps a failed new engine candidate from blocking an independent CoreDNS refresh. The upstream base remains an immutable build input, and regional ECR/publication still requires native qualification. The upstream binary is installed from a temporary BuildKit mount to avoid a duplicate permanent layer. [Image policy](../docs/images.md).
+
+## 2026-10-31 — Require real DNS resolution for gateway health
+
+Anthony kept the engines' formal `dns-policy:HEALTHY` startup dependency because active task replacement leaves the direct EIPs attached. CoreDNS health requires local UDP/TCP DNS service and at least one public A answer for the fixed `example.com` or `google.com` names through normal Cloudflare-first/Google-fallback DoT. Three failed periodic checks mark the essential task unhealthy; prolonged upstream failure can therefore replace both VPN engines, a tradeoff Anthony accepts as a full DNS outage is a service failure. The selected six-image release passed local and isolated ECS-3 ARM64 native qualification and is live in Stockholm. To break the ECS startup cycle, the restricted host daemon discovers the exact verified CoreDNS peer while its ECS task is `PENDING` and grants only its existing DoT/SNAT policy; engines still require a `RUNNING` task.
+
+## 2026-10-26 — Make traffic-log absence a production acceptance goal
+
+Anthony wants routine production use to retain no logs that could identify users or their traffic wherever feasible. Provide an optional explicit deploy-time debug mode for bounded diagnostics. The exact debug mechanism and retention are not yet selected. Current Stockholm CoreDNS error output and Docker JSON logs mean the goal is not achieved; GuardDuty's AWS/host telemetry and account CloudTrail must be reconciled with the privacy target before claiming zero logging. Preserve the existing security controls while this is designed. [Product scope](../docs/product.md#acceptance-and-privacy).
+
+## 2026-10-26 — Retire the isolated DNS trial after native phone acceptance
+
+The ordinary iOS AWG browsing check and synchronized DNS redirect/DoT telemetry completed the disposable trial's remaining acceptance purpose. The standard destroy lifecycle removed its endpoint and release infrastructure, leaving Standard trial credentials and expiring telemetry under the existing retention contract. A private publication catalog may have zero members after its final region retires; reconciliation must still visit former origins and remove only owned ECR filters. This does not change the retained production publication members. [Closeout](handoff.md#production-coredns-publication-and-rollout--october-26).
+
+## 2026-10-26 — Use CoreDNS for shared encrypted upstream DNS
+
+Anthony selected CoreDNS as the private resolver shared by AWG and REALITY. Cloudflare is preferred over Google but provider ordering is a soft preference. The present configuration forwards over authenticated DoT, with Cloudflare addresses before Google, and leaves downstream DoH and alternate transports for a separately qualified client change. Independent DNSSEC validation is not a current requirement; if it becomes one, reassess Unbound. Retire the Tor virtual-IP and marker path; answer special-use `.onion` locally with NXDOMAIN. Use the ENI primary address for DNS egress as decided below. [Current design](../docs/dns.md).
+
+## 2026-10-26 — Send shared DNS upstream traffic from the host primary address
+
+Anthony rejected a third public DNS address and its cost/quota impact. Keep one shared private DNS container, but SNAT its allowed upstream traffic to the host ENI's primary private IPv4. Today that private address maps to AWG's EIP; DNS does not pass through the AWG container. Derive the DNS source from the same slot model that marks the ENI primary, so a later protocol reassignment does not leave DNS coupled to AWG by name. The exact selected image passed native primary-address readback in Ireland and Stockholm. [Source and acceptance](knowledge/dns-forwarder.md).
+
+## 2026-10-19 — Retire the Tor/.onion gateway experiment
+
+Anthony requested a removal plan after the no-extra-setup browser goal failed. Do not advance Tor egress. The review initially proposed removing the DNS container and virtual routing together, but Anthony reopened the ordinary-DNS security decision. CoreDNS became the selected independent DNS feature; Tor routing and the Ireland trial were later retired. The October 3–13 Tor/.onion design decisions below remain superseded as product direction. [Current DNS design](../docs/dns.md), [trial history](scratch/2026-10-19-tor-retirement/plan.md).
+
+## 2026-10-13 — Select the DNS candidate only in the private trial
+
+Keep the six-image DNS candidate and manual release control scoped to Ireland's isolated `dns-native` target. Give that target a validated `/ghostline/trial/dns-native` Parameter Store namespace so its service can use enrolled test identities without reading or changing maintained `/ghostline/prod` credentials. The common managed ECS service and native blue-green controller passed both EIP-preserving success and failed-green rollback/explicit cleanup in the isolated trial; normal publication and ordinary Chrome hostname delivery remain separate gates. Preserve the shared DNS container and defer Tor to its own later container. [Observed state](handoff.md#native-six-image-rollback-and-cleanup--october-13).
+
+## 2026-10-12 — Lease the virtual range with the DNS peer
+
+The native Bottlerocket trial found that the expiring host guard rejected virtual destinations before the guarded route policy ran. Keep the existing five-second fail-closed lease model: use a network-capable set, withdraw the virtual `/16` before peer changes, and renew it only when the DNS peer and owned route are current. The host policy still limits engine TCP 80/443 and DNS-veth returns. Do not add a permanent bypass or use broad Docker bridge acceptance. [Native evidence](handoff.md#ireland-native-dns-candidate-and-virtual-lease-repair--october-12).
+
+## 2026-10-04 — Keep DNS and future Tor in separate containers
+
+Anthony selected VPN-level `.onion` routing for supported AWG and REALITY devices, with ordinary DNS supplied by a shared resolver. Implement the DNS policy as a private component: Cloudflare `1.1.1.1` first, Google fallback, strict encrypted upstream transport, local virtual-IP mapping for `.onion`, no public DNS entrypoint or protocol secrets. The eventual Tor client has a separate container and receives only selected streams. This keeps Tor bootstrap and identity concerns outside the resolver. The isolated Ireland Docker trial is evidence for the component/adapters, not adoption of a second regional deployment recipe or authorization to change production. [Current contract and gates](scratch/2026-10-19-tor-retirement/tor-dns-trial.md).
+
+## 2026-10-12 — Use one private DNS container and one shared DNS egress identity
+
+Anthony chose one DNS container for both VPN protocols, accepting a single upstream DNS egress identity. The original implementation used the REALITY EIP for its Cloudflare/Google DoT traffic; the October 26 primary-address decision supersedes that source selection. `.onion` answers remain local. The DNS container must not expose a public listener or receive engine secrets. Keep Tor in its own later container. [Network constraint and migration plan](knowledge/tor-integration.md#proposed-whole-stack-migration-sequence--october-12).
+
+## 2026-10-04 — Keep onion handling at the VPN level (Anthony)
+
+Test `.onion` DNS and connection interception through VPN configuration for supported AWG and REALITY devices, without configuring each browser or other application. Phone testing is available when a working, reachable test endpoint and clear steps are ready. The first native AWG lab disrupted ordinary browsing and was removed; it is not an accepted solution. Preserve ordinary VPN connectivity as a prerequisite for another native trial. [Trial evidence](knowledge/tor-integration.md#native-awg-shared-dns-trial--october-4-2026).
+
+## 2026-10-03 — Limit Tor work to personal access (Anthony)
+
+Tor support is for Anthony's own security and access to `.onion` sites. Do not design a hosted onion service or public relay. Anthony now wants to investigate `.onion` links loading on any device connected to the REALITY VPN; Tor Browser with its own local Tor client over the VPN remains a separate-app option, and Chrome handoff was not selected. A server-side Tor outbound can route only connections for which the REALITY client conveys the `.onion` hostname. No universal server-only behavior, Tor sidecar or client configuration is approved; qualify actual Mac/iOS browser and client paths before committing. A gateway Tor client moves Tor's circuit start to AWS, unlike device-side Tor. A self-run private bridge remains a conditional access option, not an approved deployment. Resolve quiet-session lifecycle semantics before implementing an expiry observer. [Assessment](knowledge/tor-integration.md).
+
 ## 2026-10-03 — Accept Parameter Store and on-demand exports for recovery (Anthony)
 
 Close the recovery-strategy review. Preserve regional Parameter Store identities and export client profiles as needed; no manual LastPass backups, mandatory local archives, dedicated backup infrastructure or new emergency-reset tooling are required. Anthony accepts explicit new-identity provisioning, redeployment, device re-enrolment and downtime after total credential loss. This supersedes the October 1 options review and earlier vault-closeout requirement. Pipeline access to LastPass remains prohibited. Normal deploy does not silently generate identities; destroy retains parameters and import refuses conflicts, so identity reset is explicit operator work if disaster occurs. No secret reads, rotation, IAM/cloud changes or local-copy deletion occurred. [Current recovery contract](../docs/secrets.md#recovery-and-changes).

@@ -2,10 +2,11 @@ export interface PublicationProfile { members: string[]; retainedMembers: string
 export const defaultPublicationRegions = ['us-east-1', 'eu-west-2'];
 export function publicationProfile(input: Partial<PublicationProfile>, initialGateways: string[] = []): PublicationProfile {
   // Publication can originate at any member; retained members explicitly protect the owner's permanent publication regions.
+  // An empty private catalog is valid after its last disposable member retires.
   if (Object.keys(input).some(k => !['members', 'retainedMembers', 'automation'].includes(k))) throw new Error('Unknown imagePublication field.');
   const result = { members: [...new Set([...defaultPublicationRegions, ...initialGateways])], retainedMembers: [...defaultPublicationRegions], automation: false, ...input };
   if (typeof result.automation !== 'boolean' || !Array.isArray(result.members) || !Array.isArray(result.retainedMembers)
-    || !result.members.length || [...result.members, ...result.retainedMembers].some(r => typeof r !== 'string' || !/^[a-z]{2}(?:-[a-z]+)+-\d+$/.test(r))
+    || [...result.members, ...result.retainedMembers].some(r => typeof r !== 'string' || !/^[a-z]{2}(?:-[a-z]+)+-\d+$/.test(r))
     || new Set(result.members).size !== result.members.length || new Set(result.retainedMembers).size !== result.retainedMembers.length
     || result.retainedMembers.some(r => !result.members.includes(r))) throw new Error('Invalid publication membership.');
   return result;
@@ -26,8 +27,8 @@ export function replicationRulesEqual(left: ReplicationRule[], right: Replicatio
 }
 export class EcrReplicationCluster {
   constructor(readonly members: RegistryMember[], readonly prefixes: string[]) {
-    // Registry-level rules are shared state. Exact prefix ownership must be unambiguous before any replacement.
-    if (!members.length || new Set(members.map(m => `${m.account}/${m.region}`)).size !== members.length
+    // Registry-level rules are shared state; an empty destination set removes only this cluster's owned filters.
+    if (new Set(members.map(m => `${m.account}/${m.region}`)).size !== members.length
       || members.some(m => !/^\d{12}$/.test(m.account) || !/^[a-z]{2}(?:-[a-z]+)+-\d+$/.test(m.region))
       || !prefixes.length || prefixes.some(p => !/^[a-z0-9][a-z0-9/_-]*\/$/.test(p))
       || new Set(prefixes).size !== prefixes.length || prefixes.some(p => prefixes.some(q => p !== q && p.startsWith(q)))) {

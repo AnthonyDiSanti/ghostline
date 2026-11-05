@@ -7,8 +7,10 @@ import { production, repository } from './releases/model.js';
 import publishers from '../platform-publishers.json' with { type: 'json' };
 
 export const networkDaemonMemory = 64;
-import { slotAddresses, daemonServiceName, type HostSlot } from './host-slot-model.js';
+import { slotAddresses, slotPrimaryAddress, daemonServiceName, type HostSlot } from './host-slot-model.js';
 export { slotAddresses, daemonServiceName, hostSlots, type HostSlot } from './host-slot-model.js';
+
+export interface PlatformImageInputs { bootstrap: string; daemon: string }
 
 function publisher(region: string, kind: 'control' | 'guardDuty'): string {
   // Fail closed on unknown image publishers; this is not a cached service-capability decision.
@@ -17,19 +19,29 @@ function publisher(region: string, kind: 'control' | 'guardDuty'): string {
   return account;
 }
 
-export function gatewayPlatform(config: DeploymentConfig, guardDuty: boolean, slot: HostSlot = 'a'): GatewayPlatform {
+export function gatewayPlatform(config: DeploymentConfig, guardDuty: boolean, slot: HostSlot = 'a',
+  images?: PlatformImageInputs): GatewayPlatform {
   if (!/^[a-z][a-z0-9-]{0,100}$/.test(config.resourceName)) throw new Error('Invalid gateway identity.');
   const registry = `${config.account}.dkr.ecr.${config.region}.amazonaws.com`;
   // Publication owns these aliases; ordinary image promotion never rewrites native host settings.
   const imageRepository = repository('bootstrap');
-  const image = `${registry}/${imageRepository}:${production}`;
+  const image = images?.bootstrap ?? `${registry}/${imageRepository}:${production}`;
+  if (images) {
+    // Native qualification accepts only exact candidate digests from this account's owned repositories.
+    for (const [name, selected] of [['bootstrap', images.bootstrap], ['network-daemon', images.daemon]] as const) {
+      if (!new RegExp(`^${registry.replaceAll('.', '\\.')}/${repository(name)}@sha256:[a-f0-9]{64}$`).test(selected)) {
+        throw new Error(`Invalid ${name} candidate image reference.`);
+      }
+    }
+  }
   const repositoryArn = `arn:aws:ecr:${config.region}:${config.account}:repository/${imageRepository}`;
   const memory = ecsMemoryBudget(config.instanceType);
   const settings = { family: config.resourceName, ...slotAddresses(slot),
-    taskMemory: memory.task, reservedMemory: memory.reserved };
+    taskMemory: memory.task, reservedMemory: memory.reserved,
+    ...(config.dnsRequired ? { dnsRequired: true, dnsSource: slotPrimaryAddress(slot) } : {}) };
   const encoded = (phase: string) => Buffer.from(JSON.stringify({ ...settings, phase })).toString('base64');
   return {
-    bootstrapImage: image, daemonImage: `${registry}/${repository('network-daemon')}:${production}`,
+    bootstrapImage: image, daemonImage: images?.daemon ?? `${registry}/${repository('network-daemon')}:${production}`,
     daemonRepository: repository('network-daemon'),
     configDirectory: '/mnt/ghostline/config',
     userData: renderFixture(new URL('../../runtime/ecs/bottlerocket/user-data.toml', import.meta.url), {
@@ -58,7 +70,8 @@ export function networkTaskDefinition(config: DeploymentConfig, image: string, e
       // UID 0 retains the explicitly bounded capability across iptables subprocess exec; it has no host mounts.
       user: '0:0', cpu: 32, readonlyRootFilesystem: true, privileged: false,
       entryPoint: ['python3', '/opt/ghostline/daemon.py'],
-      environment: [{ name: 'GHOSTLINE_NETWORK', value: JSON.stringify({ family: config.resourceName, ...slotAddresses(slot) }) }],
+      environment: [{ name: 'GHOSTLINE_NETWORK', value: JSON.stringify({ family: config.resourceName, ...slotAddresses(slot),
+        ...(config.dnsRequired ? { dnsRequired: true, dnsSource: slotPrimaryAddress(slot) } : {}) }) }],
       dockerSecurityOptions: ['no-new-privileges'],
       // NET_RAW is required by iptables' IP-set matcher; all other capabilities remain dropped.
       linuxParameters: { initProcessEnabled: true, capabilities: { drop: ['ALL'], add: ['NET_ADMIN', 'NET_RAW'] },

@@ -1,4 +1,4 @@
-import { artifacts, parseRelease, releaseRepository, repository, repositoryArtifacts, type Release } from './model.js';
+import { parseRelease, releaseArtifacts, releaseRepository, repository, repositoryArtifacts, type Release } from './model.js';
 
 export interface ArtifactReference { repository: string; digest: string }
 export interface ArtifactInventory extends ArtifactReference { tags: string[]; pushedAt: number; children: string[] }
@@ -28,8 +28,8 @@ export function planArtifactCleanup(inventory: ArtifactInventory[], window: Arra
   for (const record of window) {
     parseRelease(record.release);
     protect({ repository: releaseRepository, digest: record.digest });
-    for (const name of artifacts) {
-      const image = record.release.images[name];
+    for (const name of releaseArtifacts(record.release)) {
+      const image = record.release.images[name]!;
       protect(image); protect({ repository: image.repository, digest: image.runtimeDigest });
     }
   }

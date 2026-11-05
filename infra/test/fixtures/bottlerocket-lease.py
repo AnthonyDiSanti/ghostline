@@ -3,6 +3,7 @@
 import importlib.util
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 root = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(root / 'runtime/ecs'))
@@ -42,6 +43,29 @@ assert leases == {'172.17.0.3', '172.17.0.4'}
 events.clear()
 host.reconcile({}, new, new)
 assert events == ['add', 'add']
+
+# A DNS peer receives the same expiring identity lease as either engine.
+dns = {'ip': '172.17.0.5', 'started': 'dns'}
+with_dns = {**new, 'dns-policy': dns}
+events.clear()
+host.reconcile({'dnsRequired': True}, with_dns, new)
+assert events[0] == ('nat', set(peer['ip'] for peer in new.values()))
+assert dns['ip'] in leases
+events.clear()
+host.reconcile({'dnsRequired': True}, with_dns, with_dns)
+assert events == ['add', 'add', 'add']
+events.clear()
+host.reconcile({'dnsRequired': True}, new, with_dns)
+assert events[0] == 'del' and events[1] == ('nat', set(peer['ip'] for peer in new.values()))
+assert dns['ip'] not in leases
+
+with patch.object(host.guard.network, 'command') as lease_command, \
+     patch.object(host.guard.network, 'replace_chain'), \
+     patch.object(host.guard.network, 'ensure_jump'), \
+     patch.object(host.guard, 'enforce_order'), \
+     patch.object(host.guard.subprocess, 'run'):
+    host.guard.install()
+    lease_command.assert_any_call(['ipset', 'create', 'GHOSTLINE_LIVE', 'hash:net', 'timeout', '5', '-exist'])
 
 # Docker's late MASQUERADE must never win over per-engine identity; repairs revoke leases first.
 events.clear()

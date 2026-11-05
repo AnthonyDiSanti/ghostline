@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { reconcileRollout, type BlueGreenPorts } from '../lib/releases/rollout-controller.js';
+import { generationMatchesIntent, reconcileRollout, type BlueGreenPorts } from '../lib/releases/rollout-controller.js';
 import { artifacts, digest, releaseManifest, releaseRepository, type Release } from '../lib/releases/model.js';
 import type { Generation, Rollout, RolloutObservation } from '../lib/releases/blue-green.js';
 
@@ -15,7 +15,7 @@ function fixture() {
   const ports: BlueGreenPorts = { registry: { get: async repo => present ? { digest: repo === releaseRepository ? digest(text) : hash,
     manifest: repo === releaseRepository ? text : '{}', mediaType: 'application/vnd.oci.image.manifest.v1+json' } : undefined,
     put: async () => { throw new Error('No publication authority'); }, removeTag: async () => { throw new Error('No tag authority'); } },
-    template: 'template', now: () => time, record: async <T>(id: string) => state.get(id) as T | undefined,
+    template: 'template', dnsRequired: false, now: () => time, record: async <T>(id: string) => state.get(id) as T | undefined,
     put: async (id, record) => { state.set(id, record); }, replace: async (id, next, previous) => {
       if ((state.get(id) as Rollout | undefined)?.version !== previous?.version) return false; state.set(id, next); return true;
     }, generation: async () => observed ? generation : undefined, progress: vi.fn(async () => {}), alert: vi.fn(async () => {}),
@@ -27,6 +27,19 @@ function fixture() {
 it('makes repeated unchanged releases and hourly events no-ops', async () => {
   const f = fixture(); expect((await f.tick()).status).toBe('already-running'); expect((await f.tick()).status).toBe('already-running');
   expect(f.ports.effect).not.toHaveBeenCalled(); expect(f.ports.progress).toHaveBeenLastCalledWith(false);
+});
+it('never treats a five-image source as already running a six-image intent', () => {
+  // Shared old digests do not prove that the essential DNS container exists.
+  const f = fixture();
+  const legacy = Object.fromEntries(artifacts.map(name => [name, { repository: `ghostline/prod/${name}`,
+    digest: f.generation.images[name], runtimeDigest: f.generation.images[name], buildTag: `sha-${'a'.repeat(64)}` }]));
+  const dnsIntent = { schemaVersion: 4, images: { ...legacy, 'dns-policy': { repository: 'ghostline/prod/dns-policy',
+    digest: digest('dns'), runtimeDigest: digest('dns'), buildTag: `sha-${'a'.repeat(64)}` } } } as Release;
+  expect(generationMatchesIntent(f.generation, dnsIntent)).toBe(false);
+  f.generation.images['dns-policy'] = digest('dns');
+  expect(generationMatchesIntent(f.generation, dnsIntent)).toBe(true);
+  f.generation.images.unknown = digest('extra');
+  expect(generationMatchesIntent(f.generation, dnsIntent)).toBe(false);
 });
 it.each(['xray', 'bootstrap', 'network-daemon', 'os', 'template'])('selects one green generation for a meaningful %s change', async change => {
   const f = fixture();

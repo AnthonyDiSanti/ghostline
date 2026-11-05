@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { loadImageInputs, type ImageInputs } from './image-inputs.js';
-import type { ImageArtifact } from './image-artifacts.js';
+import type { BuildArtifact } from './image-artifacts.js';
 export { applicationArtifacts, platformArtifacts, imageArtifacts, type ApplicationArtifact, type ImageArtifact } from './image-artifacts.js';
 
 export type Protocol = 'xray' | 'awg';
@@ -10,18 +10,26 @@ export const imagePlatform = 'linux/arm64';
 export const imageInputs = loadImageInputs();
 export const officialXrayImage = `ghcr.io/xtls/xray-core@${imageInputs.xray.imageDigest}`;
 
-export function releaseBuildArgs(artifact: ImageArtifact, inputs: ImageInputs = imageInputs): Record<string, string> {
+export function releaseBuildArgs(artifact: BuildArtifact, inputs: ImageInputs = imageInputs): Record<string, string> {
   // Only immutable verified source identities reach Docker; discovery timestamps never invalidate caches.
+  if (artifact === 'dns-policy') return { COREDNS_VERSION: inputs.coredns.tag.slice(1), COREDNS_DIGEST: inputs.coredns.imageDigest };
   if (artifact !== 'awg') return {};
   return { AWG_COMMIT: inputs.awg.daemon.commit, AWG_SHA256: inputs.awg.daemon.archiveSha256,
     TOOLS_COMMIT: inputs.awg.tools.commit, TOOLS_SHA256: inputs.awg.tools.archiveSha256 };
 }
 
-export function localImage(artifact: ImageArtifact): string { return `ghostline-${artifact}:${releaseTag(artifact)}`; }
+export function localImage(artifact: BuildArtifact): string { return `ghostline-${artifact}:${releaseTag(artifact)}`; }
 
-export function releaseFiles(protocol: ImageArtifact): Record<string, Buffer> {
+export function releaseFiles(protocol: BuildArtifact): Record<string, Buffer> {
   // Xray is mirrored byte-for-byte; it has no Ghostline Dockerfile or build context.
   if (protocol === 'xray') return {};
+  if (protocol === 'dns-policy') return {
+    Dockerfile: readFileSync(new URL('../../runtime/ecs/dns-policy.Dockerfile', import.meta.url)),
+    'dns-policy.Corefile': readFileSync(new URL('../../runtime/ecs/dns-policy.Corefile', import.meta.url)),
+    'dns-health.go': readFileSync(new URL('../../runtime/ecs/dns-health.go', import.meta.url)),
+    'dns-health_test.go': readFileSync(new URL('../../runtime/ecs/dns-health_test.go', import.meta.url)),
+    'LICENSE.coredns': readFileSync(new URL('../../runtime/LICENSE.coredns', import.meta.url)),
+  };
   if (protocol === 'bootstrap' || protocol === 'network-daemon') {
     // Explicit file allowlists keep host-only diagnostics out of the steady-state image.
     const names = protocol === 'bootstrap'
@@ -30,6 +38,7 @@ export function releaseFiles(protocol: ImageArtifact): Record<string, Buffer> {
     const files = Object.fromEntries(names.map(name => [name, readFileSync(new URL(`../../runtime/ecs/bottlerocket/${name}`, import.meta.url))]));
     files.Dockerfile = readFileSync(new URL(`../../runtime/ecs/bottlerocket/${protocol}.Dockerfile`, import.meta.url));
     files['network.py'] = readFileSync(new URL('../../runtime/ecs/network.py', import.meta.url));
+    files['dns-policy.json'] = readFileSync(new URL('../../runtime/ecs/dns-policy.json', import.meta.url));
     if (protocol === 'bootstrap') files['network-probe.py'] = readFileSync(new URL('../../runtime/ecs/network-probe.py', import.meta.url));
     return files;
   }
@@ -43,7 +52,7 @@ export function releaseFiles(protocol: ImageArtifact): Record<string, Buffer> {
   return files;
 }
 
-export function releaseTag(protocol: ImageArtifact, inputs: ImageInputs = imageInputs): string {
+export function releaseTag(protocol: BuildArtifact, inputs: ImageInputs = imageInputs): string {
   const hash = createHash('sha256');
   if (protocol === 'xray') hash.update(`ghcr.io/xtls/xray-core@${inputs.xray.imageDigest}`).update('\0').update(imagePlatform);
   // Include the target platform in each content identity.

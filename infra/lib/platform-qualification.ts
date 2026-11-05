@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { hasKnownBootstrapRace, bootstrapRaceIssue } from './bottlerocket-limitations.js';
-import { platformArtifacts, type ImageArtifact } from './image-artifacts.js';
+import { platformArtifacts, type BuildArtifact, type ImageArtifact } from './image-artifacts.js';
+import { releaseTag } from './ecs-release.js';
 import { componentMatches, type StackObservation } from './releases/runtime-identity.js';
 import { digestPattern, type Release } from './releases/model.js';
 import type { QualifiedImage } from './releases/image-publication.js';
@@ -11,6 +12,20 @@ export interface NativeQualification {
   images: Record<typeof platformArtifacts[number], { buildTag: string; runtimeDigest: string }>;
 }
 export const nativeQualificationPath = new URL('../platform-qualification.json', import.meta.url);
+
+export function assertCurrentBuildQualification(value: unknown, names: readonly BuildArtifact[]): asserts value is {
+  qualifiedAt: string; images: Record<BuildArtifact, QualifiedImage>;
+} {
+  // A DNS trial must qualify its complete six-image build, while maintained v3 regions still require exactly five.
+  const record = value as { qualifiedAt?: string; images?: Record<string, QualifiedImage> } | undefined;
+  if (!record || !Number.isFinite(Date.parse(record.qualifiedAt ?? '')) || !record.images
+    || Object.keys(record.images).sort().join(',') !== [...names].sort().join(',')
+    || names.some(name => record.images?.[name]?.buildTag !== releaseTag(name)
+      || !digestPattern.test(record.images[name]?.imageId ?? '')
+      || !digestPattern.test(record.images[name]?.runtimeDigest ?? ''))) {
+    throw new Error('Build qualification differs from current source inputs.');
+  }
+}
 
 export function qualifiedOs(images: Record<ImageArtifact, QualifiedImage>, native?: NativeQualification): Release['os'] | undefined {
   // Local protocol tests remain mandatory every build. Native evidence can be reused only for identical platform runtime bytes/inputs.

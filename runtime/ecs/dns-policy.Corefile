@@ -1,0 +1,14 @@
+.:5353 {
+    errors
+    health 127.0.0.1:8080
+    # The retired onion route must never turn a special-use name into a public query.
+    template ANY ANY onion {
+        rcode NXDOMAIN
+    }
+    forward . tls://1.1.1.1%one.one.one.one tls://1.0.0.1%one.one.one.one tls://8.8.8.8%dns.google tls://8.8.4.4%dns.google {
+        policy sequential
+        health_check 5s
+        max_concurrent 64
+        failfast_all_unhealthy_upstreams
+    }
+}

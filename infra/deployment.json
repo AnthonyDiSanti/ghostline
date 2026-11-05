@@ -11,13 +11,15 @@
       "region": "eu-north-1",
       "availabilityZone": "eu-north-1a",
       "stackName": "GhostlineEcsTrial",
-      "resourceName": "ghostline-ecs-stockholm"
+      "resourceName": "ghostline-ecs-stockholm",
+      "dnsRequired": true
     },
     "cape-town": {
       "region": "af-south-1",
       "availabilityZone": "af-south-1a",
       "stackName": "GhostlineCapeTown",
-      "resourceName": "ghostline-cape-town"
+      "resourceName": "ghostline-cape-town",
+      "dnsRequired": true
     }
   },
   "imagePublication": {

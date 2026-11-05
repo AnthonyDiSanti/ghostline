@@ -16,6 +16,13 @@ describe('regional gateway configuration', () => {
     expect(() => validateDeployment({ ...config, availabilityZone: 'eu-central-1a' })).toThrow('matching region');
     expect(() => validateDeployment({ ...config, instanceType: 't3.small' })).toThrow('t4g');
     expect(() => validateDeployment({ ...config, dataVolumeGiB: 20 })).toThrow('30 GiB');
+    expect(() => validateDeployment({ ...config, dnsRequired: 'yes' } as any)).toThrow('boolean');
+    expect(validateDeployment({ ...config, dnsRequired: true }).dnsRequired).toBe(true);
+    expect(validateDeployment({ ...config, parameterPrefix: '/ghostline/trial/dns-native' }).parameterPrefix)
+      .toBe('/ghostline/trial/dns-native');
+    for (const parameterPrefix of ['/ghostline/prod/server', '/ghostline/trial/../prod', '/other/trial', '/ghostline/trial/']) {
+      expect(() => validateDeployment({ ...config, parameterPrefix })).toThrow('Invalid credential parameter prefix');
+    }
     expect(() => validateDeployment({ ...config, alternateRuntime: true } as any)).toThrow('Unknown deployment');
   });
   it('scopes output paths and stack selection to one explicit target', () => {
@@ -23,6 +30,7 @@ describe('regional gateway configuration', () => {
     expect(command.args).toEqual(['deploy', 'GhostlineEcsTrial', '--profile', 'personal', '--region', 'eu-north-1',
       '--output', '/repo/.local/deployments/stockholm-ecs/cdk.out',
       '--outputs-file', '/repo/.local/deployments/stockholm-ecs/outputs.json']);
+    expect(deploymentCommand('diff', 'stockholm-ecs', '/repo/infra').args.slice(-2)).toEqual(['--method', 'template']);
     expect(() => deploymentCommand('destroy', 'stockholm-ecs', '/repo/infra')).toThrow('Unsupported');
   });
   it('keeps endpoint deployment scope explicit and unattended', () => {
@@ -33,7 +41,9 @@ describe('regional gateway configuration', () => {
       expect(command.args.slice(-2)).toEqual(['--require-approval', 'never']);
       expect(command.args).not.toContain('--all');
     }
-    expect(ecsDeploymentCommand('diff', 'stockholm-ecs', '/repo/infra').args).not.toContain('--require-approval');
+    const diff = ecsDeploymentCommand('diff', 'stockholm-ecs', '/repo/infra').args;
+    expect(diff).not.toContain('--require-approval');
+    expect(diff.slice(-2)).toEqual(['--method', 'template']);
     expect(() => ecsDeploymentCommand('deploy', '--all', '/repo/infra')).toThrow('Select a deployment');
   });
 });

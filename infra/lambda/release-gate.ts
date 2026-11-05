@@ -13,16 +13,20 @@ import { coordinatedRelease, DynamoLifecycleStore } from '../lib/releases/lifecy
 import { EcrRegistry } from '../lib/releases/registry.js';
 import { relevantReleaseEvent } from '../lib/releases/events.js';
 import { activationHook } from '../lib/releases/activation-hook.js';
+import { mayReconcileRelease, releaseAutomationMode } from '../lib/releases/automation.js';
+import type { Rollout } from '../lib/releases/blue-green.js';
 
 export async function handler(event: { action?: string; source?: string; 'detail-type'?: string; detail?: Record<string, any>; lifecycleStage?: string } = {}) {
   if (!relevantReleaseEvent(event)) return { status: 'irrelevant-event' };
   const region = process.env.AWS_REGION!;
   const hook = event.lifecycleStage ? event as unknown as DeploymentHook : undefined;
-  if (process.env.AUTOMATION !== 'enabled' && !hook) return { status: 'automation-disabled' };
+  const mode = releaseAutomationMode(process.env.AUTOMATION, process.env.OPERATOR_ONLY);
+  if (!['true', 'false'].includes(process.env.DNS_REQUIRED ?? '')) throw new Error('DNS target schema is unspecified.');
   const db = new DynamoDBClient({ region });
   const lifecycle = new DynamoLifecycleStore(db, process.env.TABLE!);
   const gate = new AwsBlueGreen({ endpoint: process.env.ENDPOINT_STACK!, account: process.env.ACCOUNT!, region,
     cluster: process.env.CLUSTER!, service: process.env.SERVICE!, table: process.env.TABLE!, topic: process.env.TOPIC!,
+    dnsRequired: process.env.DNS_REQUIRED === 'true',
     observerDocument: process.env.OBSERVER_DOCUMENT!, progressRule: process.env.PROGRESS_RULE!,
     templates: JSON.parse(process.env.SLOT_TEMPLATES!), role: process.env.SLOT_ROLE!, tags: JSON.parse(process.env.OWNER_TAGS!) },
     // Force deployment and address moves use observation-based recovery instead of automatic SDK mutation retries.
@@ -30,6 +34,11 @@ export async function handler(event: { action?: string; source?: string; 'detail
       ecs: new ECSClient({ region, maxAttempts: 1 }), db, ssm: new SSMClient({ region }),
       sns: new SNSClient({ region }), events: new EventBridgeClient({ region }) },
     new EcrRegistry(new ECRClient({ region }), process.env.ACCOUNT!, region), 'active');
+  const [claim, rollout] = mode === 'manual' && !hook
+    ? await Promise.all([lifecycle.read(), gate.record<Rollout>('rollout/current')]) : [undefined, undefined];
+  if (!mayReconcileRelease(mode, !!hook, claim, rollout?.phase, event.action)) {
+    return { status: 'automation-disabled' };
+  }
   let hookStatus: 'SUCCEEDED' | 'FAILED' | 'IN_PROGRESS' | undefined;
   if (hook) {
     // Initial/empty-service hooks are observational only and can run while the owning CLI waits for CloudFormation.

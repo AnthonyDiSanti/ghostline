@@ -11,7 +11,7 @@ export interface Activation { id: string; started: number; release: string; stac
 
 export async function activateHost(gate: AwsBlueGreen, outputs: Record<string, string>,
   beforeStart: () => Promise<void>, wait: (ms: number) => Promise<void> = ms => new Promise(resolve => setTimeout(resolve, ms))): Promise<void> {
-  const ready = await readiness(gate.registry);
+  const ready = await readiness(gate.registry, gate.config.dnsRequired);
   if (!ready.ready || !ready.current?.release.os.targetVersion) throw new Error('First activation requires a complete local release and selected OS.');
   const release = ready.current, os = release.release.os.targetVersion!;
   const initial = await Promise.all([gate.observer.read('a'), gate.observer.read('b')]);
@@ -27,7 +27,7 @@ export async function activateHost(gate: AwsBlueGreen, outputs: Record<string, s
   if (outputs.SlotProvisionerRoleArn !== gate.config.role) throw new Error('Slot provisioning authority differs from shared infrastructure.');
   const coherent = async () => {
     // First launch is deliberate deployment, not unexpected recovery: aliases must still match the selected local candidate.
-    const current = await readiness(gate.registry);
+    const current = await readiness(gate.registry, gate.config.dnsRequired);
     if (!current.ready || current.current?.digest !== release.digest) throw new Error('Release changed during first activation.');
   };
   const until = async <T>(name: string, read: () => Promise<T | undefined>): Promise<T> => {

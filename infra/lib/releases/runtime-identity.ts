@@ -1,4 +1,4 @@
-import { type ImageArtifact } from '../image-artifacts.js';
+import { type Artifact } from './model.js';
 import type { LifecycleMode } from './lifecycle.js';
 
 export interface ComponentIdentity { digest: string; runtimeDigest: string }
@@ -7,7 +7,7 @@ export interface StackObservation {
   resolvedDigests?: Record<string, string>;
   host?: { id: string; state: string; bootId?: string; version?: string; variant?: string; architecture?: string };
   bootstrap?: { digest: string; bootId: string };
-  gateway?: { desired: number; stable: boolean; images: Partial<Record<ImageArtifact, string>> };
+  gateway?: { desired: number; stable: boolean; images: Partial<Record<Artifact, string>> };
   daemon?: { stable: boolean; digest?: string };
 }
 export function componentMatches(expected: ComponentIdentity, observed?: string, resolved: Record<string, string> = {}): boolean {

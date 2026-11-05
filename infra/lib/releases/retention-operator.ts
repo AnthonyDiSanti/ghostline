@@ -3,8 +3,8 @@ import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
 import type { AwsCredentialIdentityProvider } from '@smithy/types';
 import type { DeploymentConfig } from '../config.js';
 import { withLifecycle } from '../lifecycle-operator.js';
-import { releaseRepository, releaseSelector, repository, repositoryArtifacts } from './model.js';
-import { readRelease, type EcrRegistry } from './registry.js';
+import { releaseArtifacts, releaseRepository, releaseSelector, repository, repositoryArtifacts } from './model.js';
+import { readRelease, type EcrRegistry, type ReleaseRecord } from './registry.js';
 import { releaseHistory } from './publication.js';
 import { planArtifactCleanup, type ArtifactInventory, type ArtifactReference } from './retention.js';
 import type { LifecycleState } from './lifecycle.js';
@@ -39,20 +39,24 @@ export async function pruneRegionalArtifacts(registry: EcrRegistry, credentials:
   else await run();
 }
 
-async function prune(registry: EcrRegistry, credentials: AwsCredentialIdentityProvider,
-  config: DeploymentConfig | undefined, report: (message: string) => void): Promise<void> {
-  // Operator publication is serialized. Runtime Lambda has no image-write/delete authority.
-  const current = await readRelease(registry, releaseRepository, releaseSelector);
-  if (!current) return;
-  const runtime = config ? await retainedRuntime(config, credentials) : [];
-  if (!runtime) { report(`${registry.region}: image cleanup deferred until stable runtime/power observations are available.`); return; }
-  const history = await releaseHistory(registry, current);
+export async function regionalArtifactInventory(registry: EcrRegistry, history: ReleaseRecord[],
+  runtime: ArtifactReference[]): Promise<ArtifactInventory[]> {
+  // A five-image region may not have created the DNS repository yet; a protected DNS reference makes its absence fatal.
+  const dnsRepository = repository('dns-policy');
+  const dnsRequired = history.some(record => releaseArtifacts(record.release).includes('dns-policy'))
+    || runtime.some(ref => ref.repository === dnsRepository);
   const inventory: ArtifactInventory[] = [];
   for (const name of repositoryArtifacts) {
     const repo = repository(name);
     let nextToken: string | undefined;
     do {
-      const page = await registry.client.send(new DescribeImagesCommand({ repositoryName: repo, nextToken, maxResults: 100 }));
+      let page;
+      try { page = await registry.client.send(new DescribeImagesCommand({ repositoryName: repo, nextToken, maxResults: 100 })); }
+      catch (error) {
+        if (repo === dnsRepository && !dnsRequired && !nextToken
+          && (error as Error).name === 'RepositoryNotFoundException') break;
+        throw error;
+      }
       for (const item of page.imageDetails ?? []) {
         if (!item.imageDigest || !item.imagePushedAt) throw new Error('Incomplete cleanup inventory.');
         const manifest = await registry.get(repo, item.imageDigest);
@@ -64,6 +68,18 @@ async function prune(registry: EcrRegistry, credentials: AwsCredentialIdentityPr
       nextToken = page.nextToken;
     } while (nextToken);
   }
+  return inventory;
+}
+
+async function prune(registry: EcrRegistry, credentials: AwsCredentialIdentityProvider,
+  config: DeploymentConfig | undefined, report: (message: string) => void): Promise<void> {
+  // Operator publication is serialized. Runtime Lambda has no image-write/delete authority.
+  const current = await readRelease(registry, releaseRepository, releaseSelector);
+  if (!current) return;
+  const runtime = config ? await retainedRuntime(config, credentials) : [];
+  if (!runtime) { report(`${registry.region}: image cleanup deferred until stable runtime/power observations are available.`); return; }
+  const history = await releaseHistory(registry, current);
+  const inventory = await regionalArtifactInventory(registry, history, runtime);
   const plan = planArtifactCleanup(inventory, history, runtime, true, Date.now());
   if (plan.reason) { report(`${registry.region}: image cleanup deferred: ${plan.reason}`); return; }
   for (const item of plan.remove) {

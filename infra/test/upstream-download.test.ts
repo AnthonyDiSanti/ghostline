@@ -8,6 +8,8 @@ describe('authenticated upstream metadata reads', () => {
     '/repos/amnezia-vpn/amneziawg-tools/releases/latest',
     '/repos/amnezia-vpn/amneziawg-go/releases?per_page=1',
     '/repos/amnezia-vpn/amneziawg-go/tags?per_page=100&page=2',
+    '/repos/coredns/coredns/releases/latest',
+    '/repos/coredns/coredns/commits/v1.15.0',
   ])('routes a public metadata request through an explicit gh GET: %s', path => {
     expect(upstreamDownloadCommand(`https://api.github.com${path}`)).toEqual({
       executable: 'gh', args: ['api', '--hostname', 'github.com', '--method', 'GET', path],

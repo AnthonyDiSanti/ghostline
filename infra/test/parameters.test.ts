@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import type { SSMClient } from '@aws-sdk/client-ssm';
-import { assertServerParameterMetadata, credentialParameters, importParameters, serverParameterNames, validateAwgIdentity } from '../lib/parameters.js';
+import { assertServerParameterMetadata, credentialParameters, importParameters, serverParameterNames, serverParameterNamesFor, validateAwgIdentity } from '../lib/parameters.js';
 import { generateAwgProfiles } from '../lib/awg.js';
 import { generateXrayProfiles } from '../lib/xray.js';
 import { getDeployment } from '../lib/config.js';
@@ -14,6 +14,11 @@ it('validates deployment prerequisites without requiring credential values', () 
   expect(() => assertServerParameterMetadata(metadata)).not.toThrow();
   expect(() => assertServerParameterMetadata(metadata.slice(1))).toThrow('Both server parameters');
   expect(() => assertServerParameterMetadata(metadata.map(p => ({ ...p, Type: 'String' })))).toThrow('SecureStrings');
+  const trial = '/ghostline/trial/dns-native';
+  const trialMetadata = serverParameterNamesFor(trial).map(Name => ({ Name, Type: 'SecureString' }));
+  expect(() => assertServerParameterMetadata(trialMetadata, trial)).not.toThrow();
+  expect(() => assertServerParameterMetadata(metadata, trial)).toThrow('Both server parameters');
+  expect(() => serverParameterNamesFor('/ghostline/trial/../prod')).toThrow('Invalid credential parameter prefix');
 });
 
 it('rejects mismatched AWG keys and obfuscation settings before import', () => {
@@ -84,6 +89,8 @@ it('imports six portable files without changing their bytes or binding them to a
       const relative = parameter.name.replace('/ghostline/prod/', '') + (parameter.system === 'xray' ? '.json' : '.conf');
       expect(hash(parameter.value)).toBe(hash(readFileSync(join(root, relative), 'utf8')));
     }
+    expect(credentialParameters(root, '/ghostline/trial/dns-native').map(p => p.name))
+      .toEqual(parameters.map(p => p.name.replace('/ghostline/prod/', '/ghostline/trial/dns-native/')));
   });
 });
 

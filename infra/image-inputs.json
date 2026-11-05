@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 1,
-  "resolvedAt": "2026-09-21T04:26:04.268Z",
+  "schemaVersion": 2,
+  "resolvedAt": "2026-10-31T12:42:16.419Z",
   "xray": {
     "tag": "v26.3.27",
     "commit": "d2758a023cd7f4174a5a5fa4ff66e487d4342ba0",
@@ -19,5 +19,10 @@
       "commit": "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843",
       "archiveSha256": "22438f231d39ea27e4bdc69707ec3103357f3cecc9ad3eecba18a61e5b39c9b9"
     }
+  },
+  "coredns": {
+    "tag": "v1.15.0",
+    "commit": "a6fde3fe339c6ec848447e11cc9796be8c97b4e0",
+    "imageDigest": "sha256:3fcf76a17b938c794a5fa6f2677b51bb194294370c5191164ea67645c4796f72"
   }
 }

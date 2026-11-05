@@ -6,10 +6,10 @@ import { SlotObserver, type SlotObservation } from './slot-observation.js';
 import { ReleaseState } from './state.js';
 import { HostProbe } from './host-probe.js';
 import { readServiceTasks } from './ecs-observation.js';
-import { bootstrapReady, daemonReady, failedRuntimeEvidence, gatewayReady } from './generation-proof.js';
+import { bootstrapReady, daemonReady, failedRuntimeEvidence, gatewayReady, observedRelease } from './generation-proof.js';
 import { readNativeDeployment } from './native-deployment.js';
 import { readiness } from './gate.js';
-import { artifacts, digestPattern, repository, type Release } from './model.js';
+import { observedArtifacts } from './model.js';
 import type { Registry } from './registry.js';
 import type { Generation, Rollout, RolloutEffect, RolloutObservation, RolloutPorts } from './blue-green.js';
 import type { StackClients } from './clients.js';
@@ -19,7 +19,7 @@ import { nextAssociationChange } from './eip-handoff.js';
 import type { LifecycleMode } from './lifecycle.js';
 
 export interface BlueGreenConfig extends SlotStackConfig {
-  table: string; topic: string; cluster: string; service: string; progressRule: string; observerDocument: string;
+  table: string; topic: string; cluster: string; service: string; progressRule: string; observerDocument: string; dnsRequired: boolean;
 }
 interface Snapshot {
   inputs: SlotInputs; slots: Record<HostSlot, SlotObservation>; addresses?: HandoffAddresses; bindings?: AddressObservation;
@@ -35,6 +35,7 @@ export class AwsBlueGreen extends ReleaseState implements RolloutPorts {
     this.observer = new SlotObserver(this.stacks, config.cluster, clients);
     this.probe = new HostProbe(config.observerDocument, clients.ssm, this);
   }
+  get dnsRequired() { return this.config.dnsRequired; }
   async save(next: Rollout, previous: Rollout): Promise<void> {
     if (!await this.replace('rollout/current', next, previous)) throw new Error('Concurrent rollout state change.');
   }
@@ -67,19 +68,21 @@ export class AwsBlueGreen extends ReleaseState implements RolloutPorts {
       || !host.container.containerInstanceArn || host.tasks.length !== 1) return undefined;
     const probe = await this.probe.read(host.instance.InstanceId);
     if (!probe?.bootstrap || !task.startedBy?.startsWith('ecs-svc/')) return undefined;
-    const images = Object.fromEntries(artifacts.map(name => [name, name === 'bootstrap' ? probe.bootstrap!.digest
+    const runtime = Object.fromEntries((task.containers ?? []).filter(c => c.name).map(c => [c.name!, c.imageDigest]));
+    const names = observedArtifacts({ bootstrap: probe.bootstrap.digest, 'network-daemon': host.tasks[0]?.containers?.find(c => c.name === 'network')?.imageDigest,
+      ...runtime });
+    if (!names) return undefined;
+    const images = Object.fromEntries(names.map(name => [name, name === 'bootstrap' ? probe.bootstrap!.digest
       : name === 'network-daemon' ? host.tasks[0]?.containers?.find(c => c.name === 'network')?.imageDigest
         : task.containers?.find(c => c.name === name)?.imageDigest]));
-    if (Object.values(images).some(d => !d || !digestPattern.test(d))) return undefined;
     const revision = `arn:aws:ecs:${this.config.region}:${this.config.account}:service-revision/${this.config.cluster}/${this.config.service}/${task.startedBy.slice('ecs-svc/'.length)}`;
-    const actual: Release = { schemaVersion: 3, promotionId: 'observed', promotedAt: new Date(this.now()).toISOString(), origin: this.config.region,
-      platform: 'linux/arm64', history: [], os: { variant: 'aws-ecs-3', architecture: 'arm64', targetVersion: probe.version, compatibleVersions: [probe.version] },
-      images: Object.fromEntries(artifacts.map(name => [name, { repository: repository(name), digest: images[name]!, runtimeDigest: images[name]!, buildTag: 'observed' }])) as Release['images'] };
+    const actual = observedRelease(images, probe.version, this.config.region, this.now());
+    if (!actual) return undefined;
     if (!bootstrapReady(probe, actual, {}) || !daemonReady(host.tasks[0], host.container.containerInstanceArn, actual, {})
       || !gatewayReady(task, host.container.containerInstanceArn, revision, probe, actual, {}, this.now())) return undefined;
     const generation: Generation = { slot: host.slot, stack: host.stack!.id, instance: host.instance.InstanceId, interface: host.interface!,
       boot: probe.bootId, revision, images: images as Record<string, string>, os: probe.version, template: host.stack?.template };
-    // Preserve all five actual runtime references for stopped/parked recovery and bounded image cleanup.
+    // Preserve the exact actual runtime set for stopped/parked recovery and bounded image cleanup.
     await this.put('runtime/images', { at: this.now(), images: generation.images });
     return generation;
   }
@@ -107,7 +110,7 @@ export class AwsBlueGreen extends ReleaseState implements RolloutPorts {
     const snapshot = await this.inventory(rollout);
     const green = snapshot.slots[rollout.green], blue = snapshot.slots[rollout.source.slot];
     const [ready, tasks, greenProbe, blueProbe, deployment] = await Promise.all([
-      readiness(this.registry).catch(async () => {
+      readiness(this.registry, this.config.dnsRequired).catch(async () => {
         // A failed registry read denies forward promotion but cannot suppress independently verified return-to-blue safety work.
         await this.alert(`${rollout.id}/registry-observation`, 'Release metadata is unreadable; forward promotion is withheld. Existing runtime and rollback observations continue.');
         return { ready: false, current: undefined };
@@ -119,15 +122,13 @@ export class AwsBlueGreen extends ReleaseState implements RolloutPorts {
     ]);
     const greenTasks = tasks.filter(t => t.containerInstanceArn === green.container?.containerInstanceArn);
     const blueTasks = tasks.filter(t => t.containerInstanceArn === blue.container?.containerInstanceArn);
-    const expectedBlue: Release = { ...rollout.intent, images: Object.fromEntries(artifacts.map(name => [name, {
-      ...rollout.intent.images[name], digest: rollout.source.images[name]!, runtimeDigest: rollout.source.images[name]!,
-    }])) as Release['images'], os: { ...rollout.intent.os, targetVersion: rollout.source.os, compatibleVersions: [rollout.source.os] } };
+    const expectedBlue = observedRelease(rollout.source.images, rollout.source.os, this.config.region, this.now());
     const daemonHealthy = green.tasks.length === 1 && !!green.container?.containerInstanceArn
       && daemonReady(green.tasks[0], green.container.containerInstanceArn, rollout.intent, {});
     const coldReady = daemonHealthy && bootstrapReady(greenProbe, rollout.intent, {});
     const greenReady = !!deployment && coldReady && greenTasks.length === 1
       && gatewayReady(greenTasks[0], green.container!.containerInstanceArn!, deployment.greenRevision, greenProbe, rollout.intent, {}, this.now());
-    const sourceHealthy = blueTasks.length === 1 && blue.tasks.length === 1 && !!blue.container?.containerInstanceArn
+    const sourceHealthy = !!expectedBlue && blueTasks.length === 1 && blue.tasks.length === 1 && !!blue.container?.containerInstanceArn
       && blueProbe?.bootId === rollout.source.boot && bootstrapReady(blueProbe, expectedBlue, {})
       && daemonReady(blue.tasks[0], blue.container.containerInstanceArn, expectedBlue, {})
       && gatewayReady(blueTasks[0], blue.container.containerInstanceArn, rollout.source.revision, blueProbe, expectedBlue, {}, this.now());
@@ -200,7 +201,7 @@ export class AwsBlueGreen extends ReleaseState implements RolloutPorts {
         }
         break;
       case 'force': {
-        const ready = await readiness(this.registry);
+        const ready = await readiness(this.registry, this.config.dnsRequired);
         if (!ready.ready || ready.current?.digest !== rollout.release || this.candidate(green) !== 'eligible'
           || this.candidate(snapshot.slots[rollout.source.slot]) !== 'ineligible') throw new Error('Release/placement changed immediately before force deployment.');
         await this.clients.ecs.send(new UpdateServiceCommand({ cluster: this.config.cluster, service: this.config.service, forceNewDeployment: true })); break;
