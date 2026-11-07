@@ -16,7 +16,7 @@ There is no SSH provisioning, Compose deployment mode, NAT gateway, load balance
 
 ## Resource and billing identity
 
-The maintained catalog contains `stockholm-ecs` (primary) and `cape-town` (backup). Stockholm’s deployed stack names `GhostlineEcsTrial` and resource prefix `ghostline-ecs-stockholm` remain stable AWS identities. Their names do not select a different architecture. Adding another region instantiates the same stack class with explicit account/region/AZ/resource inputs and the official regional AMI mapping for the centrally qualified OS version; it does not introduce a new implementation.
+The maintained catalog contains `oregon` (primary), `stockholm-ecs` and `cape-town` (parked backups). Stockholm’s deployed stack names `GhostlineEcsTrial` and resource prefix `ghostline-ecs-stockholm` remain stable AWS identities. Their names do not select a different architecture. Adding another region instantiates the same stack class with explicit account/region/AZ/resource inputs and the official regional AMI mapping for the centrally qualified OS version; it does not introduce a new implementation.
 
 Cost tags mirror personal-assistant: exact `Project=ghostline`, `Environment=prod`, and resource-owned `System`. Host/network/shared-task/initializer resources use `shared`; engine repositories and EIPs use `xray` or `amneziawg`. Region is already an AWS billing dimension. Global tags cannot override `System`. See [reference reuse](reference-reuse.md).
 

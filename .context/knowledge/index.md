@@ -19,7 +19,7 @@ Consult before infrastructure/vendor work. Current behavior belongs in `docs/`; 
 - [ECR replication cluster plan](../scratch/2026-09-22-ecr-replication-cluster/plan.md) — incorporated into coordinated release work: live full-mesh, whole-stack expansion and union retirement verified; NVA/London retained.
 - [Secret boundary](../../docs/secrets.md) — six regional parameters, portable import directory, exact execution-role scope, read-only mounts and residual environment metadata.
 - [Development fixtures](../../docs/development.md#typescript-and-npm) — native scripts, explicit rendering, recursive syntax/lint checks and real-file tests.
-- [Stockholm evidence](../../docs/launch-stockholm-ecs.md), [Cape Town evidence](../../docs/launch-cape-town.md) — actual resource identities and tested behavior; read before cloud changes.
+- [Oregon evidence](../../docs/launch-oregon.md), [Stockholm evidence](../../docs/launch-stockholm-ecs.md), [Cape Town evidence](../../docs/launch-cape-town.md) — actual resource identities and tested behavior; read before cloud changes.
 - [Mac client stability](../../docs/mac-client-stability.md) — OneXraySE routing/awake tests, crash evidence, unsafe retired watchdog and release-watch criteria.
 - [v2rayN assessment](../../docs/v2rayn-assessment.md) — conditional alternative client, REALITY/AWG compatibility and security tradeoffs.
 - [Protocol selection](protocol-selection.md) — reasons for AWG as the manual stealth alternative.

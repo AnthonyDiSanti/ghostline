@@ -36,7 +36,8 @@ export async function claimLifecycle(store: LifecycleStore, kind: string, owner:
   if (kind === 'release-cleanup' && !['active', 'stopped'].includes(before?.mode ?? '')) return undefined;
   // Resumption retains the same operation identity; a second process cannot silently claim a different operation.
   if (before?.operation) return before;
-  const next: LifecycleState = { version: (before?.version ?? 0) + 1, mode: mode ?? before?.mode ?? 'active',
+  // Release infrastructure can precede the endpoint; only a successful explicit launch may activate a new region.
+  const next: LifecycleState = { version: (before?.version ?? 0) + 1, mode: mode ?? before?.mode ?? 'parked',
     operation: { kind, owner, startedAt: Date.now() } };
   return await store.replace(next, before) ? next : undefined;
 }

@@ -4,9 +4,12 @@ import { deploymentCommand, ecsDeploymentCommand } from '../lib/commands.js';
 
 describe('regional gateway configuration', () => {
   it('exposes only maintained endpoints and preserves Stockholm cloud identities', () => {
-    expect(deploymentIds).toEqual(['stockholm-ecs', 'cape-town']);
+    // Oregon joins the common recipe without changing either retained endpoint's cloud identity.
+    expect(deploymentIds).toEqual(['stockholm-ecs', 'oregon', 'cape-town']);
     expect(getDeployment('stockholm-ecs')).toMatchObject({ region: 'eu-north-1', availabilityZone: 'eu-north-1a',
       stackName: 'GhostlineEcsTrial', resourceName: 'ghostline-ecs-stockholm', instanceType: 't4g.small' });
+    expect(getDeployment('oregon')).toMatchObject({ region: 'us-west-2', availabilityZone: 'us-west-2a',
+      stackName: 'GhostlineOregon', resourceName: 'ghostline-oregon', instanceType: 't4g.small', dnsRequired: true });
   });
   it.each([undefined, '', 'unknown', '../stockholm-ecs', '--all', 'toString'])('rejects ambiguous target %s', target => {
     expect(() => getDeployment(target)).toThrow('Select a deployment');

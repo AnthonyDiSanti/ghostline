@@ -1,6 +1,6 @@
 # Bottlerocket platform
 
-Every regional gateway uses AWS's official ECS-3 ARM64 Bottlerocket OS. The supported image includes the ECS agent and restricted SSM control container. Stockholm runs the qualified split-image release on official 1.66.0; Cape Town is parked. Their launch records and the [handoff](../.context/handoff.md) record observed identities and remaining upstream limitations.
+Every regional gateway uses AWS's official ECS-3 ARM64 Bottlerocket OS. The supported image includes the ECS agent and restricted SSM control container. Oregon runs the qualified split-image release on official 1.66.0; Stockholm and Cape Town are parked. Their launch records and the [handoff](../.context/handoff.md) record observed identities, validation limits and remaining upstream limitations.
 
 ## Images and ownership
 

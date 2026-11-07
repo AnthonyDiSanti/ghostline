@@ -1,15 +1,21 @@
 # Stockholm gateway evidence
 
-Primary target `stockholm-ecs`; profile `personal`; account `757999402784`; region `eu-north-1`, AZ `eu-north-1a`. Endpoint stack `GhostlineEcsTrial`, release repositories `GhostlineRelease`, resource prefix `ghostline-ecs-stockholm`. These are stable cloud identities for the common [gateway recipe](ecs.md).
+Parked backup target `stockholm-ecs`; profile `personal`; account `757999402784`; region `eu-north-1`, AZ `eu-north-1a`. [Oregon](launch-oregon.md) is now primary. Endpoint stack `GhostlineEcsTrial`, release repositories `GhostlineRelease`, resource prefix `ghostline-ecs-stockholm`. These are stable cloud identities for the common [gateway recipe](ecs.md).
 
-One official ECS-3 Bottlerocket ARM64 `t4g.small`, version `1.66.0-1ad6b4a4`, encrypted 2 GiB OS and 30 GiB data disks. October 31 minimal-CoreDNS rollout readback shows slot A host `i-02e7d273eef7f1b9b`, ENI `eni-0e49668f9c808fc9a`, with release `sha256:0aca4d364d55bafd8ac093bc0169cbddceb9dc0f4d80c8f94a2778c903f37c9a` complete and no lifecycle claim. Separate bootstrap and restricted network-daemon images use the common release pipeline.
+Before the November 5 park, one official ECS-3 Bottlerocket ARM64 `t4g.small` ran version `1.66.0-1ad6b4a4`, with encrypted 2 GiB OS and 30 GiB data disks. The last active slot A host was `i-02e7d273eef7f1b9b`, ENI `eni-0e49668f9c808fc9a`, on release `sha256:0aca4d364d55bafd8ac093bc0169cbddceb9dc0f4d80c8f94a2778c903f37c9a`. That host and its disks/networking are now removed; the selected release and credentials remain available for explicit unpark.
 
-| Protocol | EIP | Allocation | Private address |
+| Protocol | Retained EIP | Allocation | Last slot A private address |
 | --- | --- | --- | --- |
 | Xray | `51.20.163.146` | `eipalloc-079db1eebf4b5cc78` | `10.79.0.11` |
 | AWG | `16.16.73.146` | `eipalloc-07627e295d844e8de` | `10.79.0.10` |
 
-Original client identities and existing primary profiles remain valid. Anthony accepted both iOS ARM64 protocols on September 15; the current recovery evidence below uses real automated clients. Mac REALITY uses OneXraySE, AWG uses Amnezia. Repeated sleep/wake remains separate in [client stability](mac-client-stability.md).
+Original client identities and existing profiles remain valid after explicit unpark; a parked endpoint cannot serve traffic. Anthony accepted both iOS ARM64 protocols on September 15; the historical recovery evidence below uses real automated clients. Mac REALITY uses OneXraySE, AWG uses Amnezia. Repeated sleep/wake remains separate in [client stability](mac-client-stability.md).
+
+## Parked — November 5, 2026 (New York)
+
+Anthony authorized parking Stockholm after selecting Oregon. The standard `park stockholm-ecs` reviewed a fresh parked-resource diff, retired the host-slot infrastructure and completed the endpoint-stack update. Independent status readback reports `parked`; both original allocations above exist unassociated, and regional Ghostline nonterminal-host and tagged-volume inventories are empty. All seven production parameter names/types/versions/modification timestamps are byte-for-byte equal to the pre-park metadata snapshot; no values were printed or changed.
+
+The release selector remains ready on the same six-image document, lifecycle intent is `parked` with no operation, and the regional GuardDuty detector remains ENABLED. Cape Town is also parked. Use `ecs stockholm-ecs unpark` to rebuild with the retained IPs and identities. Nonsecret evidence: ignored `.local/stockholm-{park,final-status}.log`, `.local/stockholm-{before,after}-oregon-parameters.json` and `.local/oregon-rollout-final.json`.
 
 ## Minimal CoreDNS runtime rollout — 2026-10-31
 

@@ -14,6 +14,13 @@
       "resourceName": "ghostline-ecs-stockholm",
       "dnsRequired": true
     },
+    "oregon": {
+      "region": "us-west-2",
+      "availabilityZone": "us-west-2a",
+      "stackName": "GhostlineOregon",
+      "resourceName": "ghostline-oregon",
+      "dnsRequired": true
+    },
     "cape-town": {
       "region": "af-south-1",
       "availabilityZone": "af-south-1a",
@@ -27,7 +34,8 @@
       "us-east-1",
       "eu-west-2",
       "eu-north-1",
-      "af-south-1"
+      "af-south-1",
+      "us-west-2"
     ],
     "retainedMembers": [
       "us-east-1",

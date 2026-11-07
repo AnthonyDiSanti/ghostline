@@ -1,13 +1,13 @@
 # Product scope
 
-Ghostline gives Anthony a usable private connection from Dubai for ordinary browsing and video under the filtering on his actual Wi-Fi/mobile networks. It is a functioning personal connectivity product. This release ends the experimental product phase; public-source release preparation remains separate work. Brief deployment downtime and owner-led debugging remain accepted, with no SLA.
+Ghostline gives Anthony a usable private connection for ordinary browsing and video on his actual Wi-Fi/mobile networks, including travel under internet filtering. He is currently in Miami and selected Oregon as the primary exit. It is a functioning personal connectivity product. This release ends the experimental product phase; public-source release preparation remains separate work. Brief deployment downtime and owner-led debugging remain accepted, with no SLA.
 
 ## Selected scope
 
 | Concern | Decision |
 | --- | --- |
 | Owner/devices | Anthony, macOS and iOS, including concurrent use |
-| Exits | Stockholm primary; Cape Town backup |
+| Exits | Oregon primary; Stockholm and Cape Town parked backups |
 | Deployment | AWS CDK/TypeScript; one Bottlerocket ARM64 host/shared ECS gateway task/restricted network daemon/two EIPs per region |
 | Protocols | Xray / VLESS / REALITY TCP 443 and independently credentialed AmneziaWG UDP 443 |
 | Clients | Off-the-shelf apps; manual protocol/exit selection |

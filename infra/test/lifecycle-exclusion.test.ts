@@ -21,6 +21,20 @@ it('does not activate an uninitialized region just because an image arrived', as
   const { store } = memory(false); const run = vi.fn(async () => 'already-running');
   expect(await coordinatedRelease(store, run)).toBe('lifecycle-held'); expect(run).not.toHaveBeenCalled();
 });
+it('keeps a newly enrolled region inactive through release setup until explicit endpoint activation completes', async () => {
+  // Seeding/enabling a controller must not let queued image events claim a region before its first endpoint exists.
+  const { store, state } = memory(false); const run = vi.fn(async () => 'already-running');
+  const infrastructure = (await claimLifecycle(store, 'release-infrastructure', 'setup'))!;
+  expect(infrastructure.mode).toBe('parked');
+  await completeLifecycle(store, infrastructure);
+  expect(await coordinatedRelease(store, run)).toBe('lifecycle-held');
+  const deployment = (await claimLifecycle(store, 'deploy', 'launch'))!;
+  expect(await coordinatedRelease(store, run)).toBe('lifecycle-held');
+  expect(run).not.toHaveBeenCalled();
+  await completeLifecycle(store, deployment, 'active');
+  expect(await coordinatedRelease(store, run)).toBe('already-running');
+  expect(state()?.operation).toBeUndefined(); expect(state()?.mode).toBe('active');
+});
 it('permits explicit failed-generation cleanup while stopped without authorizing a release or changing power intent', async () => {
   const { store, state } = memory();
   const claim = (await claimLifecycle(store, 'stop', 'owner', 'stopped'))!;
