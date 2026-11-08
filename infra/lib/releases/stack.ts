@@ -13,7 +13,7 @@ import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { loggedNodejsFunction } from '../logged-nodejs-function.js';
 import { NotificationRegistry, ParameterEmailSubscription } from '@ghostline/aws-notifications';
 import { repositoryArtifacts, lifecyclePolicy, repository, type RepositoryArtifact } from './model.js';
 import { imageArrivalPattern, imageAliasPattern } from './events.js';
@@ -83,29 +83,30 @@ export class RegionalReleaseStack extends Stack {
     const lock = fileURLToPath(new URL('../../package-lock.json', import.meta.url));
     new ParameterEmailSubscription(this, 'Email', { topic, parameterName: emailParameter, depsLockFilePath: lock });
     const deadLetters = new sqs.Queue(this, 'FailedEvents', { retentionPeriod: Duration.days(14), enforceSSL: true, removalPolicy: RemovalPolicy.RETAIN });
-    const handler = new NodejsFunction(this, 'Gate', { functionName: gateName,
+    const handler = loggedNodejsFunction(this, 'Gate', {
+      log: { id: 'Logs', retention: logs.RetentionDays.ONE_WEEK, removalPolicy: RemovalPolicy.RETAIN },
+      function: { functionName: gateName,
       entry: fileURLToPath(new URL('../../lambda/release-gate.ts', import.meta.url)), depsLockFilePath: lock,
-      runtime: lambda.Runtime.NODEJS_24_X, architecture: lambda.Architecture.ARM_64, memorySize: 256,
+      architecture: lambda.Architecture.ARM_64, memorySize: 256,
       timeout: Duration.seconds(60), reservedConcurrentExecutions: 1, retryAttempts: 0,
-      deadLetterQueue: deadLetters, logGroup: new logs.LogGroup(this, 'Logs', { retention: logs.RetentionDays.ONE_WEEK, removalPolicy: RemovalPolicy.RETAIN }),
-      bundling: { minify: true, externalModules: [] },
+      deadLetterQueue: deadLetters,
       environment: { ACCOUNT: this.account, CLUSTER: cluster, SERVICE: service, TABLE: table.tableName,
         TOPIC: topic.topicArn, ENDPOINT_STACK: config.stackName, DNS_REQUIRED: config.dnsRequired ? 'true' : 'false',
         OBSERVER_DOCUMENT: observer.ref, PROGRESS_RULE: progressRuleName,
         LIFECYCLE_SCHEMA: '1', AUTOMATION: props.automation === 'active' ? 'enabled' : 'disabled',
-        OPERATOR_ONLY: props.automation === 'manual' ? 'enabled' : 'disabled' } });
+        OPERATOR_ONLY: props.automation === 'manual' ? 'enabled' : 'disabled' } } });
     const rollout = rolloutInfrastructure(this, handler, config, props.guardDuty, props.candidatePlatformImages);
     handler.addEnvironment('SLOT_TEMPLATES', rollout.templates);
     handler.addEnvironment('SLOT_ROLE', rollout.role);
     handler.addEnvironment('OWNER_TAGS', rollout.tags);
     // ECS treats a direct Lambda 429 as hook failure. A separate receiver waits while the sole mutation controller is busy.
-    const hook = new NodejsFunction(this, 'DeploymentHook', { functionName: hookName,
+    const hook = loggedNodejsFunction(this, 'DeploymentHook', {
+      log: { id: 'HookLogs', retention: logs.RetentionDays.ONE_WEEK, removalPolicy: RemovalPolicy.RETAIN },
+      function: { functionName: hookName,
       entry: fileURLToPath(new URL('../../lambda/deployment-hook.ts', import.meta.url)), depsLockFilePath: lock,
-      runtime: lambda.Runtime.NODEJS_24_X, architecture: lambda.Architecture.ARM_64, memorySize: 128,
+      architecture: lambda.Architecture.ARM_64, memorySize: 128,
       timeout: Duration.seconds(75), reservedConcurrentExecutions: 4, retryAttempts: 0,
-      logGroup: new logs.LogGroup(this, 'HookLogs', { retention: logs.RetentionDays.ONE_WEEK, removalPolicy: RemovalPolicy.RETAIN }),
-      bundling: { minify: true, externalModules: [] },
-      environment: { CONTROLLER: handler.functionArn, SERVICE: serviceArn } });
+      environment: { CONTROLLER: handler.functionArn, SERVICE: serviceArn } } });
     hook.addToRolePolicy(new iam.PolicyStatement({ actions: ['lambda:InvokeFunction'], resources: [handler.functionArn] }));
     handler.addToRolePolicy(new iam.PolicyStatement({ actions: ['ecr:BatchGetImage'], resources: Object.values(this.repositories).map(r => r.repositoryArn) }));
     handler.addToRolePolicy(new iam.PolicyStatement({ actions: ['dynamodb:GetItem', 'dynamodb:PutItem'], resources: [table.tableArn] }));

@@ -4,6 +4,7 @@ Current implementation and operator contract: [release workflow](../../docs/rele
 
 ## Selected release contract
 
+- November 8 owner direction retires standalone NVA/London publishers, then re-enrolls NVA as an ordinary maintained gateway after the disposable trial. London stays retired; retained members require explicit configuration and default to none. The full five-member mesh has no privileged publisher; see current release docs/handoff.
 - September 22 supersession: any-member direct replication with explicit retained NVA/London members; union-based retirement and historical seeding. The implementation is committed; see the handoff for whole-stack migration state.
 - Central qualification once. Distribution validates identity/completeness, without rebuilding or re-testing protocols.
 - Static local `keep-production` image references owned by CDK. The authoritative five-component/OS release artifact lives in dedicated `ghostline/prod/releases` under `keep-production-release`; SHA256 identities already exist in ECR.

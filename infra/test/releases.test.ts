@@ -404,12 +404,15 @@ it('blocks DNS task activation while production still selects a five-image relea
 });
 
 describe('publication profile', () => {
-  it('defaults to retained NVA/London and preserves explicit membership overrides', () => {
-    expect(publicationProfile({}).members).toEqual(['us-east-1', 'eu-west-2']);
-    expect(publicationProfile({}).retainedMembers).toEqual(['us-east-1', 'eu-west-2']);
+  it('defaults only to gateway peers and preserves explicit membership and retention', () => {
+    // Retiring a publisher must not resurrect it through implicit defaults.
+    expect(publicationProfile({})).toEqual({ members: [], retainedMembers: [], automation: false });
+    expect(publicationProfile({}, ['eu-north-1', 'eu-north-1', 'us-west-2']).members).toEqual(['eu-north-1', 'us-west-2']);
     expect(publicationProfile({ members: ['eu-north-1'], retainedMembers: [] }).members).toEqual(['eu-north-1']);
     expect(publicationProfile({ members: [], retainedMembers: [] }).members).toEqual([]);
-    expect(() => publicationProfile({ members: ['eu-north-1'] })).toThrow();
+    expect(publicationProfile({ members: ['eu-north-1'] }).retainedMembers).toEqual([]);
+    expect(publicationProfile({ members: ['eu-north-1'], retainedMembers: ['eu-north-1'] }).retainedMembers).toEqual(['eu-north-1']);
+    expect(() => publicationProfile({ members: ['eu-north-1'], retainedMembers: ['us-east-1'] })).toThrow();
   });
 });
 

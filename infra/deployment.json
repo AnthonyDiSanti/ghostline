@@ -21,26 +21,37 @@
       "resourceName": "ghostline-oregon",
       "dnsRequired": true
     },
+    "zurich": {
+      "region": "eu-central-2",
+      "availabilityZone": "eu-central-2a",
+      "stackName": "GhostlineZurich",
+      "resourceName": "ghostline-zurich",
+      "dnsRequired": true
+    },
     "cape-town": {
       "region": "af-south-1",
       "availabilityZone": "af-south-1a",
       "stackName": "GhostlineCapeTown",
       "resourceName": "ghostline-cape-town",
       "dnsRequired": true
+    },
+    "nva": {
+      "region": "us-east-1",
+      "availabilityZone": "us-east-1a",
+      "stackName": "GhostlineNva",
+      "resourceName": "ghostline-nva",
+      "dnsRequired": true
     }
   },
   "imagePublication": {
     "members": [
-      "us-east-1",
-      "eu-west-2",
       "eu-north-1",
       "af-south-1",
-      "us-west-2"
+      "us-west-2",
+      "eu-central-2",
+      "us-east-1"
     ],
-    "retainedMembers": [
-      "us-east-1",
-      "eu-west-2"
-    ],
+    "retainedMembers": [],
     "automation": true
   }
 }

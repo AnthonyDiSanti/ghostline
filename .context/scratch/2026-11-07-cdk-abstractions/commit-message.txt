@@ -1,0 +1,5 @@
+Add Zurich and repeatable region initialization
+
+- Enroll Zurich and record regional privacy and validation findings
+- Extract the Lambda factory without changing deployed resources
+- Add reviewed region initialization and validate a disposable NVA deployment

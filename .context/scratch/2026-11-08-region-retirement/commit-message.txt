@@ -1,0 +1,6 @@
+Add regional initialization and enroll Zurich and NVA
+
+- Extract the Lambda factory without changing existing resources
+- Add reviewed regional initialization with safe retries
+- Replace standalone publishers with the maintained gateway mesh
+- Record privacy findings and validate regional deployment and native clients

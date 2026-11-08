@@ -14,6 +14,8 @@ Use Node 24 and the strict TypeScript package under `infra/`, including its reus
 | `infra/lib/ecs-memory.ts`, `infra/lib/bottlerocket-os.ts` | Memory budget and AWS host-image checks |
 | `infra/lib/ecs-release.ts`, `infra/lib/ecs-images.ts` | Six ARM64 image artifacts, content identities and publication |
 | `infra/lib/stable-images.ts`, `infra/lib/upstream-download.ts`, `infra/image-inputs.json` | Stable resolution, scoped authenticated metadata reads and recorded verified build inputs |
+| `infra/lib/region-initialization*.ts`, `infra/scripts/init-region.ts` | Reviewed fresh-region identity/contact initialization and recoverable private staging |
+| `infra/lib/logged-nodejs-function.ts` | Local Node.js Lambda/log-group construction with explicit caller policy |
 | `infra/lib/parameters.ts`, `infra/lib/xray-config.ts` | Portable credential validation and regional SecureString import |
 | `infra/lib/ecs-power.ts`, `infra/lib/lifecycle.ts` | Scoped start/stop, deletion and retained-address release |
 | `infra/lib/guardduty-discovery.ts`, `infra/lib/guardduty.ts` | Live regional availability, enable-only reconciliation and bounded coverage verification |
@@ -47,6 +49,8 @@ Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra
 | `npm run deployments` | List maintained targets; allocate nothing |
 | `npm run preflight <target>` | Verify AWS account, enabled region, official regional AMI for the centrally qualified target OS, AZ, instance capacity/offering |
 | `npm run synth <target>` / `npm run diff <target>` | Discover live GuardDuty availability and synthesize / compare the selected endpoint |
+| `npm run init-region -- <target> plan --alerts-from <existing-target>` | Inventory metadata and write a private review plan; generate/decrypt nothing |
+| `npm run init-region -- <target> execute <reviewed-plan-file>` | Recheck state, initialize independent credentials/contact and verify without overwrite |
 | `npm run ecs <target> import <directory>` | Import six validated protected credential files; refuse conflicting values |
 | `npm run release publish <target-or-region>` | Publish centrally qualified bytes once; native replication and regional gates handle rollout |
 | `npm run release status [target]` / `reconcile <target>` / `retry <target>` | Inspect, reconcile or explicitly retry a release |
@@ -63,11 +67,19 @@ Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra
 | `npm run destroy <target>` | Remove owned endpoint and regional release/runtime support, local images and EIPs; retain deliberate security/credential/expiring-log classes |
 | `npm run purge-region <region> plan` / `execute` | After destroy, review then delete owned residual parameters, log groups, queues and ECS task definitions across that region; preserve GuardDuty, shared CloudTrail and local files |
 
-The primary target is `oregon`; the parked backup targets are `stockholm-ecs` and `cape-town`. Npm accepts these positional arguments without `--`; the delimiter is only useful when forwarding options such as `npm run test:assets -- --docker`. AWS commands use profile `personal`. CDK receives `GHOSTLINE_DEPLOYMENT` from the wrapper; only explicit `active`/`parked` lifecycle modes are supported. No SSH key or operator CIDR input exists.
+The primary target is `oregon`; `stockholm-ecs` and `zurich` are active for testing; `cape-town` is the parked backup. Npm accepts these positional arguments without `--`; the delimiter is only useful when forwarding options such as `npm run test:assets -- --docker`. AWS commands use profile `personal`. CDK receives `GHOSTLINE_DEPLOYMENT` from the wrapper; only explicit `active`/`parked` lifecycle modes are supported. No SSH key or operator CIDR input exists.
 
 Maintained targets default to the six `/ghostline/prod` credential paths. An isolated private catalog may set a validated `parameterPrefix` under `/ghostline/trial/<name>`; the common endpoint task/IAM, metadata preflight, import, verification and profile export all use that same namespace. This keeps a disposable region's enrolled device identities separate while exercising the normal `park`/`ecs unpark` lifecycle. It does not add a maintained regional target. [Credential boundary](secrets.md), [Ireland evidence](../.context/scratch/2026-10-19-tor-retirement/tor-dns-trial.md#managed-ireland-trial--october-13-2026).
 
 Use `images:build` for a new whole-set official stable selection with `gh` authenticated to `github.com`; use `images:build -- coredns` when only CoreDNS should advance. Both commands run the six-image local gate before recording `image-inputs.json`; review and commit that file. Publication and deployment reuse the selection without contacting release channels. [Image workflow and evidence limits](images.md). Use `ecs deploy` for a normal active rollout, including [regional GuardDuty](guardduty.md). First detector creation accepts AWS defaults plus supported Runtime Monitoring; existing detectors are discovered live and receive only missing available protection, preserving other settings. Confirmed service/feature gaps produce explicit reduced-protection results; access/installation failures still surface. `npm run deploy` delegates to the same coordinated ECS lifecycle; there is no second direct deployment path. The [release workflow](releases.md) prepares local images before initial infrastructure deployment; ordinary image updates use its gate without a CDK rollout. Never use `--all`, deploy a retired catalog recipe, or run an unreviewed change against a live exit.
+
+## Explicit regional initialization
+
+Use `init-region` before ordinary release activation/preflight/deployment for an explicitly approved fresh target. `plan` checks the account, enabled region, endpoint/host presence and exact parameter metadata; it records the proposed source contact version without decrypting values. An existing complete credential set is preserved; an unexplained partial set refuses initialization. It does not opt in regions, purge old identities or modify image publication/security controls.
+
+Review the generated `.local/region-init/<target>/<plan-id>.json`, then execute that exact file. Forward `--alerts-from` through npm with the `--` delimiter. Copying an existing private contact requires authorization for that destination. The execution stages one matching set under a private operation directory and uses the common no-overwrite importer. A retry uses that same set and checks existing values before writing missing parameters. Never delete staging or regenerate identities to force a retry: missing staging during incomplete import requires explicit recovery. Completed imports remove temporary credential staging; Parameter Store remains authoritative. Existing identities preserved by metadata are reported separately from freshly imported byte-equality checks.
+
+The local `execute.lock` serializes writers and is removed after normal completion/failure. After a process crash, inspect its PID and operation receipt before removing an abandoned lock. Plans and receipts contain metadata only; credential staging and exports remain protected files. Deploy never generates identities. Continue with the standard release activation, preflight/diff/deploy, verification and profile-export commands; saved profiles and recipient SNS confirmation require separate acceptance.
 
 ## Asset verification
 
@@ -77,7 +89,7 @@ Use native Bash/Python and `brew install shellcheck hadolint`, or Docker for mis
 
 All diagnostic severities fail. ShellCheck ignores home configuration; Hadolint uses `infra/hadolint.yaml`; inherited lint exclusions are removed. Fix findings or document a narrow exception beside the relevant instruction. Use real fixtures with synthetic inputs and replace only external command boundaries in tests. Do not recreate EC2/systemd in a mock framework.
 
-Offline synthesis covers **all three maintained regional configurations, each with its disposable endpoint stack; separate assertions synthesize regional release infrastructure**. These offline synths use explicit synthetic GuardDuty support; named CLI synth/diff/deploy commands discover support live. Regional GuardDuty settings are outside the application CloudFormation lifecycle. Stack count is independent of the six runnable images and non-runnable release document. Independent synthetic-region tests verify reuse without making abandoned regions deployable. Static checks do not establish connectivity. Disconnect a native VPN before regional tunnel probes so nesting does not distort direct-path results; the local image suite keeps both protocol peers inside Docker.
+Offline synthesis covers **all five maintained regional configurations, each with its disposable endpoint stack; separate assertions synthesize regional release infrastructure**. These offline synths use explicit synthetic GuardDuty support; named CLI synth/diff/deploy commands discover support live. Regional GuardDuty settings are outside the application CloudFormation lifecycle. Stack count is independent of the six runnable images and non-runnable release document. Independent synthetic-region tests verify reuse without making abandoned regions deployable. Static checks do not establish connectivity. Disconnect a native VPN before regional tunnel probes so nesting does not distort direct-path results; the local image suite keeps both protocol peers inside Docker.
 
 ## On-demand regional lifecycle
 

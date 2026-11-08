@@ -1,10 +1,9 @@
 export interface PublicationProfile { members: string[]; retainedMembers: string[]; automation: boolean }
-export const defaultPublicationRegions = ['us-east-1', 'eu-west-2'];
 export function publicationProfile(input: Partial<PublicationProfile>, initialGateways: string[] = []): PublicationProfile {
-  // Publication can originate at any member; retained members explicitly protect the owner's permanent publication regions.
+  // Every gateway can publish; extra origins and deletion guards require explicit membership.
   // An empty private catalog is valid after its last disposable member retires.
   if (Object.keys(input).some(k => !['members', 'retainedMembers', 'automation'].includes(k))) throw new Error('Unknown imagePublication field.');
-  const result = { members: [...new Set([...defaultPublicationRegions, ...initialGateways])], retainedMembers: [...defaultPublicationRegions], automation: false, ...input };
+  const result = { members: [...new Set(initialGateways)], retainedMembers: [], automation: false, ...input };
   if (typeof result.automation !== 'boolean' || !Array.isArray(result.members) || !Array.isArray(result.retainedMembers)
     || [...result.members, ...result.retainedMembers].some(r => typeof r !== 'string' || !/^[a-z]{2}(?:-[a-z]+)+-\d+$/.test(r))
     || new Set(result.members).size !== result.members.length || new Set(result.retainedMembers).size !== result.retainedMembers.length

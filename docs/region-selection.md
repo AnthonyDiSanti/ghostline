@@ -1,8 +1,12 @@
 # Endpoint region and destination privacy
 
+## Global privacy shortlist — November 7, 2026
+
+The [all-region privacy assessment](global-privacy-regions.md) screens all 39 launched AWS regions, including China, GovCloud and the separate European Sovereign Cloud partition. Recommend Zurich as an additional privacy-focused candidate; the remaining all-partition shortlist is Germany's Sovereign Cloud, Stockholm, Frankfurt and Ireland. For the existing ordinary AWS account, use Zurich, Stockholm, Frankfurt, Ireland and Spain. These are provisional jurisdiction/provider-access judgments, not measured surveillance, speed or destination-access results. Anthony initially cancelled Zurich and selected [Stockholm for testing](launch-stockholm-ecs.md#unpark-for-testing--november-7-2026), then chose Zurich after the head-to-head discussion. The [fresh Zurich deployment](launch-zurich.md) now passes automated encrypted-client and host-security validation; native-device practical acceptance remains separate. Swiss surveillance reform, AWS cross-border legal exposure and existing GuardDuty/logging boundaries prevent an absolute privacy or zero-log claim.
+
 ## Miami return: US exit assessment — November 5, 2026
 
-Anthony subsequently selected and deployed Oregon; Stockholm is parked. [Launch evidence](launch-oregon.md) records successful encrypted-client checks, HEALTHY GuardDuty coverage and the November 7 approved host security audit with restored lockdown. The legal review below informed the choice; no destination-site or native-device acceptance is inferred.
+Anthony subsequently selected and deployed Oregon and parked Stockholm on November 5; Stockholm was unparked for testing on November 7. [Oregon launch evidence](launch-oregon.md) records successful encrypted-client checks, HEALTHY GuardDuty coverage and the November 7 approved host security audit with restored lockdown. The legal review below informed the choice; no destination-site or native-device acceptance is inferred.
 
 Anthony is back in Miami and wants a nearby US exit, with a legal/access assessment before deployment. Within the current full-region AWS recipe, Northern Virginia (`us-east-1`) is geographically closest; Ohio (`us-east-2`) is next. This is geographic screening, not a measured latency ranking. [AWS region catalog](https://docs.aws.amazon.com/global-infrastructure/latest/regions/aws-regions.html). AWS also has Miami Local Zones, physically in Florida despite their `us-east-1` parent; they are not an already-qualified substitute for the regional recipe. [Local Zone locations](https://docs.aws.amazon.com/local-zones/latest/ug/available-local-zones.html).
 
@@ -70,6 +74,8 @@ Within the existing AWS regional EC2 architecture, Stockholm is the best next ex
 | Cape Town, `af-south-1` | 7,640 km | Retain as backup; owner reports both protocols too slow for everyday use. |
 
 Distances are rounded geographic estimates from the [supplied research](archive/vpn-location-research.md), **not RTT or throughput measurements**. ISP routing and peering can dominate the difference. Do not promise that Stockholm equals Frankfurt's actual speed or that a closer city guarantees improvement.
+
+November 7 independent distance check: Haversine with Earth radius 6,371 km and approximate city-centre coordinates Dubai (25.2048, 55.2708), Zurich (47.3769, 8.5417) and Stockholm (59.3293, 18.0686) gives 4,763 km to Zurich and 4,758 km to Stockholm. Both appropriately round to about 4,760 km; the nominal 5 km difference is immaterial and does not describe AWS facility positions. Stockholm is farther north but also farther east. The earlier Dubai choice prioritized reducing destination identity-verification friction, not a demonstrated speed advantage over Zurich. No matched Dubai-to-Zurich versus Dubai-to-Stockholm tunnel benchmark was established.
 
 ### Why Stockholm leads this comparison
 

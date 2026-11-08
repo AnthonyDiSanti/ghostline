@@ -7,7 +7,7 @@ Ghostline gives Anthony a usable private connection for ordinary browsing and vi
 | Concern | Decision |
 | --- | --- |
 | Owner/devices | Anthony, macOS and iOS, including concurrent use |
-| Exits | Oregon primary; Stockholm and Cape Town parked backups |
+| Exits | Oregon primary; NVA active proximity option; Stockholm and Zurich active for testing; Cape Town parked backup |
 | Deployment | AWS CDK/TypeScript; one Bottlerocket ARM64 host/shared ECS gateway task/restricted network daemon/two EIPs per region |
 | Protocols | Xray / VLESS / REALITY TCP 443 and independently credentialed AmneziaWG UDP 443 |
 | Clients | Off-the-shelf apps; manual protocol/exit selection |
@@ -30,7 +30,9 @@ Before calling the finished service privacy-ready, audit every Ghostline-control
 
 GuardDuty is an additional protection layer: enable available capabilities, accept confirmed regional gaps (including complete service absence), and preserve enabled protection through teardown. Enabled GuardDuty is a separate security-telemetry boundary: AWS may receive process, network and DNS metadata through its host agent. This is not a zero-logging guarantee. See [scope and costs](guardduty.md#data-and-cost-boundary).
 
-Reconcile the privacy goal with GuardDuty and account CloudTrail before making an absolute zero-log claim. GuardDuty's current runtime agent sends DNS packet payloads and connection endpoint metadata to AWS for analysis, even though it does not expose the raw event stream as a Ghostline log. Do not silently disable an existing security control to meet the goal; document which provider-held security data remains and decide explicitly whether its benefit warrants the privacy cost. [GuardDuty collected events](https://docs.aws.amazon.com/guardduty/latest/ug/runtime-monitoring-collected-events.html).
+Reconcile the privacy goal with GuardDuty and account CloudTrail before making an absolute zero-log claim. AWS documents runtime collection of DNS packet payloads and connection endpoint metadata, without exposing the raw event stream as a Ghostline log; actual export of our internal forwarded DNS queries remains unverified. DoT encrypts the CoreDNS-to-upstream connection but leaves ordinary DNS plaintext inside the host after VPN decryption. [DNS visibility and evidence limits](guardduty.md#dns-over-tls-and-runtime-visibility).
+
+November 7 owner direction: browsing privacy may justify reduced GuardDuty observability. The upcoming privacy review must assess supported collection limits and, if necessary, reduced or removed Runtime Monitoring, explaining lost detection coverage and compensating protections. Evaluate host runtime collection separately from foundational GuardDuty and shared account CloudTrail. This is an open tradeoff for an explicit reviewed decision; it does not authorize changing current production protections. [Review task](../.context/tasks.md#current).
 
 Anthony prefers browsing without compulsory signup or disclosure of identity documents, biometrics or identity-linked verification credentials. He accepts testing nearer open-internet exits despite potential site-specific age checks; Cape Town is the slower fallback. [Region assessment](region-selection.md) owns that decision and its limits. A VPN does not guarantee exemption from destination policies.
 

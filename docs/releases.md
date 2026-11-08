@@ -12,7 +12,7 @@ CDK owns the shared gateway task definition and each host slot’s daemon task d
 
 ## Ownership and distribution
 
-`deployment.json.imagePublication` records `members`, `retainedMembers` and `automation`. Each enrolled member can originate a release and replicates directly to every other member. NVA and London remain enrolled and explicitly retained. Select an enrolled target or region for publication; one operator publishes at a time. This is not a distributed consensus system.
+`deployment.json.imagePublication` records `members`, `retainedMembers` and `automation`. Each enrolled member can originate a release and replicates directly to every other member. Maintained gateways form the mesh; there are no permanently retained publisher-only regions. Extra members and deletion guards require explicit configuration. November 8 owner direction retired the former NVA/London publishers and completed a temporary NVA trial. A subsequent request re-enrolls NVA as a maintained gateway; London stays retired. Select an enrolled target or region for publication; one operator publishes at a time. This is not a distributed consensus system.
 
 `GhostlineRelease` owns seven repositories under `ghostline/prod/`: `bootstrap`, `network-daemon`, `gateway-config`, `xray`, `awg`, `dns-policy` and `releases`. Gateway regions also have one serialized controller, a thin ECS hook receiver, an on-demand DynamoDB table, ECR/hourly/continuation rules, alerts and expiring logs/dead letters. Publisher-only regions have repositories only. `GhostlineReleaseAssets` owns the private regional Lambda and immutable host-template asset bucket. Cost tags preserve Project, Environment and resource-owned System.
 
@@ -82,18 +82,18 @@ From `infra/`, using Node 24:
 
 ```sh
 npm run images:build
-npm run release publish us-east-1
+npm run release publish oregon
 npm run release status stockholm-ecs
 npm run release reconcile stockholm-ecs
 npm run release cleanup-failed stockholm-ecs
 npm run release retry stockholm-ecs
-npm run release publish eu-west-2 sha256:<retained-document-digest>
+npm run release publish stockholm-ecs sha256:<retained-document-digest>
 npm run release activate <target>
 ```
 
 Build qualifies once. A changed platform also needs the documented central native experiment and `platform <target> qualify <qualified-file>` before production publication. `reconcile` observes intended state; `cleanup-failed` removes the failed slot after safe return to blue (or explicit stopped-state proof); `retry` explicitly permits another attempt after cleanup. Retaining the host does not guarantee ECS preserves failed tasks or RAM. A retained release promotion is a new global intent, not a regional tag rewrite.
 
-Stop/park retain membership and release support. Destroy retires incoming/outgoing membership, deletes local images/support/nonexpiring state, and releases owned addresses. Standard parameters, expiring logs and independent security persist. NVA/London are protected from destroy. [Complete lifecycle](deployment-lifecycle.md).
+Stop/park retain membership and release support. Destroy retires incoming/outgoing membership, deletes local images/support/nonexpiring state, and releases owned addresses. Standard parameters, expiring logs and independent security persist. Any region explicitly listed in `retainedMembers` is protected until the owner authorizes its retirement; the maintained catalog now has no such permanent members. [Complete lifecycle](deployment-lifecycle.md).
 
 ## September 28 blue-green qualification and migration
 

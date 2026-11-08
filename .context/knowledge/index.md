@@ -13,17 +13,18 @@ Consult before infrastructure/vendor work. Current behavior belongs in `docs/`; 
 - [Retired Tor access research](tor-integration.md) — historical hostname and browser limits behind the abandoned gateway Tor experiment; current behavior is in [DNS](../../docs/dns.md).
 - [Shared upstream DNS assessment](dns-forwarder.md) — historical trial proof, existing EIP reuse and CoreDNS/Unbound comparison behind the selected resolver.
 - [Regional lifecycle](../../docs/deployment-lifecycle.md) — retention/release ownership, EIP adoption, GuardDuty-created deletion dependencies, publisher aliases across regions and optional expiration questions.
+- [Regional inventory](regional-inventory.md) — November 7 live 34-region scan and November 8 retirement follow-up: active/parked gateways, NVA/London publisher retirement, retired benchmark residue and the unreachable Bahrain coverage gap.
 - [Image provenance and policy](../../docs/images.md) — stable build resolution, official Xray mirror, native AWG source build, exact-artifact publication tests and provenance limits.
 - [ECR placement, cost and retention](ecr-placement.md) — live inventory, completed cleanup, full regional price CSV, proposed reusable publisher pair, retention and regional-outage/cache limits.
 - [Event-driven releases](event-driven-releases.md) — AWS source findings and selected ownership/rollback/retention boundaries; implementation contract in [release workflow](../../docs/releases.md).
-- [ECR replication cluster plan](../scratch/2026-09-22-ecr-replication-cluster/plan.md) — incorporated into coordinated release work: live full-mesh, whole-stack expansion and union retirement verified; NVA/London retained.
+- [ECR replication cluster plan](../scratch/2026-09-22-ecr-replication-cluster/plan.md) — incorporated into coordinated release work: historical full-mesh, whole-stack expansion and union retirement evidence; current membership and retirement are in the handoff.
 - [Secret boundary](../../docs/secrets.md) — six regional parameters, portable import directory, exact execution-role scope, read-only mounts and residual environment metadata.
 - [Development fixtures](../../docs/development.md#typescript-and-npm) — native scripts, explicit rendering, recursive syntax/lint checks and real-file tests.
-- [Oregon evidence](../../docs/launch-oregon.md), [Stockholm evidence](../../docs/launch-stockholm-ecs.md), [Cape Town evidence](../../docs/launch-cape-town.md) — actual resource identities and tested behavior; read before cloud changes.
+- [Oregon evidence](../../docs/launch-oregon.md), [Stockholm evidence](../../docs/launch-stockholm-ecs.md), [Zurich evidence](../../docs/launch-zurich.md), [Cape Town evidence](../../docs/launch-cape-town.md), [NVA evidence](../../docs/launch-nva.md) — actual resource identities and tested behavior; read before cloud changes.
 - [Mac client stability](../../docs/mac-client-stability.md) — OneXraySE routing/awake tests, crash evidence, unsafe retired watchdog and release-watch criteria.
 - [v2rayN assessment](../../docs/v2rayn-assessment.md) — conditional alternative client, REALITY/AWG compatibility and security tradeoffs.
 - [Protocol selection](protocol-selection.md) — reasons for AWG as the manual stealth alternative.
 - [Reference repository](reference-repository.md) — personal-assistant source map, cost tags and fixture patterns.
-- [Region assessment](../../docs/region-selection.md) — performance/privacy research and evidence limits, separate from deployment implementation.
+- [Region assessment](../../docs/region-selection.md), [global AWS privacy review](../../docs/global-privacy-regions.md) — performance/access tradeoffs and all-39-region privacy screening. Recheck Swiss surveillance proposals; distinguish sovereign-partition controls from legal immunity and provider telemetry from app logs. Research is separate from deployment implementation.
 
 - [Regional benchmarks](../../docs/benchmarks.md) — all-region openness probes, prepared gateway cohorts, protocol-major rounds, streamed-byte controls and resumable cleanup.
