@@ -22,6 +22,7 @@
     "deploy": "node --import=tsx scripts/deployment.ts deploy",
     "cdk": "cdk",
     "preflight": "node --import=tsx scripts/deployment.ts preflight",
+    "init-region": "node --import=tsx scripts/init-region.ts",
     "deployments": "node --import=tsx scripts/deployment.ts list",
     "park": "node --import=tsx scripts/deployment.ts park",
     "destroy": "node --import=tsx scripts/destroy.ts",

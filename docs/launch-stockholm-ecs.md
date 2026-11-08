@@ -1,15 +1,29 @@
 # Stockholm gateway evidence
 
-Parked backup target `stockholm-ecs`; profile `personal`; account `757999402784`; region `eu-north-1`, AZ `eu-north-1a`. [Oregon](launch-oregon.md) is now primary. Endpoint stack `GhostlineEcsTrial`, release repositories `GhostlineRelease`, resource prefix `ghostline-ecs-stockholm`. These are stable cloud identities for the common [gateway recipe](ecs.md).
+Active testing target `stockholm-ecs`; profile `personal`; account `757999402784`; region `eu-north-1`, AZ `eu-north-1a`. [Oregon](launch-oregon.md) remains primary; Cape Town remains parked. Endpoint stack `GhostlineEcsTrial`, release repositories `GhostlineRelease`, resource prefix `ghostline-ecs-stockholm`. These are stable cloud identities for the common [gateway recipe](ecs.md).
 
-Before the November 5 park, one official ECS-3 Bottlerocket ARM64 `t4g.small` ran version `1.66.0-1ad6b4a4`, with encrypted 2 GiB OS and 30 GiB data disks. The last active slot A host was `i-02e7d273eef7f1b9b`, ENI `eni-0e49668f9c808fc9a`, on release `sha256:0aca4d364d55bafd8ac093bc0169cbddceb9dc0f4d80c8f94a2778c903f37c9a`. That host and its disks/networking are now removed; the selected release and credentials remain available for explicit unpark.
+The November 7 unpark restored one official ECS-3 Bottlerocket ARM64 `t4g.small` on `1.66.0-1ad6b4a4`, with encrypted 2 GiB OS and 30 GiB data disks. Current slot A host is `i-050807719680c88b6`, ENI `eni-03a0465f4c1f019f8`, on unchanged release `sha256:0aca4d364d55bafd8ac093bc0169cbddceb9dc0f4d80c8f94a2778c903f37c9a`. The November 5 park retired the former slot A host `i-02e7d273eef7f1b9b` and ENI `eni-0e49668f9c808fc9a`; their removal did not change credentials or retained EIPs.
 
-| Protocol | Retained EIP | Allocation | Last slot A private address |
+| Protocol | Retained EIP | Allocation | Slot A private address |
 | --- | --- | --- | --- |
 | Xray | `51.20.163.146` | `eipalloc-079db1eebf4b5cc78` | `10.79.0.11` |
 | AWG | `16.16.73.146` | `eipalloc-07627e295d844e8de` | `10.79.0.10` |
 
-Original client identities and existing profiles remain valid after explicit unpark; a parked endpoint cannot serve traffic. Anthony accepted both iOS ARM64 protocols on September 15; the historical recovery evidence below uses real automated clients. Mac REALITY uses OneXraySE, AWG uses Amnezia. Repeated sleep/wake remains separate in [client stability](mac-client-stability.md).
+Original client identities and existing profiles remain valid after the unpark. Anthony accepted both iOS ARM64 protocols on September 15; the November 7 checks below use disposable real clients and do not establish new native-device acceptance. Mac REALITY uses OneXraySE, AWG uses Amnezia. Repeated sleep/wake remains separate in [client stability](mac-client-stability.md).
+
+## Unpark for testing — November 7, 2026
+
+Anthony stopped the proposed Zurich launch before any source/cloud/credential mutation and selected existing Stockholm for testing. Fresh account/release/preflight checks and CDK diff passed before standard `ecs stockholm-ecs unpark`. The shared endpoint infrastructure was restored with an initially empty gateway, then the new slot A host passed bootstrap/cold-daemon readiness before its gateway task started. CloudFormation reached `UPDATE_COMPLETE`; gateway revision 11 has one running/desired task, zero pending and a completed deployment. Final release readback reports `ready:true`, lifecycle `active` with no operation and the same qualified six-image document. The older rollout record is retired historical state, not a pending deployment.
+
+GuardDuty became HEALTHY on the new exact host, agent v1.17.3. Standard `ecs stockholm-ecs verify` passed architecture/SELinux, both configuration hashes and EIP egress, bridge isolation, private read-only RAM, absent engine secret environments, no swap and enforced memory/no OOM. The maintained verifier disabled temporary diagnostics and verified administrative lockdown in its cleanup before reporting success. No protection setting was reduced for the privacy review.
+
+Immediately before `ecs stockholm-ecs test`, OneXray's visible UI and `scutil` showed disconnected and both endpoint routes used direct `en0`. Disposable REALITY and AWG clients each completed certificate-validated HTTPS through their exact original EIPs. Laptop routing was unchanged. All twelve profiles/links/QR files were refreshed under ignored `.local/recovery/stockholm-ecs-clients/` with directory mode 0700 and files 0600; no profile content was printed. Existing saved Stockholm identities/endpoints need no change.
+
+Metadata-only before/after comparisons confirm all seven production parameter names/types/versions/modification times unchanged and both allocation/IP pairs preserved. Independent inventory finds exactly one nonterminal regional Ghostline host and two encrypted disks. Oregon's stack outputs/status and original running host ID/state/launch time match the pre-test snapshot. No Zurich infrastructure, credential generation/import, native client edit or native connection occurred. Owner browsing/performance, current device DNS/IPv6/WebRTC and sleep/wake behavior remain separate acceptance. The upcoming GuardDuty/privacy review remains open.
+
+Evidence: ignored `.local/stockholm-test-2026-11-07/{unpark.log,client-test.log,security-verify.log,continuity.json,release-final.json}` and the metadata snapshots alongside them; standard `.local/deployments/stockholm-ecs/ecs/{verification,guardduty}.json`. No runtime/infra source or qualified image changed, so runtime/image suites were not repeated; the operational gate was preflight, fresh diff, unpark, host verification, both real protocols and final continuity/readiness checks.
+
+**Owner follow-up, November 7:** Anthony reports Stockholm seems to be working properly. This confirms practical use by owner report; no device/protocol, quantitative throughput or fresh DNS/IPv6/WebRTC/sleep-wake evidence was specified. Close the initial deployment/testing task while retaining the separate privacy review.
 
 ## Parked — November 5, 2026 (New York)
 

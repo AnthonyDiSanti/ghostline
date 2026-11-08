@@ -21,8 +21,11 @@ describe('benchmark input and ownership boundaries', () => {
     expect(() => validateCampaign({ ...campaign, extra: true })).toThrow();
   });
   it('protects production gateways, publishers and excluded locations', () => {
-    for (const region of ['eu-north-1', 'af-south-1', 'us-east-1', 'eu-west-2', 'il-central-1', 'me-central-1']) expect(() => assertDisposableRegion(region, catalog)).toThrow();
-    expect(() => assertDisposableRegion('eu-central-1', catalog)).not.toThrow();
+    // Maintained NVA is protected again; retired London stays disposable until explicitly enrolled.
+    for (const region of ['eu-north-1', 'af-south-1', 'us-west-2', 'eu-central-2', 'us-east-1', 'il-central-1', 'me-central-1']) expect(() => assertDisposableRegion(region, catalog)).toThrow();
+    for (const region of ['eu-central-1', 'eu-west-2']) expect(() => assertDisposableRegion(region, catalog)).not.toThrow();
+    const enrolled = { ...catalog, imagePublication: { ...catalog.imagePublication, members: [...catalog.imagePublication.members, 'eu-west-2'] } };
+    expect(() => assertDisposableRegion('eu-west-2', enrolled)).toThrow();
   });
   it('omits the private canary from exported aggregate reports', () => {
     expect(JSON.stringify(report(createJournal(campaign)))).not.toContain('example.com');

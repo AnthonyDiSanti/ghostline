@@ -39,6 +39,10 @@ AmneziaVPN's native file picker successfully loaded `macos-awg.conf` into its Ne
 
 Anthony subsequently reported OneXray became unusable and required force quitting; no diagnostic evidence establishes the cause. At his request, manual import steps were supplied and the existing `macos-xray.vpn` file path was copied to his clipboard with equality verification. No credential content was copied. Owner-led import completion and both native Mac profiles remain unconfirmed; do not resume the failed OneXray automation or infer a successful native connection.
 
+## Saved Mac profiles confirmed — November 8
+
+During the maintained NVA setup, OneXray visibly listed `Ghostline Oregon REALITY` and Amnezia listed `Ghostline Oregon AWG` at the expected `54.190.232.225` endpoint. This closes the earlier saved-profile presence gap. Existing Oregon entries were preserved while NVA was added. No native Oregon connection or fresh Oregon device/privacy/sleep-wake test was performed in that workflow; the November 7 failed automation above remains historical attempt evidence.
+
 ## Initialization correction and local gates
 
 The first deployment attempt was refused before endpoint creation because initial release-infrastructure setup defaulted a new lifecycle to `active`; a queued image event then held a failed release claim while the endpoint stack did not exist. New-region lifecycle initialization now stays inactive (`parked`) until successful explicit deployment completes it as `active`, preserving existing regions' modes. A focused regression covers release setup, denied background activation and later deliberate activation. A one-time recovery verified account, absent endpoint/slot stacks, zero hosts and absent activation/rollout/runtime journals, then used the normal version-checked completion primitive to restore inactive intent. The standard deployment then performed first activation; no exclusion or security bypass was introduced.

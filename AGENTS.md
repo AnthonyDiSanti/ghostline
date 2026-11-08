@@ -2,7 +2,7 @@
 
 ## Scope
 
-Ghostline is a personal connectivity product with one regional architecture: official ECS-3 Bottlerocket ARM64, one Graviton host, one shared gateway task/service, separate Xray/AWG engines, one initializer, a restricted ECS network daemon and two EIPs. Oregon is primary; Stockholm and Cape Town are parked backups. Read each launch record for observed deployment state before cloud changes.
+Ghostline is a personal connectivity product with one regional architecture: official ECS-3 Bottlerocket ARM64, one Graviton host, one shared gateway task/service, separate Xray/AWG engines, one initializer, a restricted ECS network daemon and two EIPs. Oregon is primary; NVA is an additional active proximity exit, Stockholm and Zurich are active for testing, and Cape Town is parked. Read each launch record for observed deployment state before cloud changes.
 
 Preserve protocol choices, device credentials and existing endpoints during runtime work. Clients switch manually; no HA, automatic protocol failover, custom rollback framework or custom client is required. Product scope and evidence limits live in `docs/product.md`. Keep secrets out of git and preserve production-account controls. Parameter Store owns current identities; re-export profiles on demand and accept explicit new-identity provisioning/device re-enrolment after total credential loss. No dedicated backup infrastructure, mandatory local archive or LastPass closeout is required; deployment-pipeline access to LastPass is prohibited.
 
@@ -37,7 +37,7 @@ For nontrivial changes:
 - Never print decrypted parameters, client profiles, private keys or injected environment values. Emit selected metadata, hashes and equality results only.
 - Do not stage, unstage, commit or amend unless explicitly requested.
 
-For releases, read `docs/releases.md`: CDK owns static local `keep-production` references; publication owns global production/MRU aliases. Qualify once centrally, preserve fixed production plus three prior releases, and never add per-region fallback pins or retest protocols as a delivery gate. Regional release resources survive stop/park; complete destroy removes them. NVA/London publication members are explicitly retained. Read the handoff before resuming an unfinished lifecycle operation.
+For releases, read `docs/releases.md`: CDK owns static local `keep-production` references; publication owns global production/MRU aliases. Qualify once centrally, preserve fixed production plus three prior releases, and never add per-region fallback pins or retest protocols as a delivery gate. Regional release resources survive stop/park; complete destroy removes them. No dedicated publisher regions are permanently retained; use explicit membership/deletion guards and retire test regions through the normal lifecycle. Read the handoff before resuming an unfinished lifecycle operation.
 
 For new protocol releases, use `npm run images:build`: resolve official stable channels, verify artifacts, pass local encrypted/image checks and record `infra/image-inputs.json`. Publish/deploy reuse that selection without rediscovery. Exclude prereleases/drafts/nightly/main; `latest` alone is not evidence of stability. Read `docs/images.md` for AWG's tag-based channel and provenance limits. Local compatibility is not native-client or regional acceptance.
 

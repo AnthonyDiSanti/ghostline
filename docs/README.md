@@ -16,10 +16,10 @@ Current specifications describe one regional ECS gateway architecture. Git histo
 | Stop, rebuild, park or release an exit | [Lifecycle](deployment-lifecycle.md) |
 | Verify shared account audit coverage | [CloudTrail](cloudtrail.md) |
 | Discover available regional security and verify host telemetry | [GuardDuty](guardduty.md) |
-| Inspect live regional identities and validation | [Oregon](launch-oregon.md), [Stockholm](launch-stockholm-ecs.md), [Cape Town](launch-cape-town.md) |
+| Inspect live regional identities and validation | [Oregon](launch-oregon.md), [Stockholm](launch-stockholm-ecs.md), [Zurich](launch-zurich.md), [Cape Town](launch-cape-town.md), [NVA](launch-nva.md) |
 | Diagnose Mac crashes or review client selection | [Mac stability](mac-client-stability.md), [v2rayN assessment](v2rayn-assessment.md) |
 | Run automated regional comparisons | [Benchmarks](benchmarks.md) |
-| Select a region against privacy/performance needs | [Region assessment](region-selection.md) |
+| Select a region against privacy/performance needs | [Region assessment](region-selection.md), [global privacy shortlist](global-privacy-regions.md) |
 | Reuse personal-assistant conventions | [Reference reuse](reference-reuse.md) |
 
 Stable behavior belongs here; live work, decisions and follow-ups belong in `.context/`. Keep source attribution and current evidence, remove superseded instructions, and never store credentials or sensitive diagnostics in either location. Client/region research is separate from the deployment architecture.

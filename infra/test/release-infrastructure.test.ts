@@ -24,6 +24,14 @@ it('limits whole-stack effects to owned services, exact tagged host and a fixed 
   expect(gate.Properties.Environment.Variables.LIFECYCLE_SCHEMA).toBe('1');
   const hook = Object.values(resources).find(r => r.Type === 'AWS::Lambda::Function' && r.Properties.FunctionName === 'ghostline-prod-deployment-hook');
   expect(hook.Properties.ReservedConcurrentExecutions).toBe(4);
+  // Shared construction must retain each consumer's operational policy and original log-group identity.
+  expect(gate.Properties).toMatchObject({ Runtime: 'nodejs24.x', Architectures: ['arm64'], MemorySize: 256, Timeout: 60,
+    LoggingConfig: { LogGroup: { Ref: expect.stringMatching(/^Logs/) } } });
+  expect(hook.Properties).toMatchObject({ Runtime: 'nodejs24.x', Architectures: ['arm64'], MemorySize: 128, Timeout: 75,
+    LoggingConfig: { LogGroup: { Ref: expect.stringMatching(/^HookLogs/) } } });
+  for (const resource of Object.values(resources).filter(r => r.Type === 'AWS::Logs::LogGroup')) {
+    expect(resource.Properties.RetentionInDays).toBe(7);
+  }
   const hookPolicy = Object.entries(resources).find(([id, r]) => id.startsWith('DeploymentHookServiceRoleDefaultPolicy') && r.Type === 'AWS::IAM::Policy')![1];
   const hookStatements = hookPolicy.Properties.PolicyDocument.Statement;
   expect(hookStatements.flatMap((s: any) => [s.Action].flat()).filter((a: string) => !a.startsWith('logs:'))).toEqual(['lambda:InvokeFunction']);
