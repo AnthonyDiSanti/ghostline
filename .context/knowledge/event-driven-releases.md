@@ -11,7 +11,7 @@ Current implementation and operator contract: [release workflow](../../docs/rele
 - One regional gate, reserved concurrency one, ECR wakeups and hourly reconciliation. Durable lifecycle/action state coordinates headless blue-green host replacement. CDK retains task-definition ownership; the scoped authority and retirement of the old reboot exception are specified in the canonical workflow.
 - Native ECS circuit breaker/whole-revision rollback. Accept the final validation-to-ECS-resolution tag race. No distributed tag lock or custom MRU recovery cascade.
 - One app-level production + three prior distinct releases, with regionless image/document aliases. No extra regional MRU pins. Bounded garbage collection also protects observed running/bootstrapped and parked recovery references; stale regions alert for diagnosis.
-- Reusable SNS package with private regional email parameters. Personal-assistant adoption is a separate follow-up after its GuardDuty correction.
+- Reusable SNS package with private regional email parameters. Its CloudFormation lifecycle handler is not continuous subscription reconciliation; an expired unconfirmed subscriber can disappear while the custom resource remains complete. Verify actual subscriber state and preserve identity during explicit repair. [Package boundary](../../infra/packages/notifications/README.md). Personal-assistant adoption remains separate.
 
 ## Verified AWS behavior
 
