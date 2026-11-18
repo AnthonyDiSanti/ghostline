@@ -12,14 +12,14 @@ export { slotAddresses, daemonServiceName, hostSlots, type HostSlot } from './ho
 
 export interface PlatformImageInputs { bootstrap: string; daemon: string }
 
-function publisher(region: string, kind: 'control' | 'guardDuty'): string {
-  // Fail closed on unknown image publishers; this is not a cached service-capability decision.
-  const account = (publishers[kind] as Record<string, string>)[region];
-  if (!account || !/^\d{12}$/.test(account)) throw new Error(`Missing verified ${kind} image publisher for ${region}.`);
+function controlPublisher(region: string): string {
+  // Fail closed on unknown official control-container publishers.
+  const account = (publishers.control as Record<string, string>)[region];
+  if (!account || !/^\d{12}$/.test(account)) throw new Error(`Missing verified control image publisher for ${region}.`);
   return account;
 }
 
-export function gatewayPlatform(config: DeploymentConfig, guardDuty: boolean, slot: HostSlot = 'a',
+export function gatewayPlatform(config: DeploymentConfig, slot: HostSlot = 'a',
   images?: PlatformImageInputs): GatewayPlatform {
   if (!/^[a-z][a-z0-9-]{0,100}$/.test(config.resourceName)) throw new Error('Invalid gateway identity.');
   const registry = `${config.account}.dkr.ecr.${config.region}.amazonaws.com`;
@@ -55,9 +55,8 @@ export function gatewayPlatform(config: DeploymentConfig, guardDuty: boolean, sl
       { deviceName: '/dev/xvdb', ebs: { volumeSize: config.dataVolumeGiB, volumeType: 'gp3', encrypted: true, deleteOnTermination: true } }],
     pullRepositoryArns: [repositoryArn,
       // The official control container supplies SSM; Bottlerocket pulls it with the host role.
-      `arn:aws:ecr:${config.region}:${publisher(config.region, 'control')}:repository/bottlerocket-control`,
-      // Publisher identity is static reference data; live discovery still decides runtime availability.
-      ...(guardDuty ? [`arn:aws:ecr:${config.region}:${publisher(config.region, 'guardDuty')}:repository/aws-guardduty-agent-ecs-ec2`] : [])],
+      `arn:aws:ecr:${config.region}:${controlPublisher(config.region)}:repository/bottlerocket-control`,
+    ],
   };
 }
 

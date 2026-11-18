@@ -13,7 +13,7 @@ Consult before infrastructure/vendor work. Current behavior belongs in `docs/`; 
 - [ECS gateway](../../docs/ecs.md) — shared task/initializer, per-engine restarts, private RAM, common memory budget, bridge identity, lifecycle constraints and IPv6 feasibility/remaining platform qualification.
 - [Bottlerocket IPv6 upstream review](bottlerocket-ipv6-upstream.md) — deferred IPv6 work, related issues/PRs, existing fork and submitted feature proposal #4954.
 - [Account CloudTrail](../../docs/cloudtrail.md) — discover/reuse organization/shadow coverage, preserve external ownership, converge on a finite-retention neutral baseline; shared migration verified live.
-- [GuardDuty](../../docs/guardduty.md) — live service/telemetry discovery, accepted capability gaps, enable-only defaults, tagged enrollment and bounded coverage checks.
+- [GuardDuty](../../docs/guardduty.md) — launch-time gateway exclusion and verification, independent foundational analysis, EBS scan boundaries and earlier enrollment evidence.
 - [On-demand lifecycle research](on-demand-lifecycle.md) — protocol presence limits, exact-version Xray/AWG signals, renewable leases, controller strategies and reporting/IAM tradeoffs; proposal only.
 - [Retired Tor access research](tor-integration.md) — historical hostname and browser limits behind the abandoned gateway Tor experiment; current behavior is in [DNS](../../docs/dns.md).
 - [Shared upstream DNS assessment](dns-forwarder.md) — historical trial proof, existing EIP reuse and CoreDNS/Unbound comparison behind the selected resolver.

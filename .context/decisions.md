@@ -1,5 +1,9 @@
 # Current decisions
 
+## 2026-11-18 — Opt gateway hosts out of Runtime Monitoring (Anthony)
+
+Apply the exclusion at EC2 launch across both regional slots and retire enrolled hosts through blue-green. Remove gateway-owned telemetry plumbing. Keep the regional detector and its foundational sources, account-level enrollment and shared CloudTrail. Keep both volumes eligible for agentless EBS scanning while reviewing residual disk logs and crash paths. Account separation is deferred. [Policy](../docs/guardduty.md).
+
 ## 2026-11-18 — Adopt qualified credential delivery across the fleet (Anthony)
 
 Anthony explicitly authorizes fleet-wide deployment after DERP coverage is confirmed. Publish the exact seven qualified artifacts, migrate the task/IAM interface under manual holds, accept Stockholm then Oregon/Zurich/NVA, preserve parked Cape Town and restore original modes. Native deployment, security/protocol/privacy acceptance and final identity/endpoint/shared-control continuity pass; no rotation or monitoring reduction is included. [Verified release](scratch/2026-11-17-zero-logs-release/fleet-adoption.md). Remaining Runtime opt-out and provider/flow/account decisions stay separate.

@@ -9,29 +9,29 @@ import { withHostDiagnostics } from '../lib/ecs-verification.js';
 it('uses separate static local platform aliases and preserves endpoint ordering', () => {
   for (const target of ['stockholm-ecs', 'cape-town']) {
     const config = getDeployment(target);
-    const platform = gatewayPlatform(config, true);
+    const platform = gatewayPlatform(config);
     expect(platform.bootstrapImage).toBe(`${config.account}.dkr.ecr.${config.region}.amazonaws.com/ghostline/prod/bootstrap:keep-production`);
     expect(platform.daemonImage).toBe(`${config.account}.dkr.ecr.${config.region}.amazonaws.com/ghostline/prod/network-daemon:keep-production`);
     expect(platform.userData).not.toContain('@@');
     expect(Buffer.byteLength(platform.userData)).toBeLessThan(16384);
     expect(platform.userData).toContain('essential = true');
     expect(platform.pullRepositoryArns.every(arn => arn.startsWith(`arn:aws:ecr:${config.region}:`) && !arn.includes('*'))).toBe(true);
-    const active = Template.fromStack(buildApp(config, { service: true, runtime: true }).stack).toJSON();
-    const parked = Template.fromStack(buildApp(config, { service: false, runtime: false }, {}, 'parked').stack).toJSON();
+    const active = Template.fromStack(buildApp(config).stack).toJSON();
+    const parked = Template.fromStack(buildApp(config, {}, 'parked').stack).toJSON();
     expect(Object.keys(parked.Resources).sort()).toEqual(['awgAddress', 'xrayAddress']);
     for (const name of Object.keys(parked.Resources)) expect(parked.Resources[name]).toEqual(active.Resources[name]);
-    const slot = JSON.parse(hostTemplates(config, true).a);
+    const slot = JSON.parse(hostTemplates(config).a);
     expect(slot.Resources.NetworkService.Properties.SchedulingStrategy).toBe('DAEMON');
     expect(slot.Resources.NetworkService.DependsOn).toContain('Instance');
     expect(active.Resources.xrayAssociation).toBeUndefined(); expect(active.Resources.awgAssociation).toBeUndefined();
   }
 });
 
-it('rejects unsafe identifiers and omits agent pulls when live runtime discovery is unavailable', () => {
+it('rejects unsafe identifiers and limits gateway host pulls to bootstrap and the official control container', () => {
   const config = getDeployment('cape-town');
-  expect(gatewayPlatform(config, false).pullRepositoryArns).toHaveLength(2);
+  expect(gatewayPlatform(config).pullRepositoryArns).toHaveLength(2);
   for (const resourceName of ['bad\nvalue', '$(false)', 'bad"quote']) {
-    expect(() => gatewayPlatform({ ...config, resourceName }, true)).toThrow('Invalid gateway identity');
+    expect(() => gatewayPlatform({ ...config, resourceName })).toThrow('Invalid gateway identity');
   }
 });
 

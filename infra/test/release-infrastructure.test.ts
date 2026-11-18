@@ -11,7 +11,7 @@ it('limits whole-stack effects to owned services, exact tagged host and a fixed 
   const app = new App({ context: { '@aws-cdk/core:explicitStackTags': true } });
   const stack = new RegionalReleaseStack(app, 'ReleaseTest', { env: { account: '000000000000', region: 'eu-north-1' },
     tags: { Project: 'ghostline', Environment: 'prod', System: 'shared' },
-    deployment: { ...getDeployment('stockholm-ecs'), account: '000000000000', resourceName: 'test-gateway', stackName: 'TestEndpoint' }, guardDuty: true, automation: 'active' });
+    deployment: { ...getDeployment('stockholm-ecs'), account: '000000000000', resourceName: 'test-gateway', stackName: 'TestEndpoint' }, automation: 'active' });
   Tags.of(stack).add('Project', 'ghostline'); Tags.of(stack).add('Environment', 'prod'); Tags.of(stack).add('System', 'shared');
   const template = Template.fromStack(stack);
   const resources = template.toJSON().Resources as Record<string, any>;
@@ -101,7 +101,7 @@ it('suppresses release selection events in operator-only mode without disabling 
   const stack = new RegionalReleaseStack(app, 'ManualReleaseTest', { env: { account: '000000000000', region: 'eu-north-1' },
     tags: { Project: 'ghostline', Environment: 'prod', System: 'shared' },
     deployment: { ...getDeployment('stockholm-ecs'), account: '000000000000', resourceName: 'test-gateway', stackName: 'TestEndpoint', dnsRequired: true },
-    guardDuty: true, automation: 'manual' });
+    automation: 'manual' });
   const resources = Template.fromStack(stack).toJSON().Resources as Record<string, any>;
   const gate = Object.values(resources).find(r => r.Type === 'AWS::Lambda::Function' && r.Properties.FunctionName === 'ghostline-prod-release-gate');
   expect(gate.Properties.Environment.Variables).toMatchObject({ AUTOMATION: 'disabled', OPERATOR_ONLY: 'enabled', DNS_REQUIRED: 'true' });

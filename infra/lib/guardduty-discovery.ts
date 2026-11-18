@@ -34,20 +34,3 @@ export function discoverGuardDuty(config: Pick<DeploymentConfig, 'region' | 'ava
     && item.AvailabilityZones?.includes(config.availabilityZone));
   return { service: true, runtime };
 }
-
-export function guardDutyForDeployment(config: DeploymentConfig, aws: RegionalMetadata = regionalMetadata): GuardDutySupport {
-  const support = discoverGuardDuty(config, aws);
-  if (!support.runtime) {
-    // An apparent availability loss must not remove transport we already own. This is a contradiction
-    // to investigate, not evidence that a previously protected running gateway should lose its endpoint.
-    const stacks = aws(['cloudformation', 'list-stacks'], config.region).StackSummaries;
-    const stack = stacks.find((item: any) => item.StackName === config.stackName && item.StackStatus !== 'DELETE_COMPLETE');
-    if (stack) {
-      const resources = aws(['cloudformation', 'list-stack-resources', '--stack-name', stack.StackId], config.region).StackResourceSummaries;
-      if (resources.some((item: any) => item.LogicalResourceId === 'GuardDutyEndpoint' && item.ResourceStatus !== 'DELETE_COMPLETE')) {
-        throw new Error('Live availability contradicts existing GuardDuty transport; refusing to remove installed protection.');
-      }
-    }
-  }
-  return support;
-}

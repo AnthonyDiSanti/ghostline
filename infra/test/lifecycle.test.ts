@@ -30,8 +30,8 @@ it('waits for an existing deletion and leaves an already deleted stack untouched
 it.each(deploymentIds)('parks %s with only the same retained, tagged allocations', id => {
   // Stable logical IDs and properties are what make a later active deployment reuse addresses.
   const config = { ...getDeployment(id), account: '000000000000' };
-  const active = Template.fromStack(buildApp(config, { service: true, runtime: true }).stack).toJSON();
-  const parked = Template.fromStack(buildApp(config, { service: true, runtime: true }, {}, 'parked').stack).toJSON();
+  const active = Template.fromStack(buildApp(config).stack).toJSON();
+  const parked = Template.fromStack(buildApp(config, {}, 'parked').stack).toJSON();
   const addresses = Object.fromEntries(Object.entries(active.Resources).filter(([, r]: any) => r.Type === 'AWS::EC2::EIP')
     .map(([key, resource]: any) => { const { DependsOn: _dependency, ...rest } = resource; return [key, rest]; }));
   expect(parked.Resources).toEqual(addresses);

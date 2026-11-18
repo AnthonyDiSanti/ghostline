@@ -12,11 +12,11 @@ import { slotProvisionerName } from '../host-slot-authority.js';
 import { hostSlots, slotStackName, transitionAddressStackName } from '../host-slot-model.js';
 import { assertTrialTemplateUrl } from './candidates.js';
 
-export function rolloutInfrastructure(stack: Stack, handler: IFunction, config: DeploymentConfig, guardDuty: boolean,
+export function rolloutInfrastructure(stack: Stack, handler: IFunction, config: DeploymentConfig,
   images?: PlatformImageInputs, captured?: Record<'a' | 'b' | 'addresses', string>) {
   // Host templates use the same regional CDK file-asset publication as Lambda code, never Docker image assets.
   const folder = mkdtempSync(join(tmpdir(), 'ghostline-slot-templates-'));
-  const templates = hostTemplates(config, guardDuty, images);
+  const templates = hostTemplates(config, images);
   const urls = Object.fromEntries(Object.entries(templates).map(([name, value]) => {
     const file = join(folder, `${name}.json`); writeFileSync(file, value);
     const asset = new Asset(stack, `HostTemplate${name}`, { path: file });

@@ -9,6 +9,11 @@ describe('cost tags', () => {
   it.each(['System', 'system', 'SYSTEM', 'aws:thing', ''])('rejects reserved or empty key %s', (key) => {
     expect(() => validateGlobalTags({ ...tags, [key]: 'override' })).toThrow('tag key');
   });
+  it('rejects instance tag keys that break IMDS tag access', () => {
+    for (const key of ['GuardDutyManaged', 'tag with spaces', 'tag/path', '.', '..', '_index']) {
+      expect(() => validateGlobalTags({ ...tags, [key]: 'override' })).toThrow('tag key');
+    }
+  });
   it('requires exact billing dimensions and nonempty values', () => {
     expect(() => validateGlobalTags({ project: 'ghostline', Environment: 'prod' })).toThrow('Project');
     expect(() => validateGlobalTags({ ...tags, Project: ' ' })).toThrow('non-empty');

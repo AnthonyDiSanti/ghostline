@@ -20,7 +20,8 @@ Use Node 24 and the strict TypeScript package under `infra/`, including its reus
 | `infra/lib/logged-nodejs-function.ts` | Local Node.js Lambda/log-group construction with explicit caller policy |
 | `infra/lib/parameters.ts`, `infra/lib/xray-config.ts` | Portable credential validation and regional SecureString import |
 | `infra/lib/ecs-power.ts`, `infra/lib/lifecycle.ts` | Scoped start/stop, deletion and retained-address release |
-| `infra/lib/guardduty-discovery.ts`, `infra/lib/guardduty.ts` | Live regional availability, enable-only reconciliation and bounded coverage verification |
+| `infra/lib/guardduty-discovery.ts`, `infra/lib/guardduty.ts` | Discovery and detector helpers for independently enrolled workloads |
+| `infra/lib/gateway-runtime-monitoring.ts` | Gateway host opt-out tag and exact-host verification |
 | `infra/lib/gateway-platform.ts`, `runtime/ecs/` | Host fixtures, shared initializer, engine startup and bridge policy |
 | `infra/lib/ecs-client-test.ts`, `infra/lib/ecs-verification.ts` | Real client probes and redacted SSM verification |
 | `infra/lib/fixtures.ts`, `infra/test/fixtures/` | Explicit fixture rendering and standalone test programs |
@@ -55,7 +56,7 @@ Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra
 | `npm run platform <target> qualify <qualified-file>` | Close central native qualification after the documented experiment; verify runtime and record exact platform/OS compatibility |
 | `npm run deployments` | List maintained targets; allocate nothing |
 | `npm run preflight <target>` | Verify AWS account, enabled region, official regional AMI for the centrally qualified target OS, AZ, instance capacity/offering |
-| `npm run synth <target>` / `npm run diff <target>` | Discover live GuardDuty availability and synthesize / compare the selected endpoint |
+| `npm run synth <target>` / `npm run diff <target>` | Synthesize or compare the selected endpoint |
 | `npm run init-region -- <target> plan --alerts-from <existing-target>` | Inventory metadata and write a private review plan; generate/decrypt nothing |
 | `npm run init-region -- <target> execute <reviewed-plan-file>` | Recheck state, initialize independent credentials/contact and verify without overwrite |
 | `npm run ecs <target> import <directory>` | Import six validated protected credential files; refuse conflicting values |
@@ -67,7 +68,7 @@ Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra
 | `npm run ecs <target> deploy` / `unpark` | Check parameter metadata/images/live support, diff/deploy gateway, enable available protection and verify its reported coverage |
 | `npm run ecs <target> start` / `stop` | Start/stop the selected host and service in lifecycle order |
 | `npm run ecs <target> status` | Read selected stack outputs and EC2 state |
-| `npm run ecs <target> verify` | Check live configuration hashes, security, memory, architecture, EIP egress and GuardDuty coverage |
+| `npm run ecs <target> verify` | Check live configuration hashes, security, memory, architecture, EIP egress and the serving host’s GuardDuty Runtime Monitoring exclusion |
 | `npm run ecs <target> profiles` | Write protected client profiles/links/QRs with current addresses |
 | `npm run ecs <target> test` | Test real encrypted HTTPS through both protocols using disposable local clients |
 | `npm run park <target>` | Remove endpoint compute/disk/networking while retaining its two tracked EIPs |
@@ -78,7 +79,7 @@ The primary target is `oregon`; `stockholm-ecs` and `zurich` are active for test
 
 Maintained engine/device credentials and DERP identities use `/ghostline/prod`; the secret inventory includes their exact paths and the separate release-alert contact. An isolated private catalog may set a validated `parameterPrefix` under `/ghostline/trial/<name>`; the common endpoint task/IAM, metadata preflight, import, verification and profile export all use that same namespace. This keeps a disposable region's enrolled device identities separate while exercising the normal `park`/`ecs unpark` lifecycle. It does not add a maintained regional target. [Credential boundary](secrets.md), [Ireland evidence](../.context/scratch/2026-10-19-tor-retirement/tor-dns-trial.md#managed-ireland-trial--october-13-2026).
 
-Use `images:build` for a new whole-set stable selection with `gh` authenticated to `github.com`. Review recorded inputs; publication/deployment reuse them without rediscovery. [Image workflow and evidence limits](images.md). `ecs deploy` uses the common native rollout and enable-only [GuardDuty reconciliation](guardduty.md); confirmed service gaps are reported, while access/installation failures remain errors. `npm run deploy` delegates to the same lifecycle. Never use `--all`, deploy a retired recipe or run an unreviewed live change. Active trial exclusions defer conflicting regional mutations with status 3; finish a verified trial before power operations. [Trial boundary](candidate-releases.md#operational-boundary).
+Use `images:build` for a new whole-set stable selection with `gh` authenticated to `github.com`. Review recorded inputs; publication/deployment reuse them without rediscovery. [Image workflow and evidence limits](images.md). `ecs deploy` uses the common native rollout and verifies the serving host’s [Runtime Monitoring exclusion](guardduty.md). `npm run deploy` delegates to the same lifecycle. Never use `--all`, deploy a retired recipe or run an unreviewed live change. Active trial exclusions defer conflicting regional mutations with status 3; finish a verified trial before power operations. [Trial boundary](candidate-releases.md#operational-boundary).
 
 ## Explicit regional initialization
 
@@ -96,7 +97,7 @@ Use native Bash/Python and `brew install shellcheck hadolint`, or Docker for mis
 
 All diagnostic severities fail. ShellCheck ignores home configuration; Hadolint uses `infra/hadolint.yaml`; inherited lint exclusions are removed. Fix findings or document a narrow exception beside the relevant instruction. Use real fixtures with synthetic inputs and replace only external command boundaries in tests. Do not recreate EC2/systemd in a mock framework.
 
-Offline synthesis covers **all five maintained regional configurations, each with its disposable endpoint stack; separate assertions synthesize regional release infrastructure**. These offline synths use explicit synthetic GuardDuty support; named CLI synth/diff/deploy commands discover support live. Regional GuardDuty settings are outside the application CloudFormation lifecycle. Stack count is independent of the six runnable images and non-runnable release document. Independent synthetic-region tests verify reuse without making abandoned regions deployable. Static checks do not establish connectivity. Disconnect a native VPN before regional tunnel probes so nesting does not distort direct-path results; the local image suite keeps both protocol peers inside Docker.
+Offline synthesis covers **all five maintained regional configurations, each with its disposable endpoint stack; separate assertions synthesize regional release infrastructure**. The active templates encode launch-time exclusion for both host slots. Regional GuardDuty detector settings are outside the application CloudFormation lifecycle. Stack count is independent of the six runnable images and non-runnable release document. Independent synthetic-region tests verify reuse without making abandoned regions deployable. Static checks do not establish connectivity. Disconnect a native VPN before regional tunnel probes so nesting does not distort direct-path results; the local image suite keeps both protocol peers inside Docker.
 
 ## On-demand regional lifecycle
 

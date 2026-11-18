@@ -32,7 +32,7 @@ it('routes only the approved AWG-address relay/STUN tuples and denies arbitrary 
 });
 
 it('adds one isolated non-root container and references all three server parameters without plaintext injection', () => {
-  const { stack } = buildApp(config, { service: true, runtime: true });
+  const { stack } = buildApp(config);
   const template = Template.fromStack(stack);
   template.resourceCountIs('AWS::EC2::EIP', 2);
   const resources = template.toJSON().Resources as Record<string, any>;
@@ -50,7 +50,7 @@ it('adds one isolated non-root container and references all three server paramet
   expect(initializer.Environment.map((item: any) => item.Name)).toEqual(['GHOSTLINE_PARAMETERS']);
   const security = resources.SecurityGroup.Properties;
   expect(security.SecurityGroupIngress).toContainEqual({ IpProtocol: 'udp', FromPort: 3478, ToPort: 3478, CidrIp: '198.51.100.42/32' });
-  const platform = gatewayPlatform(config, false);
+  const platform = gatewayPlatform(config);
   expect(platform.userData).toContain('bootstrap-containers');
   const daemon = networkTaskDefinition(config, platform.daemonImage, 'arn:aws:iam::000000000000:role/test', 'a');
   const environment = (daemon.containerDefinitions as any[])[0].environment;

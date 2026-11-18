@@ -2,7 +2,6 @@ import { App, Tags } from 'aws-cdk-lib';
 import { deploymentIds, getDeployment, getPublication } from '../lib/config.js';
 import { RegionalReleaseStack, ReleaseAssetsStack, releaseStackName, assetStackName } from '../lib/releases/stack.js';
 import { allowedReleaseMode } from '../lib/releases/automation.js';
-import { guardDutyForDeployment } from '../lib/guardduty-discovery.js';
 import cdk from '../cdk.json' with { type: 'json' };
 
 const [region, mode = 'active', ...extra] = process.argv.slice(2);
@@ -21,5 +20,5 @@ const env = { account: catalog[0]!.account, region };
 // Stack ownership must be explicit as well as propagated to billable resources.
 const tags = { ...catalog[0]!.globalTags, System: 'shared' };
 if (gateway) new ReleaseAssetsStack(app, assetStackName, { env, tags });
-new RegionalReleaseStack(app, releaseStackName, { env, tags, deployment: endpoint, guardDuty: endpoint ? guardDutyForDeployment(endpoint).runtime : undefined,
+new RegionalReleaseStack(app, releaseStackName, { env, tags, deployment: endpoint,
   automation: allowedReleaseMode(publication.automation, mode as 'active' | 'manual' | 'held') });

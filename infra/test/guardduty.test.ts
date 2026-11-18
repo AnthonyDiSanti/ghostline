@@ -4,11 +4,11 @@ import { CloudAssembly } from 'aws-cdk-lib/cx-api';
 import { type GuardDutyClient } from '@aws-sdk/client-guardduty';
 import { hostTemplates } from '../lib/host-slot.js';
 import { buildApp } from '../lib/app.js';
-import { getDeployment } from '../lib/config.js';
+import { deploymentIds, getDeployment } from '../lib/config.js';
 import { ensureGuardDuty, verifyGuardDuty } from '../lib/guardduty.js';
+import { verifyGatewayRuntimeOptOut } from '../lib/gateway-runtime-monitoring.js';
 
 afterAll(() => CloudAssembly.cleanupTemporaryDirectories());
-const config = { ...getDeployment('stockholm-ecs'), account: '000000000000' };
 const detectorId = '0123456789abcdef0123456789abcdef';
 const support = { service: true, runtime: true };
 const enabled = { Status: 'ENABLED', Features: [{ Name: 'RUNTIME_MONITORING', Status: 'ENABLED' }] };
@@ -20,17 +20,49 @@ function api(respond: (name: string, input: any) => any) {
 }
 function error(name: string) { return Object.assign(new Error(name), { name }); }
 
-it('keeps regional settings outside both active and parked CloudFormation lifecycles', () => {
+it.each(deploymentIds)('excludes both %s gateway slots at instance creation with regional protections external', target => {
+  const config = { ...getDeployment(target), account: '000000000000' };
   for (const lifecycle of ['active', 'parked'] as const) {
-    const app = buildApp(config, { service: true, runtime: true }, {}, lifecycle);
-    for (const stack of [app.stack]) Template.fromStack(stack).resourceCountIs('AWS::GuardDuty::Detector', 0);
-    expect(app.app.synth().stacks).toHaveLength(1);
-    const endpoint = Template.fromStack(app.stack).toJSON();
-    if (lifecycle === 'active') {
-      expect(JSON.parse(hostTemplates(config, true).a).Resources.Instance.Properties.Tags).toContainEqual({ Key: 'GuardDutyManaged', Value: 'true' });
-      expect(endpoint.Resources.GuardDutyEndpoint.Properties.Tags).not.toContainEqual({ Key: 'GuardDutyManaged', Value: 'true' });
-    } else expect(endpoint.Resources.GuardDutyEndpoint).toBeUndefined();
+    const { stack } = buildApp(config, {}, lifecycle);
+    const endpoint = Template.fromStack(stack);
+    endpoint.resourceCountIs('AWS::GuardDuty::Detector', 0);
+    endpoint.resourceCountIs('AWS::EC2::VPCEndpoint', 0);
   }
+  const slots = hostTemplates(config);
+  for (const slot of ['a', 'b'] as const) {
+    const resources = JSON.parse(slots[slot]).Resources;
+    const launch = resources.HostLaunchTemplate.Properties.LaunchTemplateData;
+    expect(launch.MetadataOptions).toEqual({ HttpTokens: 'required', HttpPutResponseHopLimit: 1, InstanceMetadataTags: 'enabled' });
+    expect(launch.TagSpecifications).toEqual([{ ResourceType: 'instance', Tags: expect.arrayContaining([
+      { Key: 'GuardDutyManaged', Value: 'false' },
+      { Key: 'Project', Value: config.globalTags.Project },
+      { Key: 'Environment', Value: config.globalTags.Environment },
+    ]) }]);
+    expect(JSON.stringify(resources)).not.toMatch(/GuardDutyExcluded|amazon-guardduty-agent|"Key":"GuardDutyManaged","Value":"true"/);
+  }
+});
+
+it('verifies launch exclusion and agent state independently', async () => {
+  const optedOut = { Tags: [{ Key: 'GuardDutyManaged', Value: 'false' }],
+    MetadataOptions: { InstanceMetadataTags: 'enabled', HttpTokens: 'required', HttpPutResponseHopLimit: 1 } } satisfies Parameters<typeof verifyGatewayRuntimeOptOut>[0];
+  const remote = vi.fn(async () => JSON.stringify({ settings: { 'host-containers': {
+    control: { enabled: true },
+  } } }));
+  await expect(verifyGatewayRuntimeOptOut({}, remote)).rejects.toThrow('exclusion tag');
+  await expect(verifyGatewayRuntimeOptOut({ Tags: optedOut.Tags }, remote)).rejects.toThrow('host-scoped IMDSv2');
+  await expect(verifyGatewayRuntimeOptOut({ ...optedOut, MetadataOptions: { ...optedOut.MetadataOptions, HttpPutResponseHopLimit: 2 } }, remote))
+    .rejects.toThrow('host-scoped IMDSv2');
+  expect(remote).not.toHaveBeenCalled();
+  await expect(verifyGatewayRuntimeOptOut(optedOut, remote)).resolves.toMatchObject({ status: 'RUNTIME_OPTED_OUT', metadataTagsEnabled: true });
+  expect(remote).toHaveBeenCalledWith('apiclient get settings.host-containers');
+  // An exclusion tag alone cannot stop an agent already installed on a host.
+  const settings = (enabled?: boolean) => async () => JSON.stringify({ settings: { 'host-containers': {
+    control: { enabled: true }, 'amazon-guardduty-agent': { enabled },
+  } } });
+  await expect(verifyGatewayRuntimeOptOut(optedOut, settings(false))).resolves.toMatchObject({ agentEnabled: false });
+  await expect(verifyGatewayRuntimeOptOut(optedOut, settings(true))).rejects.toThrow('agent is enabled');
+  await expect(verifyGatewayRuntimeOptOut(optedOut, settings())).rejects.toThrow('state is unknown');
+  await expect(verifyGatewayRuntimeOptOut(optedOut, async () => '{}')).rejects.toThrow('Missing Bottlerocket');
 });
 
 it.each(['ENABLED', 'DISABLED'])(

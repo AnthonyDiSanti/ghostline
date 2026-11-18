@@ -10,7 +10,7 @@ const config = { ...getDeployment('stockholm-ecs'), derp: undefined };
 const registry = `${config.account}.dkr.ecr.${config.region}.amazonaws.com`;
 describe('Bottlerocket gateway boundaries', () => {
   it('preserves ECS initialization and secret boundaries on the supported host mount', () => {
-    const template = Template.fromStack(buildApp(config, { service: true, runtime: true }).stack).toJSON();
+    const template = Template.fromStack(buildApp(config).stack).toJSON();
     const resources = Object.values(template.Resources) as any[];
     const task = resources.find(r => r.Type === 'AWS::ECS::TaskDefinition').Properties;
     expect(task.TaskRoleArn).toBeDefined();
@@ -29,19 +29,19 @@ describe('Bottlerocket gateway boundaries', () => {
     }
     expect(task.Volumes.map((v: any) => v.Host.SourcePath)).toEqual([
       '/mnt/ghostline/config', '/mnt/ghostline/config/xray', '/mnt/ghostline/config/awg']);
-    const host = JSON.parse(hostTemplates(config, true).a).Resources.Instance.Properties;
+    const host = JSON.parse(hostTemplates(config).a).Resources.Instance.Properties;
     expect(host.BlockDeviceMappings.map((d: any) => [d.DeviceName, d.Ebs.Encrypted])).toEqual([
       ['/dev/xvda', true], ['/dev/xvdb', true]]);
     expect(resources.filter(r => r.Type === 'AWS::EC2::EIP').every(r => r.DeletionPolicy === 'Retain')).toBe(true);
     // Management images need explicit pulls too; keep host authority out of unrelated registries/parameters.
-    const pulls = gatewayPlatform(config, true).pullRepositoryArns;
+    const pulls = gatewayPlatform(config).pullRepositoryArns;
     expect(pulls).toContain('arn:aws:ecr:eu-north-1:328549459982:repository/bottlerocket-control');
     expect(pulls.every(arn => !arn.includes('*'))).toBe(true);
     expect(resources.some(r => r.Type === 'AWS::Lambda::Function')).toBe(false);
   });
 
   it('uses static owned aliases and reconstructs mandatory RAM on every boot', () => {
-    const data = gatewayPlatform(config, true).userData;
+    const data = gatewayPlatform(config).userData;
     expect(data).toContain(`${registry}/ghostline/prod/bootstrap:keep-production`);
     expect(data).toContain('mode = "always"');
     expect(data).toContain('essential = true');
@@ -63,7 +63,7 @@ describe('Bottlerocket gateway boundaries', () => {
   });
 
   it('confines the network daemon and accounts for its memory once', () => {
-    const resources = JSON.parse(hostTemplates(config, true).a).Resources;
+    const resources = JSON.parse(hostTemplates(config).a).Resources;
     const task = resources.NetworkTask.Properties;
     expect(task.NetworkMode).toBe('host');
     expect(task.Memory).toBe('64');
@@ -81,7 +81,7 @@ describe('Bottlerocket gateway boundaries', () => {
     expect(resources.NetworkService.Properties.SchedulingStrategy).toBe('DAEMON');
     expect(resources.NetworkService.Properties.DesiredCount).toBeUndefined();
     expect(resources.NetworkService.Properties.PlacementConstraints).toEqual([{ Type: 'memberOf', Expression: 'attribute:ghostline_slot == a' }]);
-    const data = gatewayPlatform(config, true).userData;
+    const data = gatewayPlatform(config).userData;
     expect(data).toContain('reserved-memory = 602');
     expect(data).not.toContain('ghostline-network');
     expect(data).toContain('[settings.host-containers.ghostline-diagnostics]');
@@ -91,8 +91,8 @@ describe('Bottlerocket gateway boundaries', () => {
 
 // Park must preserve CloudFormation EIP identities without leaving daemon or host resources behind.
 it('parks the gateway to exactly its existing address resources', () => {
-  const active = Template.fromStack(buildApp(config, { service: true, runtime: true }).stack).toJSON();
-  const parked = Template.fromStack(buildApp(config, { service: true, runtime: true }, {}, 'parked').stack).toJSON();
+  const active = Template.fromStack(buildApp(config).stack).toJSON();
+  const parked = Template.fromStack(buildApp(config, {}, 'parked').stack).toJSON();
   expect(Object.keys(parked.Resources).sort()).toEqual(['awgAddress', 'xrayAddress']);
   for (const key of Object.keys(parked.Resources)) expect(parked.Resources[key]).toEqual(active.Resources[key]);
 });

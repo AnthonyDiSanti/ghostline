@@ -13,7 +13,6 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
-import { GuardDutyClient } from '@aws-sdk/client-guardduty';
 import { fromIni } from '@aws-sdk/credential-providers';
 import { getDeployment } from '../lib/config.js';
 import { ecsDeploymentCommand } from '../lib/commands.js';
@@ -32,8 +31,7 @@ import { networkDaemonMemory } from '../lib/gateway-platform.js';
 import { parseJson, renderXrayServerConfig } from '../lib/xray-config.js';
 import { xrayLink } from '../lib/xray.js';
 import { profileQr, vpnLink } from '../lib/profile-share.js';
-import { ensureGuardDuty, guardDutyPreflight, verifyGuardDuty } from '../lib/guardduty.js';
-import { discoverGuardDuty } from '../lib/guardduty-discovery.js';
+import { verifyGatewayRuntimeOptOut } from '../lib/gateway-runtime-monitoring.js';
 
 assertBenchmarkExclusion();
 const [target, action, ...extra] = process.argv.slice(2);
@@ -48,7 +46,6 @@ const environment = { ...process.env, GHOSTLINE_DEPLOYMENT: config.id };
 const parameters = new SSMClient({ region: config.region, credentials: fromIni({ profile: 'personal' }) });
 const parameterPrefix = config.parameterPrefix ?? '/ghostline/prod';
 const selectedServerParameterNames = serverParameterNamesFor(parameterPrefix, !!config.derp);
-const guardDuty = new GuardDutyClient({ region: config.region, credentials: fromIni({ profile: 'personal' }) });
 
 function run(command: string, args: string[], input?: string | Buffer, visible = false): string {
   // Errors never reproduce captured secret values or the ECR authentication token.
@@ -128,13 +125,14 @@ async function verify() {
 }
 
 async function monitoring(outputs: Record<string, string>) {
-  // Coverage propagates asynchronously; persist only nonsecret host/status evidence after the bounded gate.
-  const support = discoverGuardDuty(config);
-  const evidence = await verifyGuardDuty(guardDuty, support, outputs.InstanceId!, { report: console.log });
-  writeFileSync(resolve(work, 'guardduty.json'), JSON.stringify(evidence, null, 2) + '\n', { mode: 0o600 });
-  console.log(evidence.status === 'HEALTHY'
-    ? `GuardDuty: HEALTHY coverage for ${evidence.instanceId}; agent ${evidence.agentVersion}.`
-    : `GuardDuty: ${evidence.status}; ${evidence.reason} Gateway validation continues with reduced protection.`);
+  // Observe the serving host after handoff. Regional GuardDuty settings belong to the account.
+  const id = outputs.InstanceId!;
+  const instances = aws(['ec2', 'describe-instances', '--instance-ids', id]).Reservations
+    .flatMap((reservation: any) => reservation.Instances);
+  if (instances.length !== 1 || instances[0].InstanceId !== id) throw new Error('Gateway host identity changed during verification.');
+  const evidence = await verifyGatewayRuntimeOptOut(instances[0], hostRemote(id, work, aws));
+  writeFileSync(resolve(work, 'guardduty.json'), JSON.stringify({ instanceId: id, ...evidence }, null, 2) + '\n', { mode: 0o600 });
+  console.log(`GuardDuty Runtime Monitoring opt-out verified for ${id}.`);
 }
 
 async function profiles() {
@@ -174,8 +172,6 @@ try {
           JSON.stringify([{ Key: 'Name', Option: 'Equals', Values: selectedServerParameterNames }])]).Parameters, parameterPrefix, !!config.derp);
         const gate = await operatorGate(config.id);
         await assertStartReady(gate, config.dnsRequired, !!config.derp);
-        const support = discoverGuardDuty(config);
-        if (support.service) await guardDutyPreflight(guardDuty);
         const stacks = aws(['cloudformation', 'describe-stacks']).Stacks;
         const existing = stacks.find((s: any) => s.StackName === config.stackName);
         const rawOutputs = Object.fromEntries((existing?.Outputs ?? []).map((o: any) => [o.OutputKey, o.OutputValue])) as Record<string, string>;
@@ -191,7 +187,7 @@ try {
           if (powerState !== 'running') power('start'); // An explicit deploy reactivates blue before preparing its replacement.
           const oldBody = aws(['cloudformation', 'get-template', '--stack-name', existing.StackId, '--template-stage', 'Processed']).TemplateBody;
           const oldTemplate = typeof oldBody === 'string' ? parseYaml(oldBody) : oldBody;
-          const { app } = buildApp(config, support);
+          const { app } = buildApp(config);
           const desired = app.synth().getStackArtifact(config.stackName).template;
           const changes = deploymentChanges(oldTemplate, desired);
           CloudAssembly.cleanupTemporaryDirectories();
@@ -201,8 +197,6 @@ try {
             if (result.FunctionError) throw new Error('Controller handoff failed; inspect the persisted release action.');
           });
         }
-        const protection = await ensureGuardDuty(guardDuty, support, { tags: { ...config.globalTags, System: 'shared' }, report: console.log });
-        if (protection.status !== 'RUNTIME_ENABLED') console.log(`GuardDuty: ${protection.status}; ${protection.reason}`);
         await monitoring(state()); break;
       }
       case 'start': await assertStartReady(await operatorGate(config.id), config.dnsRequired, !!config.derp); power(action); break;

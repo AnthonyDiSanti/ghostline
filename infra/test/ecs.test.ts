@@ -10,7 +10,7 @@ import { imageArtifacts, officialXrayImage, releaseFiles, releaseTag } from '../
 afterAll(() => CloudAssembly.cleanupTemporaryDirectories());
 // Keep the six-image migration baseline explicit; DERP's seven-image security contract has its own integration tests.
 const config = { ...getDeployment('stockholm-ecs'), account: '000000000000', derp: undefined };
-const { app, stack } = buildApp(config, { service: true, runtime: true });
+const { app, stack } = buildApp(config);
 const template = Template.fromStack(stack);
 const resources = template.toJSON().Resources as Record<string, any>;
 
@@ -24,50 +24,27 @@ it('separates retained regional networking from temporary host-slot capacity wit
   template.resourceCountIs('AWS::EC2::NetworkInterface', 0);
   template.resourceCountIs('AWS::EC2::EIP', 2);
   for (const type of ['AWS::EC2::KeyPair', 'AWS::EC2::NatGateway', 'AWS::ElasticLoadBalancingV2::LoadBalancer', 'AWS::AutoScaling::AutoScalingGroup']) template.resourceCountIs(type, 0);
-  const slot = JSON.parse(hostTemplates(config, true).a).Resources;
+  const slot = JSON.parse(hostTemplates(config).a).Resources;
   const host = slot.Instance.Properties;
   expect(host.KeyName).toBeUndefined();
   expect(resources.xrayAssociation).toBeUndefined(); expect(resources.awgAssociation).toBeUndefined();
   expect(host.ImageId).toBeUndefined();
   expect(JSON.stringify(slot.HostLaunchTemplate.Properties)).toContain('OsVersion');
-  expect(host.MetadataOptions).toMatchObject({ HttpTokens: 'required', HttpPutResponseHopLimit: 1 });
+  expect(slot.HostLaunchTemplate.Properties.LaunchTemplateData.MetadataOptions)
+    .toEqual({ HttpTokens: 'required', HttpPutResponseHopLimit: 1, InstanceMetadataTags: 'enabled' });
+  expect(host.MetadataOptions).toBeUndefined();
   expect(host.BlockDeviceMappings[0]).toMatchObject({ DeviceName: '/dev/xvda', Ebs: { Encrypted: true, VolumeSize: 2, DeleteOnTermination: true } });
   expect(Object.values(resources).find(r => r.Type === 'AWS::EC2::SecurityGroup').Properties.SecurityGroupIngress.map((r: any) => r.FromPort)).toEqual([443, 443]);
 });
 
-it('owns GuardDuty transport for the full host lifetime with private, account-scoped access', () => {
-  // Dependency direction is the teardown contract, not merely a matching resource count.
-  template.resourceCountIs('AWS::EC2::VPCEndpoint', 1);
-  const endpoint = resources.GuardDutyEndpoint;
-  expect(endpoint.Properties).toMatchObject({ VpcId: { Ref: 'Vpc' }, VpcEndpointType: 'Interface',
-    ServiceName: `com.amazonaws.${config.region}.guardduty-data`, SubnetIds: [{ Ref: 'Subnet' }],
-    SecurityGroupIds: [{ 'Fn::GetAtt': ['GuardDutySecurityGroup', 'GroupId'] }],
-    PrivateDnsEnabled: true, IpAddressType: 'ipv4', DnsOptions: { DnsRecordIpType: 'ipv4' },
-    PolicyDocument: { Version: '2012-10-17', Statement: [
-      { Effect: 'Allow', Principal: '*', Action: '*', Resource: '*' },
-      { Effect: 'Deny', Principal: '*', Action: '*', Resource: '*',
-        Condition: { StringNotEquals: { 'aws:PrincipalAccount': config.account } } },
-    ] } });
-  expect(resources.GuardDutyEndpoint).toBeDefined(); // Shared transport outlives either host slot; CLI teardown removes slots first.
+it('retains SSM and omits gateway agent installation and telemetry resources', () => {
+  expect(resources.GuardDutyEndpoint).toBeUndefined();
+  expect(resources.GuardDutySecurityGroup).toBeUndefined();
   const hostPolicy = Object.entries(resources).find(([id]) => id.startsWith('HostRoleDefaultPolicy'))![1];
-  const actions = hostPolicy.Properties.PolicyDocument.Statement.flatMap((statement: any) => [].concat(statement.Action));
-  expect(actions).toContain('ssm:GetManifest');
-  expect(actions.some((action: string) => action.startsWith('ssm:GetParameter'))).toBe(false);
-  const packageRead = hostPolicy.Properties.PolicyDocument.Statement.find((statement: any) =>
-    Array.isArray(statement.Action) && statement.Action.includes('ssm:GetDocument'));
-  expect(packageRead).toMatchObject({ Effect: 'Allow', Action: ['ssm:DescribeDocument', 'ssm:GetDocument'],
-    Resource: `arn:aws:ssm:${config.region}::document/AmazonGuardDuty-RuntimeMonitoringSsmPlugin` });
-  expect(resources.GuardDutySecurityGroup.Properties.SecurityGroupIngress).toEqual([
-    { IpProtocol: 'tcp', FromPort: 443, ToPort: 443, SourceSecurityGroupId: { 'Fn::GetAtt': ['SecurityGroup', 'GroupId'] } },
-  ]);
-  expect(resources.GuardDutySecurityGroup.Properties.SecurityGroupEgress).toEqual([
-    { IpProtocol: 'icmp', FromPort: 252, ToPort: 86, CidrIp: '255.255.255.255/32', Description: 'Disallow all traffic' },
-  ]);
-  for (const resource of [endpoint, resources.GuardDutySecurityGroup]) {
-    expect(resource.DeletionPolicy).not.toBe('Retain');
-    expect(resource.Properties.Tags).toContainEqual({ Key: 'System', Value: 'shared' });
-    expect(resource.Properties.Tags).not.toContainEqual({ Key: 'GuardDutyManaged', Value: 'true' });
-  }
+  const statements = JSON.stringify(hostPolicy.Properties.PolicyDocument.Statement);
+  expect(statements).toContain('ssmmessages:OpenDataChannel');
+  expect(statements).toContain('repository/bottlerocket-control');
+  expect(statements).not.toMatch(/ssm:GetManifest|ssm:DescribeDocument|ssm:GetDocument|aws-guardduty-agent/);
 });
 
 it('runs one bridge task with a RAM-only initializer handoff and exact shared task authority', () => {
@@ -119,7 +96,7 @@ it('runs one bridge task with a RAM-only initializer handoff and exact shared ta
   const reads = statements.filter(s => [].concat(s.Action).some((a: string) => a.startsWith('ssm:GetParameter')));
   expect(reads).toHaveLength(1);
   expect(reads[0].Resource).toEqual(['awg', 'xray'].map(protocol => `arn:aws:ssm:eu-north-1:000000000000:parameter/ghostline/prod/server/${protocol}`));
-  const bootstrap = gatewayPlatform(config, true).userData;
+  const bootstrap = gatewayPlatform(config).userData;
   expect(bootstrap).toContain('reserved-memory = 602');
   expect(bootstrap).toContain('essential = true');
   expect(resources.GatewayService.Properties.PlacementConstraints).toEqual([{ Type: 'memberOf', Expression: 'attribute:ghostline_candidate == eligible' }]);
@@ -152,7 +129,7 @@ it('keeps a DNS-enabled gateway in the same essential task and host lease domain
     expect(containers.find((container: any) => container.Name === name).DependsOn).toContainEqual(
       { ContainerName: 'dns-policy', Condition: 'HEALTHY' });
   }
-  const daemon = JSON.parse(hostTemplates(enabled, true).a).Resources.NetworkTask.Properties.ContainerDefinitions[0];
+  const daemon = JSON.parse(hostTemplates(enabled).a).Resources.NetworkTask.Properties.ContainerDefinitions[0];
   expect(JSON.parse(daemon.Environment[0].Value).dnsRequired).toBe(true);
   expect(JSON.stringify(dnsResources.SecurityGroup.Properties.SecurityGroupIngress)).not.toContain('55353');
 });
@@ -160,7 +137,7 @@ it('keeps a DNS-enabled gateway in the same essential task and host lease domain
 it('limits initializer retrieval to exact server ARNs in the selected task namespace', () => {
   // Private trial identities must survive a park/unpark without reading the maintained production namespace.
   const trial = { ...config, dnsRequired: true, parameterPrefix: '/ghostline/trial/dns-native' };
-  const trialResources = Template.fromStack(buildApp(trial, { service: true, runtime: true }).stack).toJSON().Resources as Record<string, any>;
+  const trialResources = Template.fromStack(buildApp(trial).stack).toJSON().Resources as Record<string, any>;
   const initializer = trialResources.GatewayTask.Properties.ContainerDefinitions.find((container: any) =>
     container.Name === 'gateway-config');
   const expected = ['xray', 'awg'].map(protocol =>
@@ -179,8 +156,8 @@ it('limits initializer retrieval to exact server ARNs in the selected task names
 });
 
 it('keeps build identities separate from static deployment aliases', () => {
-  expect(gatewayPlatform(config, true).userData.length).toBeLessThan(16_384);
-  expect(gatewayPlatform(config, true).userData).not.toContain('PrivateKey');
+  expect(gatewayPlatform(config).userData.length).toBeLessThan(16_384);
+  expect(gatewayPlatform(config).userData).not.toContain('PrivateKey');
   for (const protocol of imageArtifacts) {
     expect(releaseTag(protocol)).toMatch(/^sha-[a-f0-9]{64}$/);
     expect(Object.keys(releaseFiles(protocol))).not.toContain('server.json');

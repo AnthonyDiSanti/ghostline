@@ -58,11 +58,11 @@ The network daemon's only added capabilities are NET_ADMIN and NET_RAW; it has n
 
 The daemon continuously validates ECS introspection identities against kernel Docker port bindings. It maintains routing, protocol/EIP separation and five-second kernel forwarding leases. Ambiguous discovery, stalled or dead controllers close forwarding. ECS health checks replace a failed daemon. NET_RAW is required by the actual iptables IP-set matcher; a successful standalone ipset creation does not prove that NET_ADMIN alone suffices.
 
-Bottlerocket's read-only verified OS and enforcing SELinux remain enabled. The admin container is disabled and ECS privileged containers are disallowed. AWS's GuardDuty host agent is enabled where supported; it is separate from Ghostline's network daemon and necessarily has privileged telemetry access. The ephemeral bootstrap and explicitly enabled diagnostic container have broader host access; the steady-state Ghostline daemon does not.
+Bottlerocket's read-only verified OS and enforcing SELinux remain enabled. The admin container is disabled and ECS privileged containers are disallowed. Both slot launch templates opt out of AWS's privileged GuardDuty Runtime Monitoring host agent. The ephemeral bootstrap and explicitly enabled diagnostic container have broader host access; the steady-state Ghostline daemon does not.
 
 ## Diagnostics and lifecycle
 
-`ecs <target> verify` briefly enables the maintained diagnostic host container, verifies native ARM64, config hashes, private read-only tmpfs, engine/daemon confinement, cgroups and network isolation, then disables diagnostics and reads back the disabled admin/diagnostic state. Cleanup runs even when startup or verification fails. Credential comparisons and GuardDuty coverage waits happen after lockdown. Secret values never enter terminal output or agent context.
+`ecs <target> verify` briefly enables the maintained diagnostic host container, verifies native ARM64, config hashes, private read-only tmpfs, engine/daemon confinement, cgroups and network isolation, then disables diagnostics and reads back the disabled admin/diagnostic state. Cleanup runs even when startup or verification fails. Credential comparisons and the Runtime Monitoring exclusion check happen after lockdown. Secret values never enter terminal output or agent context.
 
 The lifecycle controller retains EIP connectivity until gateway and daemon tasks actually stop and the retiring host is terminated; it then detaches addresses and removes that slot’s ENI. This preserves the host agent’s internet connection while it acknowledges the final task stop; removing the IPs first can leave an empty-looking service stuck draining.
 
@@ -70,7 +70,7 @@ Stop scales down the gateway, drains every owned overlapping host, waits for its
 
 ## AWS image publisher references
 
-`infra/platform-publishers.json` scopes pulls to exact regional AWS accounts/repository names. It is image-publisher reference data, not cached GuardDuty availability. Live service/AZ discovery still selects whether telemetry, enrollment and agent-pull permission apply. An unknown publisher requires verifying the AWS source and extending the reference; do not widen IAM to arbitrary registries.
+`infra/platform-publishers.json` records the exact regional AWS accounts and repositories. Gateway hosts use the Bottlerocket control publisher. The GuardDuty publisher entries remain reference data for separately enrolled workloads. Verify the AWS source before extending the map.
 
 Sources: Bottlerocket's [official registry mapping](https://github.com/bottlerocket-os/bottlerocket-core-kit/blob/develop/sources/api/schnauzer/src/helpers/mod.rs), AWS's [GuardDuty agent accounts](https://docs.aws.amazon.com/guardduty/latest/ug/installing-gdu-security-agent-ec2-manually.html) and [Bottlerocket support requirements](https://docs.aws.amazon.com/guardduty/latest/ug/prereq-runtime-monitoring-ecs-ec2-bottlerocket-support.html). Recheck source identity when selecting a newer OS or enabling a new region. Runtime coverage must still reach HEALTHY when supported; an installed agent alone is insufficient.
 

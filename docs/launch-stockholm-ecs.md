@@ -2,7 +2,7 @@
 
 Active testing target `stockholm-ecs`; profile `personal`; account `757999402784`; region `eu-north-1`, AZ `eu-north-1a`. [Oregon](launch-oregon.md) remains primary; Cape Town remains parked. Endpoint stack `GhostlineEcsTrial`, release repositories `GhostlineRelease`, resource prefix `ghostline-ecs-stockholm`. These are stable cloud identities for the common [gateway recipe](ecs.md).
 
-Current release is the November 18 direct-to-RAM credential release `sha256:5e2731f3523b75340b39df164f714f1260dd2301c3aa293fb18ccf74ca741257` on slot B host `i-0b7c601a8107dce14`, ENI `eni-08813676ed5864734`, official ECS-3 ARM64 Bottlerocket `1.66.0-1ad6b4a4`. The `t4g.small` retains encrypted 2 GiB OS/30 GiB data disks and both original public endpoints. Historical launch/trial evidence follows below.
+Current host is slot B `i-00deb88dfde7ba6c0` on ENI `eni-09bc283b957467ab6`, running the November 18 direct-to-RAM credential release on official ECS-3 ARM64 Bottlerocket 1.66.0. The encrypted OS and data disks and original public endpoints remain in use.
 
 | Protocol | Retained EIP | Allocation | Current slot B private address |
 | --- | --- | --- | --- |
@@ -13,9 +13,13 @@ Current release is the November 18 direct-to-RAM credential release `sha256:5e27
 Original client identities and existing profiles remain valid after the unpark. Anthony accepted both iOS ARM64 protocols on September 15; the November 7 checks below use disposable real clients and do not establish new native-device acceptance. Mac REALITY uses OneXraySE, AWG uses Amnezia. Repeated sleep/wake remains separate in [client stability](mac-client-stability.md).
 
 
+## GuardDuty Runtime Monitoring opt-out adopted — November 18, 2026
+
+The gateway now serves from slot B host `i-00deb88dfde7ba6c0` on ENI `eni-09bc283b957467ab6`. Native blue-green completed with zero health failures and retired the prior host and disks. The serving instance launched with `GuardDutyManaged=false`. Bottlerocket and native host-container inventories confirm agent absence and administrative lockdown. Both encrypted VPN protocols and admitted DERP/STUN checks pass. The production release, endpoint allocations and parameter metadata match the prior generation. [Fleet closeout](../.context/handoff.md#gateway-runtime-monitoring-opt-out-deployed--november-18-2026).
+
 ## Credential delivery adopted — November 18, 2026 (New York)
 
-Current qualified release is `sha256:5e2731f3523b75340b39df164f714f1260dd2301c3aa293fb18ccf74ca741257` on slot B host `i-0b7c601a8107dce14`, ENI `eni-08813676ed5864734`, official ECS-3 ARM64 Bottlerocket 1.66.0. Native ECS deployment is SUCCESSFUL, rollout complete with zero health failures, one running gateway host and two encrypted attached disks. Original Xray/AWG endpoint allocations and all nine parameter metadata records are unchanged. Standard blue-green source-host/disk/network/temporary-address cleanup is complete; original active automation is restored with no trial/lifecycle/local-operation receipt.
+At credential delivery adoption, the qualified release was `sha256:5e2731f3523b75340b39df164f714f1260dd2301c3aa293fb18ccf74ca741257` on slot B host `i-0b7c601a8107dce14`, ENI `eni-08813676ed5864734`, official ECS-3 ARM64 Bottlerocket 1.66.0. Native ECS deployment is SUCCESSFUL, rollout complete with zero health failures, one running gateway host and two encrypted attached disks. Original Xray/AWG endpoint allocations and all nine parameter metadata records are unchanged. Standard blue-green source-host/disk/network/temporary-address cleanup is complete; original active automation is restored with no trial/lifecycle/local-operation receipt.
 
 The shared initializer retrieves Xray/AWG/DERP identities directly into RAM through exact shared task-role permissions and private stdin rendering. Native scans find zero tested protocol/task-credential matches across complete/stable Docker metadata, ECS checkpoint, containerd metadata and ECS-log stores. All four engine namespaces block credentials, initializer authority is withdrawn, and fixed missing-credential failure cleanup passes. Full security/configuration, both real encrypted VPN clients, public pinned DERP/STUN and exact-host GuardDuty HEALTHY v1.17.3 pass. Diagnostic/admin disabled and control non-superpowered are verified. Existing identities/profiles need no changes; no rotation or shared protection-policy change occurred. [Fleet proof and limitations](../.context/scratch/2026-11-17-zero-logs-release/fleet-adoption.md).
 

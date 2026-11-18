@@ -1,3 +1,4 @@
+import { gatewayRuntimeEnrollmentTag } from './gateway-runtime-monitoring.js';
 import { publicationProfile } from './releases/topology.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -27,9 +28,10 @@ export interface DeploymentConfig {
 }
 
 export function validateGlobalTags(tags: Record<string, string>): Record<string, string> {
-  // Billing keys are case-sensitive; System is owned by resource roles, not deployment overrides.
+  // Global tags reach host IMDS, which restricts keys. System and enrollment tags belong to resource templates.
   for (const [key, value] of Object.entries(tags)) {
-    if (!key.trim() || key.length > 128 || /^aws:/i.test(key) || key.toLowerCase() === 'system') {
+    if (!/^[A-Za-z0-9+=.,_:@-]{1,128}$/.test(key) || /^aws:/i.test(key)
+      || ['.', '..', '_index', 'system', gatewayRuntimeEnrollmentTag.toLowerCase()].includes(key.toLowerCase())) {
       throw new Error(`Invalid or reserved global tag key: ${key}`);
     }
     if (typeof value !== 'string' || !value.trim() || value.length > 256) {

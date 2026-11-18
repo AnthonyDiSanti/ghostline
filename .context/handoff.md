@@ -1,5 +1,13 @@
 # Handoff
 
+## Gateway Runtime Monitoring opt-out deployed — November 18, 2026
+
+Anthony authorized fleet adoption and merging to main. Stockholm handed off first, followed by Oregon, Zurich and NVA through normal native blue-green. NVA's first replacement had the exclusion tag but AWS's Bottlerocket installer could not read it through IMDS. Its agent was disabled on that host. Both templates were corrected to expose tags to IMDSv2 with a one-hop limit and redeployed. All four final deployments completed with zero recorded health failures, retired their old hosts and disks and passed exact serving-host checks. Each serving instance has `GuardDutyManaged=false`, verified IMDS tag access and zero GuardDuty containers/tasks in native host containerd. Temporary diagnostics were disabled and administrative lockdown verified. Both encrypted protocols and admitted pinned DERP/STUN probes passed in all four regions.
+
+Cape Town stays parked with no host or disk. Both deployed controller launch templates in all five regions match the opted-out CDK assets. Final before/after reads preserve the 45 parameter metadata entries, ten endpoint allocations, five release selectors and controller modes, gateway security groups, regional GuardDuty options, EBS scan settings and shared CloudTrail. The runtime endpoint is absent in the four gateway VPCs. Native audit scope is the gateway stacks.
+
+All 528 tests across 85 files, asset lint and offline synthesis pass. The November 18 upstream readback remains open/unmerged across the Amnezia, Bottlerocket replay and bridge IPv6 watches. Private verification receipts are under ignored `.local/runtime-opt-out/`. Historical credential and traffic-log evidence is below. Next, inspect a bounded NVA log window after Anthony browses through that gateway. The broader host journal, crash and support artifact audit remains open. [Disk audit](../docs/logging-privacy-audit.md#f03--docker-and-host-logs-are-persistent-despite-read-only-roots).
+
 ## Credential delivery deployed fleet-wide — November 18, 2026
 
 Anthony authorized fleet adoption after the closed Stockholm native experiment. Production promotion `e7e507a5-7bec-4703-bca4-7f5a21dae3a6`, document `sha256:5e2731f3523b75340b39df164f714f1260dd2301c3aa293fb18ccf74ca741257`, is live on Stockholm/Oregon/Zurich/NVA; Cape Town retains the same ready selector/controller while parked. All original active controller modes are restored. No lifecycle, trial, pending rollout or local operation receipt remains. [Complete rollout evidence](scratch/2026-11-17-zero-logs-release/fleet-adoption.md), [sanitized receipt](scratch/2026-11-17-zero-logs-release/fleet-adoption.json).

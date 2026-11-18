@@ -56,7 +56,7 @@ export class ImageDistribution extends Construct {
 
 export class RegionalReleaseStack extends Stack {
   readonly repositories: Record<RepositoryArtifact, ecr.IRepository>;
-  constructor(scope: Construct, id: string, props: StackProps & { deployment?: DeploymentConfig; guardDuty?: boolean;
+  constructor(scope: Construct, id: string, props: StackProps & { deployment?: DeploymentConfig;
     automation: ReleaseAutomationMode; tags: Record<string, string>; candidatePlatformImages?: PlatformImageInputs;
     capturedHostTemplates?: Record<'a' | 'b' | 'addresses', string> }) {
     super(scope, id, { ...props, synthesizer: props.deployment ? new CliCredentialsStackSynthesizer({
@@ -65,7 +65,6 @@ export class RegionalReleaseStack extends Stack {
     this.repositories = new ImageDistribution(this, 'Images').repositories;
     // Publisher-only regions have repositories, but no compute gateway or deployment handler.
     if (!props.deployment) return;
-    if (props.guardDuty === undefined) throw new Error('Host templates require explicit GuardDuty capability discovery.');
     const config = props.deployment;
     const cluster = config.resourceName;
     const service = `${cluster}-gateway`;
@@ -97,7 +96,7 @@ export class RegionalReleaseStack extends Stack {
         OBSERVER_DOCUMENT: observer.ref, PROGRESS_RULE: progressRuleName,
         LIFECYCLE_SCHEMA: '1', AUTOMATION: props.automation === 'active' ? 'enabled' : 'disabled',
         OPERATOR_ONLY: props.automation === 'manual' ? 'enabled' : 'disabled' } } });
-    const rollout = rolloutInfrastructure(this, handler, config, props.guardDuty, props.candidatePlatformImages, props.capturedHostTemplates);
+    const rollout = rolloutInfrastructure(this, handler, config, props.candidatePlatformImages, props.capturedHostTemplates);
     handler.addEnvironment('SLOT_TEMPLATES', rollout.templates);
     handler.addEnvironment('SLOT_ROLE', rollout.role);
     handler.addEnvironment('OWNER_TAGS', rollout.tags);

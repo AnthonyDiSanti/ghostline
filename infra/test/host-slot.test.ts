@@ -10,7 +10,7 @@ import { dnsReleaseArtifacts } from '../lib/image-artifacts.js';
 
 afterAll(() => CloudAssembly.cleanupTemporaryDirectories());
 const config = { ...getDeployment('stockholm-ecs'), account: '000000000000' };
-const templates = hostTemplates(config, true);
+const templates = hostTemplates(config);
 it('separates network preparation from host launch and stops daemon before terminating its host', () => {
   // The controller can wire public addresses before boot and retain management connectivity during drain/termination.
   for (const slot of ['a', 'b'] as const) {
@@ -21,7 +21,8 @@ it('separates network preparation from host launch and stops daemon before termi
     for (const name of ['Instance', 'HostLaunchTemplate', 'NetworkTask', 'NetworkService']) expect(r[name].Condition).toBe('IsRunning');
     expect(r.NetworkService.DependsOn).toContain('Instance');
     expect(r.NetworkService.Properties.PlacementConstraints).toEqual([{ Type: 'memberOf', Expression: `attribute:ghostline_slot == ${slot}` }]);
-    expect(r.Instance.Properties.MetadataOptions.HttpTokens).toBe('required');
+    expect(r.HostLaunchTemplate.Properties.LaunchTemplateData.MetadataOptions)
+      .toMatchObject({ HttpTokens: 'required', HttpPutResponseHopLimit: 1, InstanceMetadataTags: 'enabled' });
     expect(r.HostLaunchTemplate.Properties.TagSpecifications).toEqual([{ ResourceType: 'launch-template',
       Tags: Object.entries({ ...config.globalTags, System: 'shared', GhostlineHostStack: `${config.stackName}-Host-${slot}` }).map(([Key, Value]) => ({ Key, Value })) }]);
     expect(JSON.stringify(r.HostLaunchTemplate)).toContain('OsVersion');
@@ -56,8 +57,8 @@ it('renders an isolated six-image native candidate through the common endpoint a
   const platformImages = { bootstrap: images.bootstrap, daemon: images['network-daemon'] };
   const taskImages = { xray: images.xray, awg: images.awg, 'gateway-config': images['gateway-config'],
     'dns-policy': images['dns-policy'] };
-  const platform = gatewayPlatform(trial, true, 'a', platformImages);
-  const endpoint = Template.fromStack(buildApp(trial, { service: true, runtime: true }, {}, 'active', {
+  const platform = gatewayPlatform(trial, 'a', platformImages);
+  const endpoint = Template.fromStack(buildApp(trial, {}, 'active', {
     platform, parameterPrefix: '/ghostline/trial/dns-native', images: taskImages,
   }).stack).toJSON();
   const containers = endpoint.Resources.GatewayTask.Properties.ContainerDefinitions;
@@ -66,15 +67,15 @@ it('renders an isolated six-image native candidate through the common endpoint a
   }
   expect(containers.find((item: any) => item.Name === 'gateway-config').Environment.find((item: any) => item.Name === 'GHOSTLINE_PARAMETERS').Value)
     .toContain('parameter/ghostline/trial/dns-native/server/xray');
-  const slot = JSON.parse(hostTemplates(trial, true, platformImages).a).Resources;
+  const slot = JSON.parse(hostTemplates(trial, platformImages).a).Resources;
   expect(slot.NetworkTask.Properties.ContainerDefinitions[0].Image).toBe(images['network-daemon']);
   expect(JSON.parse(slot.NetworkTask.Properties.ContainerDefinitions[0].Environment[0].Value).dnsSource).toBe('10.79.0.10');
-  const otherSlot = JSON.parse(hostTemplates(trial, true, platformImages).b).Resources;
+  const otherSlot = JSON.parse(hostTemplates(trial, platformImages).b).Resources;
   expect(JSON.parse(otherSlot.NetworkTask.Properties.ContainerDefinitions[0].Environment[0].Value).dnsSource).toBe('10.79.0.20');
   expect(slot.Instance.Properties.UserData['Fn::Base64']).toContain(images.bootstrap);
-  expect(() => gatewayPlatform(trial, true, 'a', { ...platformImages, daemon: 'evil:latest' }))
+  expect(() => gatewayPlatform(trial, 'a', { ...platformImages, daemon: 'evil:latest' }))
     .toThrow('Invalid network-daemon candidate');
-  expect(() => buildApp(trial, { service: true, runtime: true }, {}, 'active', {
+  expect(() => buildApp(trial, {}, 'active', {
     platform, parameterPrefix: '/ghostline/trial/dns-native', images: { ...taskImages, 'dns-policy': 'evil:latest' },
   })).toThrow('Invalid dns-policy candidate');
 });

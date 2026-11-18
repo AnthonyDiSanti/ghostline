@@ -11,6 +11,10 @@ Last active deployment: one official ECS-3 Bottlerocket ARM64 `t4g.small`, versi
 
 October 31 selection is the native-qualified minimal-CoreDNS release `sha256:0aca4d364d55bafd8ac093bc0169cbddceb9dc0f4d80c8f94a2778c903f37c9a`, with `ready:true`. Cape Town remains parked with no host or gateway task; its original EIPs and retained image identities remain. Release automation was restored to active mode without unparking. The new Go-probe image and ECS health command passed isolated Ireland and live Stockholm qualification, but have not run on a Cape Town host. The next `ecs unpark` must synthesize the current gateway task definition before accepting traffic.
 
+## GuardDuty Runtime Monitoring opt-out adopted — November 18, 2026
+
+Both deployed controller launch templates carry `GuardDutyManaged=false`. The gateway remains parked with both endpoint allocations and zero hosts, tasks or disks. The ready production selector and active controller mode were verified. [Fleet closeout](../.context/handoff.md#gateway-runtime-monitoring-opt-out-deployed--november-18-2026).
+
 ## Credential release retained while parked — November 18, 2026
 
 Production selector is ready on `sha256:5e2731f3523b75340b39df164f714f1260dd2301c3aa293fb18ccf74ca741257` with its complete seven-image protected history and updated shared controller/host templates. Original active automation is restored; lifecycle stays parked with zero hosts/disks/tasks, both original endpoint allocation/IP pairs and all nine parameter metadata records unchanged. No native SDK loader acceptance is claimed on a Cape Town host. Normal unpark must synthesize the current direct-to-RAM task-role recipe before starting traffic. GuardDuty/EBS/CloudTrail settings are preserved. [Fleet closeout](../.context/scratch/2026-11-17-zero-logs-release/fleet-adoption.md).

@@ -84,7 +84,7 @@ The platform image provides storage/capacity checks in finite bootstrap and ongo
 
 `stop` scales the gateway to zero, waits for task termination, drains the host and waits for the daemon to stop before stopping EC2. `start` waits for host health/registration, reactivates placement, waits for a healthy daemon and restores one gateway task. `park` removes the endpoint except retained addresses; `destroy` additionally releases its owned allocations. Images/parameters survive. [Lifecycle commands](deployment-lifecycle.md).
 
-`verify` temporarily enables the maintained diagnostic host container, performs redacted SSM checks, then disables it and verifies administrative lockdown before waiting for GuardDuty. Checks cover hashes, native ARM64, private read-only RAM, absent engine secret/AWS environment, no swap, cgroups, EIP egress and blocked metadata. `test` runs real disposable encrypted clients without changing laptop routes. Neither establishes native client import, DNS/IPv6 leak prevention, sleep stability or representative performance.
+`verify` temporarily enables the maintained diagnostic host container, performs redacted SSM checks, then disables it and verifies administrative lockdown before checking the Runtime Monitoring exclusion. Checks cover hashes, native ARM64, private read-only RAM, absent engine secret/AWS environment, no swap, cgroups, EIP egress and blocked metadata. `test` runs real disposable encrypted clients without changing laptop routes. Neither establishes native client import, DNS/IPv6 leak prevention, sleep stability or representative performance.
 
 ## IPv6 feasibility — September 28, 2026
 

@@ -6,12 +6,13 @@ import { gatewayPlatform, slotAddresses, daemonServiceName, networkTaskDefinitio
   type HostSlot, type PlatformImageInputs } from './gateway-platform.js';
 import type { DeploymentConfig } from './config.js';
 import cdkConfig from '../cdk.json' with { type: 'json' };
+import { gatewayRuntimeEnrollmentTag } from './gateway-runtime-monitoring.js';
 
 import { slotPrimaryAddress, slotStackName, transitionAddressStackName } from './host-slot-model.js';
 export { slotStackName, transitionAddressStackName, type SlotPhase } from './host-slot-model.js';
 
 export class HostSlotStack extends Stack {
-  constructor(scope: Construct, id: string, props: StackProps & { deployment: DeploymentConfig; slot: HostSlot; guardDuty: boolean;
+  constructor(scope: Construct, id: string, props: StackProps & { deployment: DeploymentConfig; slot: HostSlot;
     images?: PlatformImageInputs }) {
     super(scope, id, { ...props, synthesizer: new LegacyStackSynthesizer() });
     const { deployment: config, slot } = props;
@@ -27,7 +28,7 @@ export class HostSlotStack extends Stack {
     const running = new CfnCondition(this, 'IsRunning', { expression: Fn.conditionEquals(phase.valueAsString, 'running') });
     const addresses = slotAddresses(slot);
     const primaryAddress = slotPrimaryAddress(slot);
-    const platform = gatewayPlatform(config, props.guardDuty, slot, props.images);
+    const platform = gatewayPlatform(config, slot, props.images);
     const nic = new CfnNetworkInterface(this, 'NetworkInterface', { subnetId: subnet.valueAsString, groupSet: [security.valueAsString],
       privateIpAddresses: [primaryAddress, ...Object.values(addresses).filter(address => address !== primaryAddress)]
         .map(address => ({ privateIpAddress: address, primary: address === primaryAddress })) });
@@ -37,17 +38,22 @@ export class HostSlotStack extends Stack {
       // Launch templates need explicit resource TagSpecifications; the generic CDK tag aspect does not populate them.
       tagSpecifications: [{ resourceType: 'launch-template', tags: Object.entries({ ...config.globalTags, System: 'shared', GhostlineHostStack: slotStackName(config.stackName, slot) }).map(([key, value]) => ({ key, value })) }],
       launchTemplateData: {
-      imageId: Fn.join('', ['resolve:ssm:/aws/service/bottlerocket/aws-ecs-3/arm64/', os.valueAsString, '/image_id']),
-    } });
+        imageId: Fn.join('', ['resolve:ssm:/aws/service/bottlerocket/aws-ecs-3/arm64/', os.valueAsString, '/image_id']),
+        // The automatic installer reads the launch-time exclusion through IMDSv2.
+        metadataOptions: { httpTokens: 'required', httpPutResponseHopLimit: 1, instanceMetadataTags: 'enabled' },
+        tagSpecifications: [{ resourceType: 'instance', tags: [
+          ...Object.entries({ ...config.globalTags, System: 'shared', [gatewayRuntimeEnrollmentTag]: 'false' })
+            .map(([key, value]) => ({ key, value })),
+        ] }],
+      } });
     template.cfnOptions.condition = running;
     const instance = new CfnInstance(this, 'Instance', { instanceType: config.instanceType,
       iamInstanceProfile: profile.valueAsString, networkInterfaces: [{ deviceIndex: '0', networkInterfaceId: nic.ref }],
       launchTemplate: { launchTemplateId: template.ref, version: template.attrLatestVersionNumber },
-      metadataOptions: { httpTokens: 'required', httpPutResponseHopLimit: 1 }, blockDeviceMappings: platform.disks,
+      blockDeviceMappings: platform.disks,
       propagateTagsToVolumeOnCreation: true, creditSpecification: { cpuCredits: 'unlimited' }, userData: Fn.base64(platform.userData) });
     instance.cfnOptions.condition = running;
     Tags.of(instance).add('Name', `${config.resourceName}-${slot}`);
-    if (props.guardDuty) Tags.of(instance).add('GuardDutyManaged', 'true');
     const task = new CfnTaskDefinition(this, 'NetworkTask', networkTaskDefinition(config, platform.daemonImage, execution.valueAsString, slot));
     task.cfnOptions.condition = running;
     const daemon = new CfnService(this, 'NetworkService', { cluster: config.resourceName,
@@ -76,14 +82,13 @@ export class TransitionAddressStack extends Stack {
   }
 }
 
-export function hostTemplates(config: DeploymentConfig, guardDuty: boolean,
-  images?: PlatformImageInputs): Record<HostSlot | 'addresses', string> {
+export function hostTemplates(config: DeploymentConfig, images?: PlatformImageInputs): Record<HostSlot | 'addresses', string> {
   // Render standalone templates as assets of the regional release stack, without cross-stack exports or another image pipeline.
   const app = new App({ context: cdkConfig.context });
   const props = { env: { account: config.account, region: config.region }, tags: { ...config.globalTags, System: 'shared' } };
   for (const [key, value] of Object.entries(props.tags)) Tags.of(app).add(key, value);
-  const a = new HostSlotStack(app, slotStackName(config.stackName, 'a'), { ...props, deployment: config, slot: 'a', guardDuty, images });
-  const b = new HostSlotStack(app, slotStackName(config.stackName, 'b'), { ...props, deployment: config, slot: 'b', guardDuty, images });
+  const a = new HostSlotStack(app, slotStackName(config.stackName, 'a'), { ...props, deployment: config, slot: 'a', images });
+  const b = new HostSlotStack(app, slotStackName(config.stackName, 'b'), { ...props, deployment: config, slot: 'b', images });
   const addresses = new TransitionAddressStack(app, transitionAddressStackName(config.stackName), props);
   const assembly = app.synth();
   return Object.fromEntries(Object.entries({ a, b, addresses }).map(([name, stack]) => [name,

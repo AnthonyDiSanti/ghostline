@@ -16,7 +16,7 @@ it('permits only immutable CDK host templates through one narrowly passed CloudF
   const stack = new Stack(app, 'Authority', { env: { account: config.account, region: config.region },
     synthesizer: new CliCredentialsStackSynthesizer({ fileAssetsBucketName: 'test-assets' }) });
   const lambda = new Function(stack, 'Controller', { runtime: Runtime.NODEJS_24_X, handler: 'index.handler', code: Code.fromInline('exports.handler=async()=>{};') });
-  rolloutInfrastructure(stack, lambda, config, true);
+  rolloutInfrastructure(stack, lambda, config);
   const resources = Object.values(Template.fromStack(stack).toJSON().Resources) as any[];
   const statements = resources.filter(r => r.Type === 'AWS::IAM::Policy').flatMap(p => p.Properties.PolicyDocument.Statement);
   const action = (name: string) => statements.find(s => [s.Action].flat().includes(name));
@@ -69,7 +69,7 @@ it('admits only the three captured regional host templates alongside the native 
   const handler = new Function(stack, 'Controller', { runtime: Runtime.NODEJS_24_X, handler: 'index.handler', code: Code.fromInline('exports.handler=async()=>{};') });
   const url = (letter: string) => `https://ghostline-release-assets-${config.account}-${config.region}.s3.${config.region}.amazonaws.com/${letter.repeat(64)}.json`;
   const captured = { a: url('a'), b: url('b'), addresses: url('c') };
-  rolloutInfrastructure(stack, handler, config, true, undefined, captured);
+  rolloutInfrastructure(stack, handler, config, undefined, captured);
   const resources = Object.values(Template.fromStack(stack).toJSON().Resources) as any[];
   const statements = resources.filter(r => r.Type === 'AWS::IAM::Policy').flatMap(r => r.Properties.PolicyDocument.Statement);
   const write = statements.find(s => [s.Action].flat().includes('cloudformation:UpdateStack'));
