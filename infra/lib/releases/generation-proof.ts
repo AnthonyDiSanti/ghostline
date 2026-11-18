@@ -1,8 +1,7 @@
 import type { Task } from '@aws-sdk/client-ecs';
 import type { HostObservation } from '../platform-observation.js';
-import { digestPattern, observedArtifacts, repository, type Release } from './model.js';
+import { digestPattern, observedArtifacts, releaseArtifacts, repository, type Release } from './model.js';
 import { componentMatches } from './runtime-identity.js';
-import { applicationArtifacts } from '../image-artifacts.js';
 import type { Generation } from './blue-green.js';
 import type { StackObservation } from './runtime-identity.js';
 
@@ -17,7 +16,7 @@ export function observedRelease(images: Record<string, string | undefined>, os: 
   // Reconstruct only a complete observed runtime; v3 blue remains independently valid during a v4 green rollout.
   const names = observedArtifacts(images);
   if (!names || !names.every(name => digestPattern.test(images[name] ?? ''))) return undefined;
-  return { schemaVersion: names.includes('dns-policy') ? 4 : 3, promotionId: 'observed',
+  return { schemaVersion: names.includes('derp') ? 5 : names.includes('dns-policy') ? 4 : 3, promotionId: 'observed',
     promotedAt: new Date(now).toISOString(), origin: region, platform: 'linux/arm64', history: [],
     os: { variant: 'aws-ecs-3', architecture: 'arm64', targetVersion: os, compatibleVersions: [os] },
     images: Object.fromEntries(names.map(name => [name, { repository: repository(name), digest: images[name]!,
@@ -42,7 +41,7 @@ export function daemonReady(task: Task | undefined, containerInstance: string, i
 export function gatewayReady(task: Task | undefined, containerInstance: string, revision: string, probe: HostObservation | undefined,
   intent: Release, resolved: Record<string, string>, now: number): boolean {
   // ECS task health does not prove initializer success, exact engine identity, or daemon forwarding leases.
-  const names = intent.schemaVersion === 4 ? [...applicationArtifacts, 'dns-policy'] as const : applicationArtifacts;
+  const names = releaseArtifacts(intent).filter(name => name !== 'bootstrap' && name !== 'network-daemon');
   const runtimeNames = names.filter(name => name !== 'gateway-config');
   if (!task || task.lastStatus !== 'RUNNING' || task.desiredStatus !== 'RUNNING' || task.containerInstanceArn !== containerInstance
     || task.startedBy !== `ecs-svc/${revision.split('/').at(-1)}` || !task.startedAt || now - task.startedAt.getTime() < 15_000
@@ -59,7 +58,7 @@ export function gatewayReady(task: Task | undefined, containerInstance: string, 
     } else {
       const peer = probe.network.peers[name];
       if (container.lastStatus !== 'RUNNING' || container.healthStatus === 'UNHEALTHY'
-        || (name === 'dns-policy' && container.healthStatus !== 'HEALTHY')
+        || (['dns-policy', 'derp'].includes(name) && container.healthStatus !== 'HEALTHY')
         || !peer || peer.task !== task.taskArn || peer.id !== container.runtimeId) return false;
     }
   }
@@ -72,7 +71,7 @@ export function failedRuntimeEvidence(instanceState: string | undefined, agentCo
   if (instanceState !== undefined && instanceState !== 'running' || agentConnected === false || !daemonHealthy) return true;
   if (gatewayTasks.length !== 1 || gatewayTasks[0]?.lastStatus !== 'RUNNING' || gatewayTasks[0]?.desiredStatus !== 'RUNNING'
     || gatewayTasks[0]?.healthStatus === 'UNHEALTHY') return true;
-  if (gatewayTasks[0].containers?.some(c => ['xray', 'awg', 'dns-policy'].includes(c.name ?? '')
+  if (gatewayTasks[0].containers?.some(c => ['xray', 'awg', 'dns-policy', 'derp'].includes(c.name ?? '')
     && (c.lastStatus !== 'RUNNING' || c.healthStatus === 'UNHEALTHY'))) return true;
   // Only missing SSM, with otherwise healthy EC2/ECS observations, remains uncertainty rather than an invented failure.
   return !!probe && !ready;

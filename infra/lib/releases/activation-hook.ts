@@ -27,7 +27,7 @@ export async function activationHook(gate: AwsBlueGreen, lifecycle: LifecycleSta
   if (!activation || activation.phase !== 'gateway' || !deployment.createdAt
     || deployment.createdAt.getTime() < lifecycle.operation.startedAt - 5_000
     || deployment.sourceServiceRevisions?.some(source => (source.runningTaskCount ?? 0) > 0)) return undefined;
-  const ready = await readiness(gate.registry, gate.config.dnsRequired);
+  const ready = await readiness(gate.registry, gate.config.dnsRequired, gate.config.derpRequired);
   if (!ready.ready || ready.current?.digest !== activation.release) return 'IN_PROGRESS';
   const host = await gate.observer.read('a');
   if (host.stack?.id !== activation.stack || !host.instance?.InstanceId || !host.container?.containerInstanceArn || !host.container.agentConnected || host.tasks.length !== 1) return 'IN_PROGRESS';

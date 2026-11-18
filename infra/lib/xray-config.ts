@@ -1,3 +1,6 @@
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
 export interface XrayBundle {
   files: Record<string, string>;
   [metadata: string]: unknown;
@@ -6,6 +9,16 @@ export interface XrayBundle {
 export function parseJson(text: string): any {
   // JSON parser diagnostics can quote secret input; expose only a fixed diagnostic.
   try { return JSON.parse(text); } catch { throw new Error('Invalid JSON; contents withheld.'); }
+}
+
+export function renderXrayServerConfig(source: string): Buffer {
+  // Run the identical filter used by the initializer so verification hashes the actual private RAM bytes.
+  try {
+    return execFileSync('jq', ['-f', fileURLToPath(new URL('../../runtime/ecs/xray-log-policy.jq', import.meta.url))],
+      { input: source, stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 1024 * 1024 });
+  } catch {
+    throw new Error('Xray logging-policy rendering failed; verify jq is installed. Contents withheld.');
+  }
 }
 
 export function validateXrayBundle(value: unknown): XrayBundle {

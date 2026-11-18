@@ -1,0 +1,5 @@
+{
+  "tlsPort": 8443,
+  "hostPort": 18443,
+  "stunPort": 3478
+}

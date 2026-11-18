@@ -6,6 +6,7 @@ import { buildApp } from '../lib/app.js';
 import { LambdaClient, InvokeCommand, GetFunctionConfigurationCommand } from '@aws-sdk/client-lambda';
 import { CloudAssembly } from 'aws-cdk-lib/cx-api';
 import { withLifecycle, type LifecycleControl } from '../lib/lifecycle-operator.js';
+import { reportTrialExclusion } from '../lib/releases/trial-exclusions.js';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -28,7 +29,7 @@ import { releaseAutomationMode, type ReleaseAutomationMode } from '../lib/releas
 import { ecsMemoryBudget } from '../lib/ecs-memory.js';
 import { hostRemote, verifyHost } from '../lib/ecs-verification.js';
 import { networkDaemonMemory } from '../lib/gateway-platform.js';
-import { parseJson } from '../lib/xray-config.js';
+import { parseJson, renderXrayServerConfig } from '../lib/xray-config.js';
 import { xrayLink } from '../lib/xray.js';
 import { profileQr, vpnLink } from '../lib/profile-share.js';
 import { ensureGuardDuty, guardDutyPreflight, verifyGuardDuty } from '../lib/guardduty.js';
@@ -46,7 +47,7 @@ mkdirSync(work, { recursive: true, mode: 0o700 });
 const environment = { ...process.env, GHOSTLINE_DEPLOYMENT: config.id };
 const parameters = new SSMClient({ region: config.region, credentials: fromIni({ profile: 'personal' }) });
 const parameterPrefix = config.parameterPrefix ?? '/ghostline/prod';
-const selectedServerParameterNames = serverParameterNamesFor(parameterPrefix);
+const selectedServerParameterNames = serverParameterNamesFor(parameterPrefix, !!config.derp);
 const guardDuty = new GuardDutyClient({ region: config.region, credentials: fromIni({ profile: 'personal' }) });
 
 function run(command: string, args: string[], input?: string | Buffer, visible = false): string {
@@ -106,11 +107,21 @@ async function verify() {
   writeFileSync(resolve(work, 'verification.json'), JSON.stringify(evidence, null, 2) + '\n', { mode: 0o600 });
   for (const protocol of ['xray', 'awg'] as const) {
     const secret = await parameter(`server/${protocol}`);
-    const bytes = protocol === 'xray' ? Buffer.from(parseJson(secret).files['server.json'], 'base64') : Buffer.from(secret);
+    const bytes = protocol === 'xray'
+      ? renderXrayServerConfig(Buffer.from(parseJson(secret).files['server.json'], 'base64').toString('utf8')) : Buffer.from(secret);
     if (evidence[protocol].configSha256 !== createHash('sha256').update(bytes).digest('hex')
       || evidence[protocol].publicIp !== outputs[protocol === 'xray' ? 'EndpointIp' : 'AwgEndpointIp']) throw new Error('Runtime identity or egress mismatch.');
     console.log(`${protocol}: preserved configuration, bridge isolation and EIP egress passed (${evidence[protocol].publicIp}).`);
     console.log(`${protocol}: private read-only tmpfs, absent engine secret environment and disabled host swap verified.`);
+  }
+  if (config.derp) {
+    // Compare only public pin metadata; the DERP engine has no runtime Parameter Store access.
+    const result = await parameters.send(new GetParameterCommand({ Name: `${parameterPrefix}/derp/public` }));
+    const identity = parseJson(result.Parameter?.Value ?? '{}');
+    if (identity.ip !== outputs.AwgEndpointIp || evidence.derp?.identity?.pin !== identity.pin || !evidence.derp?.healthy) {
+      throw new Error('DERP public certificate identity or native health differs from the regional selection.');
+    }
+    console.log('derp: private read-only RAM, pinned TLS/STUN health, confinement and blocked outbound initiation passed.');
   }
   console.log(`Gateway memory: ${budget.task} MiB enforced task limit; ${budget.reserved - networkDaemonMemory} MiB ECS reserve plus ${networkDaemonMemory} MiB daemon; no task OOM events.`);
   await monitoring(outputs);
@@ -160,9 +171,9 @@ try {
         await deployReleaseRegion(config.region, releaseMode, control!);
         run(process.execPath, ['--import=tsx', 'scripts/deployment.ts', 'preflight', config.id], undefined, true);
         assertServerParameterMetadata(aws(['ssm', 'describe-parameters', '--parameter-filters',
-          JSON.stringify([{ Key: 'Name', Option: 'Equals', Values: selectedServerParameterNames }])]).Parameters, parameterPrefix);
+          JSON.stringify([{ Key: 'Name', Option: 'Equals', Values: selectedServerParameterNames }])]).Parameters, parameterPrefix, !!config.derp);
         const gate = await operatorGate(config.id);
-        await assertStartReady(gate, config.dnsRequired);
+        await assertStartReady(gate, config.dnsRequired, !!config.derp);
         const support = discoverGuardDuty(config);
         if (support.service) await guardDutyPreflight(guardDuty);
         const stacks = aws(['cloudformation', 'describe-stacks']).Stacks;
@@ -194,7 +205,7 @@ try {
         if (protection.status !== 'RUNTIME_ENABLED') console.log(`GuardDuty: ${protection.status}; ${protection.reason}`);
         await monitoring(state()); break;
       }
-      case 'start': await assertStartReady(await operatorGate(config.id), config.dnsRequired); power(action); break;
+      case 'start': await assertStartReady(await operatorGate(config.id), config.dnsRequired, !!config.derp); power(action); break;
       case 'stop': power(action); break;
       case 'status': {
         const outputs = state();
@@ -234,7 +245,10 @@ try {
     await withLifecycle(config, action!, operation, action === 'stop' ? 'stopped' : 'active');
   } else await operation();
 } catch (error) {
+  if (reportTrialExclusion(error)) { process.exitCode = 3; }
+  else {
   // AWS SDK errors may carry request details; print only our fixed message or an error class.
   console.error(error instanceof Error && error.constructor === Error ? error.message : `ECS operation failed (${(error as { name?: string }).name ?? 'unknown'}); details withheld.`);
   process.exitCode = 1;
+  }
 }

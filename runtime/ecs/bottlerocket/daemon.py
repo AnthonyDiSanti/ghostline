@@ -18,9 +18,12 @@ HEALTH = Path('/run/ghostline-health.json')
 
 def command(args, data=None):
     # Fail boundedly and report only public networking operations, never arbitrary subprocess output.
-    result = subprocess.run(args, input=data, text=True, capture_output=True, timeout=3, check=False)
+    try:
+        result = subprocess.run(args, input=data, text=True, capture_output=True, timeout=3, check=False)
+    except (subprocess.SubprocessError, OSError):
+        raise RuntimeError('Network operation failed; details withheld') from None
     if result.returncode:
-        raise RuntimeError(f'{args[0]} operation failed: {result.stderr.strip()[:200]}')
+        raise RuntimeError('Network operation failed; details withheld')
     return result.stdout.strip()
 
 
@@ -33,18 +36,23 @@ def prepare_network(config):
 
 
 def ensure_nat_order(config):
-    # Docker may prepend its default masquerade after bootstrap or restart; never repair under live leases.
-    rules = [line for line in command(['iptables', '-w', '-t', 'nat', '-S', 'POSTROUTING']).splitlines()
-             if line.startswith('-A ')]
-    jump = '-A POSTROUTING -j GHOSTLINE_SNAT'
-    if rules and rules[0] == jump and rules.count(jump) == 1:
+    # Docker may prepend generic NAT after boot/restart; DERP dispatch and engine SNAT must precede it.
+    required = {'POSTROUTING': 'GHOSTLINE_SNAT'}
+    if network.derp_sources(config):
+        required['PREROUTING'] = 'GHOSTLINE_PUBLIC'
+    observed = {chain: [line for line in command(['iptables', '-w', '-t', 'nat', '-S', chain]).splitlines()
+                        if line.startswith('-A ')] for chain in required}
+    if all(rules and rules[0] == f'-A {chain} -j {required[chain]}'
+           and rules.count(rules[0]) == 1 for chain, rules in observed.items()):
         return False
+    # Withdraw every lease before resetting chains; the next discovery must repopulate all peer policy.
     guard.withdraw()
     network.initialize(config)
     guard.enforce_order()
-    for _ in range(max(1, rules.count(jump))):
-        command(['iptables', '-w', '-t', 'nat', '-D', 'POSTROUTING', '-j', 'GHOSTLINE_SNAT'])
-    command(['iptables', '-w', '-t', 'nat', '-I', 'POSTROUTING', '1', '-j', 'GHOSTLINE_SNAT'])
+    for chain, target in required.items():
+        for _ in range(max(1, observed[chain].count(f'-A {chain} -j {target}'))):
+            command(['iptables', '-w', '-t', 'nat', '-D', chain, '-j', target])
+        command(['iptables', '-w', '-t', 'nat', '-I', chain, '1', '-j', target])
     return True
 
 
@@ -118,13 +126,13 @@ def serve(config):
                 pending = HEALTH.with_suffix('.new')
                 pending.write_text(json.dumps({'tick': time.monotonic(), 'peers': peers}))
                 pending.replace(HEALTH)
-            except Exception as error:
+            except Exception:
                 HEALTH.unlink(missing_ok=True)
                 guard.withdraw()
                 network.initialize(config)
                 guard.enforce_order()
                 previous = None
-                print(f'Forwarding quarantined: {type(error).__name__}: {error}', flush=True)
+                print('Forwarding quarantined: network-reconciliation-failed', flush=True)
             time.sleep(1)
     finally:
         HEALTH.unlink(missing_ok=True)
@@ -134,12 +142,17 @@ def serve(config):
 
 
 if __name__ == '__main__':
-    if sys.argv[1:] == ['health']:
-        raise SystemExit(0 if healthy() else 1)
-    config = json.loads(os.environ['GHOSTLINE_NETWORK'])
-    if sys.argv[1:] == ['qualify']:
-        qualify(config)
-    elif not sys.argv[1:]:
-        serve(config)
-    else:
-        raise SystemExit('Unknown network daemon action')
+    # Startup/cleanup failures must preserve exit status without dumping captured peer or tool details.
+    try:
+        if sys.argv[1:] == ['health']:
+            raise SystemExit(0 if healthy() else 1)
+        config = json.loads(os.environ['GHOSTLINE_NETWORK'])
+        if sys.argv[1:] == ['qualify']:
+            qualify(config)
+        elif not sys.argv[1:]:
+            serve(config)
+        else:
+            raise SystemExit('Unknown network daemon action')
+    except Exception:
+        print('Network daemon failed; details withheld', file=sys.stderr, flush=True)
+        raise SystemExit(1) from None

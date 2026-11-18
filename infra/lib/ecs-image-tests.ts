@@ -9,9 +9,11 @@ import { imageArtifacts, imageInputs, imagePlatform, platformArtifacts, type Ima
 import type { BuildArtifact } from './image-artifacts.js';
 import { assertImagePlatform, assertOfficialXray, prepareImage } from './ecs-images.js';
 import { generateXrayProfiles } from './xray.js';
+import { renderXrayServerConfig } from './xray-config.js';
 import { generateAwgProfiles } from './awg.js';
 import { createTestRamStorage } from './ecs-test-storage.js';
 import { probeImageTunnel } from './ecs-image-probes.js';
+import { testDerpImage } from './derp-image-tests.js';
 
 export async function testEcsImages(images?: Record<ImageArtifact, string>): Promise<Record<BuildArtifact, string>> {
   // Central qualification captures exact image IDs before tests; publication consumes those same bytes.
@@ -74,6 +76,8 @@ export async function testEcsImages(images?: Record<ImageArtifact, string>): Pro
       assert.notEqual(execute(['exec', dnsName, '/usr/local/bin/dns-health'], false).status, 0,
         'Full DNS health must fail without encrypted upstream access');
       docker(['exec', dnsName, '/usr/local/bin/dns-health', '--offline']);
+      const dnsLogs = execute(['logs', dnsName], false);
+      assert.ok(!`${dnsLogs.stdout}${dnsLogs.stderr}`.includes('example.com'), 'Failed DNS questions must not enter resolver logs');
       console.log('DNS policy: ordinary UDP/TCP queries fail closed without encrypted upstream access.');
       assert.equal(docker(['image', 'inspect', dnsImageId, '--format', '{{.Config.User}}']), '65532:65532');
       assert.equal(docker(['inspect', dnsName, '--format', '{{.Config.User}}']), '65532:65532');
@@ -120,11 +124,11 @@ export async function testEcsImages(images?: Record<ImageArtifact, string>): Pro
       for (let repeat = 0; repeat < 2; repeat++) {
         assert.equal(initialize(sharedSecrets).status, 0);
         const evidence = probe('evidence').split('\n');
-        assert.equal(evidence[0]!.split(' ')[0], createHash('sha256').update(Buffer.from(sharedBundle.files['server.json']!, 'base64')).digest('hex'));
+        assert.equal(evidence[0]!.split(' ')[0], createHash('sha256').update(renderXrayServerConfig(Buffer.from(sharedBundle.files['server.json']!, 'base64').toString('utf8'))).digest('hex'));
         assert.equal(evidence[1]!.split(' ')[0], createHash('sha256').update(sharedAwg).digest('hex'));
         assert.deepEqual(evidence.slice(2), ['65532:65532:700', '65532:65532:750', '65532:65532:400', '65532:65532:440']);
       }
-      console.log('Shared initializer: exact private bytes, repeat restoration and both-protocol cleanup pass.');
+      console.log('Shared initializer: enforced private logging policy, repeat restoration and both-protocol cleanup pass.');
     } finally { cleanupShared(); }
     for (const protocol of ['xray', 'awg'] as const) {
       console.log(`Prepare ${protocol} engine and configuration initializer images.`);
@@ -134,7 +138,7 @@ export async function testEcsImages(images?: Record<ImageArtifact, string>): Pro
       const awgProfiles = generateAwgProfiles('127.0.0.1');
       const awg = awgProfiles.serverConfig;
       const value = protocol === 'xray' ? JSON.stringify(bundle) : awg;
-      const config = protocol === 'xray' ? Buffer.from(bundle.files['server.json']!, 'base64') : Buffer.from(awg);
+      const config = protocol === 'xray' ? renderXrayServerConfig(Buffer.from(bundle.files['server.json']!, 'base64').toString('utf8')) : Buffer.from(awg);
       const filename = protocol === 'xray' ? 'server.json' : 'awg0.conf';
       const expectedHash = createHash('sha256').update(config).digest('hex');
       const cases = [
@@ -236,6 +240,6 @@ export async function testEcsImages(images?: Record<ImageArtifact, string>): Pro
         }
       }
     }
-    return { ...selected, 'dns-policy': dnsImageId };
+    return { ...selected, 'dns-policy': dnsImageId, derp: await testDerpImage(selected['gateway-config']) };
   } finally { rmSync(work, { recursive: true, force: true }); }
 }

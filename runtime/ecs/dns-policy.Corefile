@@ -1,5 +1,5 @@
 .:5353 {
-    errors
+    # Do not emit per-question failures: query names would reach persistent container logs.
     health 127.0.0.1:8080
     # The retired onion route must never turn a special-use name into a public query.
     template ANY ANY onion {

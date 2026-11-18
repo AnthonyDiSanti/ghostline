@@ -11,6 +11,9 @@ function upstream(overrides: Record<string, unknown> = {}) {
   const records: Record<string, unknown> = {
     'XTLS/Xray-core/releases/latest': { tag_name: 'v26.3.27', draft: false, prerelease: false },
     'coredns/coredns/releases/latest': { tag_name: 'v1.15.0', draft: false, prerelease: false },
+    'tailscale/tailscale/releases/latest': { tag_name: 'v1.104.7', draft: false, prerelease: false },
+    [`tailscale/go/releases/tags/build-${'b'.repeat(40)}`]: { tag_name: `build-${'b'.repeat(40)}`, draft: false, prerelease: true,
+      assets: [{ name: 'linux-arm64.tar.gz', digest, browser_download_url: `https://github.com/tailscale/go/releases/download/build-${'b'.repeat(40)}/linux-arm64.tar.gz` }] },
     'amnezia-vpn/amneziawg-tools/releases/latest': { tag_name: 'v3.1.20260812', draft: false, prerelease: false },
     'amnezia-vpn/amneziawg-go/releases?per_page=1': [],
     'amnezia-vpn/amneziawg-go/tags?per_page=100&page=1': [
@@ -23,6 +26,7 @@ function upstream(overrides: Record<string, unknown> = {}) {
       const path = url.replace('https://api.github.com/repos/', '');
       if (path in records) return Buffer.from(JSON.stringify(records[path]));
       if (url.includes('/commits/')) return Buffer.from(JSON.stringify({ sha }));
+      if (url.endsWith('/go.toolchain.rev')) return Buffer.from('b'.repeat(40));
       if (url.startsWith('https://codeload.github.com/')) return Buffer.from('source archive');
       if (url.endsWith('/.github/workflows/build-if-tag.yml')) return Buffer.from(
         "tags: 'v[0-9]+.[0-9]+.[0-9]+'\nimages: amneziavpn/${{ env.APP }}\ntags: type=semver,pattern={{version}}",

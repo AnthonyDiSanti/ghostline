@@ -10,6 +10,7 @@ const xrayRepo = 'XTLS/Xray-core';
 const daemonRepo = 'amnezia-vpn/amneziawg-go';
 const toolsRepo = 'amnezia-vpn/amneziawg-tools';
 const corednsRepo = 'coredns/coredns';
+const derpRepo = 'tailscale/tailscale';
 export const sha256 = (bytes: Buffer | string) => createHash('sha256').update(bytes).digest('hex');
 
 function sourceRevision(reader: ReleaseReader, repo: string, tag: string): string {
@@ -42,6 +43,26 @@ export function resolveStableCoreDns(reader: ReleaseReader): ImageInputs['coredn
   const imageDigest = arm64Digest(reader.manifest(`coredns/coredns:${tag.slice(1)}`));
   if (sourceRevision(reader, corednsRepo, tag) !== commit) throw new Error('Upstream tag moved during resolution.');
   return { tag, commit, imageDigest };
+}
+
+export function resolveStableDerp(reader: ReleaseReader): NonNullable<ImageInputs['derp']> {
+  // Follow the classified upstream release and the exact forked Go revision selected by that source.
+  const tag = stableRelease(JSON.parse(reader.download(`${api}${derpRepo}/releases/latest`).toString()));
+  const commit = sourceRevision(reader, derpRepo, tag);
+  const archiveSha256 = sha256(reader.download(`https://codeload.github.com/${derpRepo}/tar.gz/${commit}`));
+  const toolchainRevision = reader.download(`https://raw.githubusercontent.com/${derpRepo}/${commit}/go.toolchain.rev`).toString().trim();
+  if (!/^[a-f0-9]{40}$/.test(toolchainRevision)) throw new Error('Invalid upstream DERP toolchain revision.');
+  const release = JSON.parse(reader.download(`${api}tailscale/go/releases/tags/build-${toolchainRevision}`).toString());
+  const assets = release.assets?.filter((asset: any) => asset.name === 'linux-arm64.tar.gz');
+  // Upstream marks compiler bundles prerelease; the stable protocol source, exact revision and asset digest
+  // select this build dependency. This never permits a prerelease Tailscale protocol version.
+  if (release.draft !== false || typeof release.prerelease !== 'boolean' || release.tag_name !== `build-${toolchainRevision}`
+    || assets?.length !== 1 || !/^sha256:[a-f0-9]{64}$/.test(assets[0].digest)
+    || assets[0].browser_download_url !== `https://github.com/tailscale/go/releases/download/build-${toolchainRevision}/linux-arm64.tar.gz`) {
+    throw new Error('DERP toolchain has no verified official ARM64 publication.');
+  }
+  if (sourceRevision(reader, derpRepo, tag) !== commit) throw new Error('Upstream DERP tag moved during resolution.');
+  return { tag, commit, archiveSha256, toolchainRevision, toolchainSha256: assets[0].digest.slice(7) };
 }
 
 export function resolveStableImages(reader: ReleaseReader, now = new Date()): ImageInputs {
@@ -90,6 +111,6 @@ export function resolveStableImages(reader: ReleaseReader, now = new Date()): Im
   for (const [repo, input] of [[xrayRepo, xray], [daemonRepo, daemon], [toolsRepo, tools]] as const) {
     if (revision(repo, input.tag) !== input.commit) throw new Error('Upstream tag moved during resolution.');
   }
-  return validateImageInputs({ schemaVersion: 2, resolvedAt: now.toISOString(), xray,
-    awg: { daemon: { ...daemon, publicationDigest, workflowSha256: sha256(workflow) }, tools }, coredns });
+  return validateImageInputs({ schemaVersion: 3, resolvedAt: now.toISOString(), xray,
+    awg: { daemon: { ...daemon, publicationDigest, workflowSha256: sha256(workflow) }, tools }, coredns, derp: resolveStableDerp(reader) });
 }

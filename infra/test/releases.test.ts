@@ -31,6 +31,12 @@ function dnsRelease(letter: string): Release {
     images: { ...old.images, 'dns-policy': { repository: repository('dns-policy'), digest: `sha256:${'f'.repeat(64)}`,
       runtimeDigest: `sha256:${'f'.repeat(64)}`, buildTag: `sha-${'f'.repeat(64)}` } } };
 }
+function derpRelease(letter: string): Release {
+  // Reuse the six-image baseline to exercise real mixed-schema history and adapter publication.
+  const old = dnsRelease(letter);
+  return { ...old, schemaVersion: 5, images: { ...old.images, derp: { repository: repository('derp'),
+    digest: `sha256:${'e'.repeat(64)}`, runtimeDigest: `sha256:${'e'.repeat(64)}`, buildTag: `sha-${'e'.repeat(64)}` } } };
+}
 class MemoryRegistry implements Registry {
   readonly manifests = new Map<string, Manifest>();
   readonly tags = new Map<string, string>();
@@ -212,12 +218,12 @@ describe('app release history', () => {
     expect(transfers.map(slot => slot.images.map(item => item.name))).toEqual([legacyReleaseArtifacts, dnsReleaseArtifacts]);
     expect(transfers[1]!.images.at(-1)).toEqual({ name: 'dns-policy', image: prior.images['dns-policy'] });
   });
-  it('uploads a v4 document only under its candidate identity tag', async () => {
+  it.each([4, 5])('uploads a v%s document only under its immutable release identity tag', async schema => {
     // Uploading immutable bytes is preparatory; publication aliases remain guarded elsewhere.
     const registry = new EcrRegistry({} as ConstructorParameters<typeof EcrRegistry>[0], '000000000000', 'us-east-1');
     const upload = vi.spyOn(registry, 'uploadBlob').mockResolvedValue(undefined);
     const put = vi.spyOn(registry, 'put').mockResolvedValue(undefined);
-    const candidate = dnsRelease('a');
+    const candidate = schema === 5 ? derpRelease('a') : dnsRelease('a');
     await expect(registry.putRelease(releaseRepository, candidate, production)).rejects.toThrow('identity tag');
     expect(upload).not.toHaveBeenCalled();
     const document = await registry.putRelease(releaseRepository, candidate, `release-${candidate.promotionId}`);
@@ -225,6 +231,27 @@ describe('app release history', () => {
     expect(put).toHaveBeenCalledWith(releaseRepository, document, `release-${candidate.promotionId}`);
     expect(upload).toHaveBeenCalledTimes(2);
     await expect(registry.putRelease(releaseRepository, release('b'), 'release-old')).rejects.toThrow('qualified target OS');
+  });
+  it('publishes seven-image aliases with explicit admission and preserves six-image rollback history', async () => {
+    const registry = new MemoryRegistry();
+    const baseline = await registry.add(dnsRelease('a'));
+    await applyPromotion(registry, baseline, 'dns-migration-trial');
+    await expect(planPromotion(registry, derpRelease('b'))).rejects.toThrow('seven-image');
+    const promoted = (await planPromotion(registry, derpRelease('b'), 'derp-migration-trial'))!;
+    expect(promoted.history).toEqual([baseline.digest]);
+    const document = await registry.add(promoted);
+    await expect(applyPromotion(registry, document)).rejects.toThrow('seven-image');
+    await applyPromotion(registry, document, 'derp-migration-trial');
+    expect(await readiness(registry, true, true)).toMatchObject({ ready: true });
+    expect(await readiness(registry, true)).toMatchObject({ ready: false });
+    await registry.removeTag(repository('derp'), production);
+    expect(await readiness(registry, true, true)).toMatchObject({ ready: false, reason: 'derp production alias is not ready.' });
+    await applyPromotion(registry, document, 'derp-migration-trial');
+    const returned = (await planPromotion(registry, dnsRelease('c'), 'derp-migration-trial'))!;
+    await applyPromotion(registry, await registry.add(returned), 'derp-migration-trial');
+    expect(await readiness(registry, true)).toMatchObject({ ready: true });
+    expect(await registry.get(repository('derp'), production)).toBeUndefined();
+    expect((await registry.get(repository('derp'), 'keep-mru-1'))?.digest).toBe(promoted.images.derp!.digest);
   });
   it('checks all six local aliases and the DNS ARM64 child without admitting v4 to five-image gateways', async () => {
     const registry = new MemoryRegistry(); const next = dnsRelease('a');

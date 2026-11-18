@@ -92,6 +92,7 @@ export class RegionalReleaseStack extends Stack {
       deadLetterQueue: deadLetters,
       environment: { ACCOUNT: this.account, CLUSTER: cluster, SERVICE: service, TABLE: table.tableName,
         TOPIC: topic.topicArn, ENDPOINT_STACK: config.stackName, DNS_REQUIRED: config.dnsRequired ? 'true' : 'false',
+        DERP_REQUIRED: config.derp ? 'true' : 'false',
         OBSERVER_DOCUMENT: observer.ref, PROGRESS_RULE: progressRuleName,
         LIFECYCLE_SCHEMA: '1', AUTOMATION: props.automation === 'active' ? 'enabled' : 'disabled',
         OPERATOR_ONLY: props.automation === 'manual' ? 'enabled' : 'disabled' } } });

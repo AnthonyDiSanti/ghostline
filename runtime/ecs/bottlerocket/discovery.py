@@ -14,8 +14,12 @@ if not POLICY_PATH.is_file():
 DNS_SETTINGS = json.loads(POLICY_PATH.read_text())
 DNS_PORT = int(DNS_SETTINGS['listenPort'])
 DNS_HOST_PORT = int(DNS_SETTINGS['hostPort'])
+DERP_PATH = POLICY_PATH.with_name('derp-policy.json')
+DERP_SETTINGS = json.loads(DERP_PATH.read_text())
+DERP_TLS_PORT, DERP_HOST_PORT, STUN_PORT = (int(DERP_SETTINGS[name]) for name in ('tlsPort', 'hostPort', 'stunPort'))
 PORTS = {'xray': {(443, 443, 'tcp')}, 'awg': {(443, 443, 'udp')},
-         'dns-policy': {(DNS_PORT, DNS_HOST_PORT, 'tcp'), (DNS_PORT, DNS_HOST_PORT, 'udp')}}
+         'dns-policy': {(DNS_PORT, DNS_HOST_PORT, 'tcp'), (DNS_PORT, DNS_HOST_PORT, 'udp')},
+         'derp': {(DERP_TLS_PORT, DERP_HOST_PORT, 'tcp'), (STUN_PORT, STUN_PORT, 'udp')}}
 
 
 def identities(document, family):
@@ -51,7 +55,8 @@ def destinations(rules, bridge):
     targets = {}
     mapping = {('tcp', '443'): ('xray', '443'), ('udp', '443'): ('awg', '443'),
                ('tcp', str(DNS_HOST_PORT)): ('dns-tcp', str(DNS_PORT)),
-               ('udp', str(DNS_HOST_PORT)): ('dns-udp', str(DNS_PORT))}
+               ('udp', str(DNS_HOST_PORT)): ('dns-udp', str(DNS_PORT)),
+               ('tcp', str(DERP_HOST_PORT)): ('derp-tcp', str(DERP_TLS_PORT)), ('udp', str(STUN_PORT)): ('derp-stun', str(STUN_PORT))}
     subnet = ipaddress.ip_network(bridge, strict=False)
     for line in rules.splitlines():
         words = shlex.split(line)
@@ -76,12 +81,16 @@ def destinations(rules, bridge):
     if targets.get('dns-tcp') != targets.get('dns-udp'):
         if 'dns-tcp' in targets or 'dns-udp' in targets:
             raise RuntimeError('Incomplete DNS bridge binding')
-    distinct_peers = [key for key in targets if key != 'dns-udp']
+    if targets.get('derp-tcp') != targets.get('derp-stun'):
+        if 'derp-tcp' in targets or 'derp-stun' in targets:
+            raise RuntimeError('Incomplete DERP/STUN bridge binding')
+    distinct_peers = [key for key in targets if key not in {'dns-udp', 'derp-stun'}]
     if len(set(targets.values())) != len(distinct_peers):
         # The two DNS transports intentionally share one container; no engine may share its address.
         raise RuntimeError('Engines share a bridge destination')
     return {**{name: targets[name] for name in ('xray', 'awg') if name in targets},
-            **({'dns-policy': targets['dns-tcp']} if 'dns-tcp' in targets else {})}
+            **({'dns-policy': targets['dns-tcp']} if 'dns-tcp' in targets else {}),
+            **({'derp': targets['derp-tcp']} if 'derp-tcp' in targets else {})}
 
 
 def snapshot():

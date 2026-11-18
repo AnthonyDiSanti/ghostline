@@ -1,14 +1,16 @@
 # ECS gateway runtime
 
-The regional architecture is one official ECS-3 Bottlerocket ARM64 host, one application service/task with four images, and one restricted ECS DAEMON task and a separate finite native bootstrap image. [Architecture](architecture.md) owns resource/billing boundaries; [Stockholm evidence](launch-stockholm-ecs.md) owns live identities and validation; [development](development.md) owns command syntax.
+The regional architecture is one official ECS-3 Bottlerocket ARM64 host, one shared gateway task, one restricted ECS DAEMON task and a separate finite native bootstrap image. DERP-enabled gateways have five application containers. [Architecture](architecture.md) owns resource/billing boundaries; launch records/handoff own observed identities and validation; [development](development.md) owns commands.
 
 ## Task and images
 
-`EcsEndpointStack` creates a `t4g.small`, encrypted 2 GiB OS and 30 GiB data disks, public subnet, one ENI, two retained EIPs and one gateway task. The separate `RegionalReleaseStack` owns the six component repositories and release-document repository and regional release handling. [Release workflow](releases.md) owns static production aliases, digest readiness, native rollback and history. [Images](images.md) owns provenance and update policy.
+`EcsEndpointStack` creates a `t4g.small`, encrypted 2 GiB OS and 30 GiB data disks, public subnet, one ENI, two retained EIPs and one gateway task. The separate `RegionalReleaseStack` owns seven component repositories, the release-document repository and regional release handling. [Release workflow](releases.md) owns aliases, readiness, native rollback and history; [images](images.md) owns provenance.
 
-The task contains essential `xray` and `awg` engines, an essential private `dns-policy` resolver and a nonessential `gateway-config` initializer. ECS injects exactly the two server parameters into the initializer using the execution role. There is no application task role. The initializer is network-disabled, runs as UID/GID 65532, drops all capabilities, has a read-only root and a 64 MiB limit. Both engines depend on its [SUCCESS](https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDependency.html). It removes the original bundle environment variables before spawning helpers, holds them temporarily in unexported shell variables, and passes only the selected bundle to each renderer. This reduces child-process inheritance; it does not erase ECS/Docker metadata or isolate the two secrets from the initializer itself.
+The task contains essential Xray/AWG engines, private CoreDNS, optional essential DERP/STUN and a nonessential initializer. ECS injects only the configured server parameters into the initializer using its execution role; there is no application task role. The initializer is network-disabled, UID/GID 65532, capless, read-only-root and limited to 64 MiB. Engines require its [SUCCESS](https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDependency.html). It unsets bundle environment variables before spawning helpers and passes only the selected bundle to each renderer. This reduces inheritance but does not erase Docker metadata or isolate secrets from the initializer itself.
 
-Both maintained regions require the CoreDNS container. The engines wait for its real upstream resolution health. It has no secrets, task role or engine mounts; the host daemon applies guarded DNS interception and egress policy. While ECS holds the task pending on this dependency, the daemon admits only the verified CoreDNS container's DoT egress; engines remain quarantined. Allowed upstream DoT uses the host ENI's primary private address, currently mapped to the AWG EIP; it does not traverse AWG. The exact selected six-image release gates activation. [DNS design](dns.md).
+Maintained gateways require CoreDNS. Xray/AWG wait for its real upstream resolution health. It has no secrets/task role/engine mounts; guarded DNS interception admits only verified CoreDNS DoT egress while engines remain pending. DoT uses the primary private address mapped to the AWG EIP; it does not traverse AWG. Activation requires the exact configured whole image set. [DNS design](dns.md).
+
+DERP runs as UID/GID 65532, drops all capabilities, has a read-only root/private RAM mount and a 128 MiB hard limit. It shares the existing AWG EIP: source/address-aware forwarding dispatches TCP 443 to container 8443 through the unique host 18443 binding, and UDP 3478 to bundled STUN. New outbound initiation, the internal host port and wrong-address/source paths stay blocked. [DERP configuration, identity and evidence](derp-poc.md).
 
 Xray uses the unmodified official image, UID/GID 65532, `NET_BIND_SERVICE`, and the explicit `/usr/local/etc/xray/server.json` config. AWG uses Ghostline's official-source build, UID 0/GID 65532, `NET_ADMIN` and `/dev/net/tun`; its startup script sets up its own namespace and daemon. Engines drop other capabilities and have read-only roots and no injected secret environment.
 
@@ -22,14 +24,17 @@ An essential finite Bottlerocket bootstrap mounts a single **2 MiB tmpfs `/mnt/g
 | --- | --- | --- |
 | Xray | `xray` → `/usr/local/etc/xray` | `0700` / `0400` |
 | AWG | `awg` → `/etc/ghostline/awg` | `0750` / `0440` |
+| DERP | `derp` → `/etc/ghostline/derp` | `0700` / `0400` |
 
-All files/directories are owned by 65532:65532; parent mode is 0700. AWG reads through its configured group without extra DAC capabilities. Runtime sockets/scratch use separate writable `/run` and `/tmp` tmpfs mounts. The wrapper removes both renderings on partial failure and preserves child directory inodes for Docker's bind mounts. Detailed AWG option validation remains in the engine.
+All files/directories are owned by 65532:65532; parent mode is 0700. AWG reads through its group without extra DAC capabilities. Sockets/scratch use separate `/run` and `/tmp` tmpfs mounts. Partial initialization clears every configured protocol while preserving child inodes for Docker bind mounts. Detailed AWG option validation remains in the engine.
 
 The initializer runs once for **every new task**, even if its image is unchanged. It reconstructs files from parameters rather than trusting leftover files. Ordinary engine restarts reuse them. Stopping a task while leaving its host running may leave protected configuration in RAM until the next initialization or shutdown. Host stop/reboot/rebuild loses RAM and requires fresh initialization. Publishing an image or updating a parameter alone does not refresh a running task. [ECS secret refresh](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/secrets-envvar-ssm-paramstore.html).
 
 RAM reduces rendered-file disk persistence; it does not hide operational keys from their engine. Privileged Docker/ECS environment metadata may retain injected values on encrypted EBS. See [secret boundaries](secrets.md).
 
 ## Engine recovery
+
+DERP uses the same 60-second native restart eligibility as Xray/AWG. Its bounded local health checks pinned TLS/certificate validity and a real STUN response; three failed checks make the essential container unhealthy. Its connection tables and sockets do not migrate across host replacement. Production serving suppresses upstream client/address output while exit/health remain observable; the existing quiet Xray/AWG/CoreDNS behavior is preserved.
 
 Both engines use [native restart policies](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/container-restart-policy.html), `restartAttemptPeriod=60`, with no ignored exit codes. This is a minimum runtime/restart-frequency condition, not a post-crash delay. An eligible exit restarts only that engine, preserving the task, initializer and sibling. An early/ineligible essential exit replaces the whole task and reruns initialization. The initializer has no restart policy.
 

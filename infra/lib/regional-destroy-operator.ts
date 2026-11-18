@@ -9,7 +9,7 @@ import { claimLifecycle } from './releases/lifecycle.js';
 import { hostSlots, slotStackName, transitionAddressStackName } from './host-slot-model.js';
 import { assertNativeDeploymentSettled, removeRegionalHosts } from './host-slot-lifecycle.js';
 import { persistPublication, reconcileReplication } from './releases/operator.js';
-import { assertExclusiveRegionalHosts, captureDetachedEndpoint, type DestroyJournal, type DestroyPorts, type OwnedResource, type OwnedStack } from './regional-destroy.js';
+import { assertExclusiveRegionalHosts, captureDetachedEndpoint, teardownResources, type DestroyJournal, type DestroyPorts, type OwnedResource, type OwnedStack } from './regional-destroy.js';
 
 function call(region: string, args: string[], missing: string[] = []): any {
   // Metadata and deletion arguments only; credentials, object contents and application parameters are never read.
@@ -78,8 +78,8 @@ export function regionalDestroyPorts(config: DeploymentConfig, save: (journal: D
       const volumes: string[] = [];
       for (const stack of currentStacks().filter(s => ownedNames.includes(s.StackName))) {
         if (!tagsMatch(stack.Tags) || !stack.StackId.startsWith(`arn:aws:cloudformation:${config.region}:${config.account}:stack/${stack.StackName}/`)) throw new Error('Stack ownership mismatch.');
-        if (!['CREATE_COMPLETE','UPDATE_COMPLETE','UPDATE_ROLLBACK_COMPLETE','DELETE_IN_PROGRESS','DELETE_FAILED', 'CREATE_FAILED', 'UPDATE_FAILED'].includes(stack.StackStatus)) throw new Error('Regional stack is not ready for teardown.');
-        const items = aws(['cloudformation','list-stack-resources','--stack-name',stack.StackId]).StackResourceSummaries;
+        const items = teardownResources(stack.StackStatus,
+          aws(['cloudformation','list-stack-resources','--stack-name',stack.StackId]).StackResourceSummaries) as any[];
         snapshots.push({ id: stack.StackId, name: stack.StackName, outputs: outputMap(stack), resources: items.filter((r: any) => r.PhysicalResourceId).map((r: any) => ({
           id: r.PhysicalResourceId, logicalId: r.LogicalResourceId, type: r.ResourceType, stackId: stack.StackId,
         })) });

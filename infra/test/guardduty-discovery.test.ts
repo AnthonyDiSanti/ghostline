@@ -51,7 +51,8 @@ it('supports the complete no-service path without GuardDuty calls or agent infra
   const resources = Template.fromStack(buildApp(config, support).stack).toJSON().Resources;
   const slot = JSON.parse(hostTemplates(config, false).a).Resources;
   expect(slot.Instance.Type).toBe('AWS::EC2::Instance');
-  expect(resources.GatewayTask.Properties.ContainerDefinitions).toHaveLength(4);
+  // Missing GuardDuty must preserve every configured application container, including DERP when enabled.
+  expect(resources.GatewayTask.Properties.ContainerDefinitions).toHaveLength(config.derp ? 5 : 4);
   expect(resources.GuardDutyEndpoint).toBeUndefined();
   expect(resources.GuardDutySecurityGroup).toBeUndefined();
   expect(slot.Instance.Properties.Tags).not.toContainEqual({ Key: 'GuardDutyManaged', Value: 'true' });

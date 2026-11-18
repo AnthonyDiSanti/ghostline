@@ -11,7 +11,11 @@ for _ in {1..100}; do
   sleep 0.1
 done
 test -S /var/run/amneziawg/awg0.sock
-awg setconf awg0 <(awg-quick strip "${GHOSTLINE_AWG_CONFIG:-/etc/amnezia/amneziawg/awg0.conf}")
+# Native config-parser errors can echo peer/config text; retain failure without persisting those details.
+if ! awg setconf awg0 <(awg-quick strip "${GHOSTLINE_AWG_CONFIG:-/etc/amnezia/amneziawg/awg0.conf}" 2>/dev/null) 2>/dev/null; then
+    printf '%s\n' 'AWG configuration failed; details withheld.' >&2
+    exit 1
+fi
 ip address add 10.78.0.1/24 dev awg0
 ip link set mtu 1280 up dev awg0
 # Masquerade tunnel peers into this container's dedicated, address-specific Docker egress network.

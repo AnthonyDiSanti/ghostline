@@ -1,5 +1,43 @@
 # Handoff
 
+## Full-tree Git delivery — November 17, 2026
+
+Anthony authorizes commit-prep, committing the full pending tree, merging into main, pushing main and returning to `feature/tailscale` for the next work unit. The commit should describe the whole change set and prominently include the new reusable regional trial workflow, alongside DERP/STUN, quiet logging, release retention, quotas and legacy recovery. The separate privacy/planning worktrees remain untouched.
+
+Fresh targeted checks pass 18 tests/4 files; full Node 24 verification passes 502 tests/80 files, including typecheck, asset linters and five-region offline synthesis. Logs: ignored `.local/derp-implementation-2026-11-17/git-delivery-{targeted,full}.log`. Existing ARM64/native/fleet evidence below remains valid; Git preparation does not redeploy or repeat cloud/client qualification. The three required upstream watches and latest releases were rechecked during preparation with no state/version change. Fetched origin; main and this branch share the same base before the new commit, allowing a fast-forward merge. Headscale/admission and Tailscale exits remain next, with the recorded fresh-region and GuardDuty follow-ups.
+
+## DERP/STUN running fleet verified — November 17, 2026 (New York)
+
+Qualified schema-v5 release `sha256:89ebce02a6f9ca9791fbba9213149573fc0766b9808ea70bef7affef97f052f2` (promotion `dcbf284b-6892-45ad-a2d4-8704522209e6`) is selected and ready in all five registries. Stockholm, Oregon, Zurich and NVA each observe all seven exact artifacts, native SUCCESSFUL deployment, rollout complete with zero health failures, one running host and two original EIPs. Cape Town remains parked with zero hosts/tasks. All five controllers are restored active; no trial, lifecycle operation or local operation receipt remains.
+
+All four regions pass native private RAM/confinement, pinned TLS/STUN health, absent engine secret environments, memory/no OOM and fresh exact-host GuardDuty HEALTHY v1.17.3. Original Xray/AWG clients pass encrypted HTTPS; two upstream DERP clients transfer data through every pinned public relay, real STUN succeeds and forbidden-source/internal-port access is denied. Final metadata comparison preserves all nine parameters, both allocation/IP identities and security settings per region. Existing profiles need no identity/endpoint change. Mac OS/routes were freshly checked disconnected/en0; the OneXray window was unavailable, so no fresh visual/native Tailscale acceptance is claimed.
+
+Source gate: 502 tests/80 files and seven-image ARM64 checks pass. Central native proof at 23:18:17Z binds the frozen bytes to official ECS-3 ARM64 Bottlerocket 1.66.0. Qualification includes six-to-seven migration and automatic health-triggered rollback (derper-only SIGSTOP with health checks live); Dockerpause/operator rollback is excluded from that proof. The accepted #1059 startup limitation remains. [Runbook](../docs/derp-poc.md), [launch records](../docs/README.md), [compact receipts](scratch/2026-11-17-derp-implementation.md).
+
+Ireland's synthetic deployment reached normal destroy complete/pending empty; reviewed purge removed ten parameters, eight log groups and two queues. Both generated synthetic credential directories are removed. Independent security remains enabled. Ten inactive task definitions are still in AWS DELETE_IN_PROGRESS: no runnable trial infrastructure remains. Keep the metadata evidence; no further credential or infrastructure deletion is needed.
+
+Separate follow-up: one isolated stop/start lost exact GuardDuty coverage despite a running agent and working app/transport. Association replay/service restart did not recover it; normal cold reconstruction restored fresh HEALTHY coverage. Final qualification and every maintained host pass the unchanged coverage gate. Root cause/repaired reboot coverage are unproven; no monitoring/IAM relaxation or runtime workaround was introduced. [Details](../docs/guardduty.md).
+
+The old NVA retention alert was already resolved at investigation entry (privacy v4 completed at 13:24:06 Eastern), so no old retention receipt was resumed. Reviewed/imported the completed privacy runtime/tests and retention-publication deferral repair from untouched worktree t3-2adf5277; the DERP release preserves them.
+
+Next: Headscale service and authenticated map/admission, then Tailscale exits. Fresh-region address-first DERP enrollment and coordinated certificate renewal remain explicit follow-ups; the current milestone covers existing running/parked endpoints. IPv6/home concealment stay deferred. No Git staging/commit occurred; preserve the full earlier quota/legacy/planning changes in the proposed commit scope.
+
+Final repository review covers 134 changed/new files, including earlier quota/legacy/planning and imported privacy work. All 459 local links and 169 heading anchors in 30 changed Markdown files resolve; added/untracked payload-pattern and whitespace checks pass, and the index remains empty. The final source gate passed 502 tests/80 files after the last code change; only documentation changed afterward. Reconciled the DNS/privacy descriptions with shipped quiet runtime controls and updated AGENTS scope to the observed completed fleet. No new deployment or image rebuild is required for this documentation closeout.
+
+## EIP quota status refreshed — November 16
+
+Read-only account/34-region refresh at 14:17:48 UTC verifies **all 33 submitted requests APPROVED and applied quota 20 in all 33 reachable regions**, including every maintained Ghostline region. [Status record](knowledge/eip-quota-requests.md) supersedes the earlier pending snapshot and preserves original submission receipts plus current request/applied-limit metadata in ignored `.local/quota-requests-2026-11-16/` in this checkout. Bahrain still connect-times out and has no submitted request or verified applied value. No quota/resource write, duplicate request or periodic monitoring was added. Preserve earlier uncommitted legacy-retirement records and the Git index.
+
+## Legacy insightfulappetite retired after archive verification — November 16
+
+Anthony explicitly approves final cleanup after imaging. Re-read the account, all instance/EBS attachments, private AMI/snapshot ownership and permissions, provenance and enabled encryption key. The single attached 8 GiB root was fully covered. Terminated `i-0b7cf5cef9a199c1f`, verified original disk/primary ENI deletion and released only `54.88.167.220` / `eipalloc-02d95a61ae8ef591c`. Final cloud gate at 14:09:02 UTC verifies all four retirement outcomes, unchanged associations for six unrelated NVA EIPs and the retained available encrypted AMI `ami-00b288689f6913188` / completed snapshot `snap-0e395128f4a3e0efd`. No gateway, personal-assistant, DNS, shared networking/access or independent security resource was targeted.
+
+[Recovery note](knowledge/legacy-insightfulappetite-recovery.md) records the restore procedure and private receipts under ignored `.local/legacy-retirement-2026-11-16/` in this checkout. Copied the earlier worktree's private manifest here before deletion; left the earlier copy intact. No boot/application restore trial was performed. Snapshot storage persists, and the released address cannot be guaranteed on restore. The earlier Headscale planning worktree was not imported or edited by this scoped cleanup.
+
+Required Amnezia/core-kit/IPv6 watches and release tags were refreshed November 16: issues remain open, #1063 unmerged, latest Amnezia 5.1.0.6 / Bottlerocket v1.69.0; no fix qualification changed. No executable source or runtime artifact changed, so the final gate is live cloud readback plus documentation/link/whitespace checks. No staging or commit requested; preserve the Git index.
+
+Final documentation verification passes: 263 local links in the changed documents and 581 repository-wide links resolve, all five dirty files pass whitespace/credential-pattern checks, private manifest/receipt permissions are 0700/0600 and the Git index remains unchanged. Source/image/native suites were not rerun for these operation-record-only edits.
+
 ## Regional alert subscriptions confirmed; Git closeout — November 15
 
 Anthony reports confirming both renewed emails. Independent read-only SNS metadata verifies exactly one confirmed email subscriber and zero pending subscribers in Oregon, NVA, Stockholm, Zurich and Cape Town. No additional confirmation request or application test alert was sent; actual application-alert receipt remains untested. Metadata-only readback: ignored `.local/alert-repair-2026-11-15/confirmed.json`.

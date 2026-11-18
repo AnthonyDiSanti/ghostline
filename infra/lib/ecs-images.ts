@@ -1,6 +1,6 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { imageArchitecture, imageInputs, imagePlatform, localImage, officialXrayImage, releaseBuildArgs, releaseFiles, releaseTag } from './ecs-release.js';
+import { imageArchitecture, imageInputs, imagePlatform, officialXrayImage, releaseBuildArgs, releaseFiles, releaseTag } from './ecs-release.js';
 import type { BuildArtifact } from './image-artifacts.js';
 
 export type DockerCommand = (args: string[]) => string;
@@ -22,7 +22,8 @@ export function assertOfficialXray(image: string, docker: DockerCommand): void {
 
 export function prepareImage(artifact: BuildArtifact, work: string, docker: DockerCommand): string {
   // Shared by publication and AWS-free tests; disposable contexts contain only allowed source files.
-  const image = localImage(artifact);
+  const files = releaseFiles(artifact);
+  const image = `ghostline-${artifact}:${releaseTag(artifact, imageInputs, files)}`;
   mkdirSync(work, { recursive: true, mode: 0o700 });
   const folder = mkdtempSync(join(work, `${artifact}-`));
   try {
@@ -38,9 +39,10 @@ export function prepareImage(artifact: BuildArtifact, work: string, docker: Dock
       assertOfficialXray(image, docker);
       return image;
     }
-    for (const [name, bytes] of Object.entries(releaseFiles(artifact))) writeFileSync(join(folder, name), bytes);
+    for (const [name, bytes] of Object.entries(files)) writeFileSync(join(folder, name), bytes);
     const args = Object.entries(releaseBuildArgs(artifact)).flatMap(([name, value]) => ['--build-arg', `${name}=${value}`]);
-    docker(['buildx', 'build', '--platform', imagePlatform, '--load', ...args, '-t', image, folder]);
+    docker(['buildx', 'build', '--platform', imagePlatform, '--load',
+      ...(artifact === 'gateway-config' ? ['--target', 'gateway-config'] : []), ...args, '-t', image, folder]);
     assertImagePlatform(image, docker);
     return image;
   } finally { rmSync(folder, { recursive: true, force: true }); }

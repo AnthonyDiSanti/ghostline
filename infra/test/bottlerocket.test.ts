@@ -5,7 +5,8 @@ import { buildApp } from '../lib/app.js';
 import { getDeployment } from '../lib/config.js';
 import { hostTemplates } from '../lib/host-slot.js';
 import { gatewayPlatform } from '../lib/gateway-platform.js';
-const config = getDeployment('stockholm-ecs');
+// Exercise the supported migration baseline independently of the maintained catalog's current rollout stage.
+const config = { ...getDeployment('stockholm-ecs'), derp: undefined };
 const registry = `${config.account}.dkr.ecr.${config.region}.amazonaws.com`;
 describe('Bottlerocket gateway boundaries', () => {
   it('preserves ECS initialization and secret boundaries on the supported host mount', () => {

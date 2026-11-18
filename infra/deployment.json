@@ -2,6 +2,12 @@
   "account": "757999402784",
   "instanceType": "t4g.small",
   "dataVolumeGiB": 30,
+  "derp": {
+    "allowedSources": [
+      "54.190.232.225/32",
+      "184.196.132.0/32"
+    ]
+  },
   "globalTags": {
     "Project": "ghostline",
     "Environment": "prod"

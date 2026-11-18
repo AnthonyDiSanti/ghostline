@@ -5,15 +5,17 @@ complete=false
 
 # Retain the pair only in shell memory; each child receives its selected bundle, never its sibling's.
 # Unset scratch names first so an inherited export attribute cannot propagate them to subprocesses.
-unset xray_bundle awg_bundle
+unset xray_bundle awg_bundle derp_bundle
 xray_bundle=${GHOSTLINE_XRAY_BUNDLE:-}
 awg_bundle=${GHOSTLINE_AWG_BUNDLE:-}
-unset GHOSTLINE_XRAY_BUNDLE GHOSTLINE_AWG_BUNDLE GHOSTLINE_CONFIG
+derp_bundle=${GHOSTLINE_DERP_BUNDLE:-}
+unset GHOSTLINE_XRAY_BUNDLE GHOSTLINE_AWG_BUNDLE GHOSTLINE_DERP_BUNDLE GHOSTLINE_CONFIG
 
 cleanup() {
   # No engine can start on failure; discard both protocols if either renderer failed.
   if [ "$complete" != true ]; then
     rm -f /config/xray/server.json /config/xray/.pending.* /config/awg/awg0.conf /config/awg/.pending.*
+    rm -f /config/derp/*.crt /config/derp/*.key /config/derp/derper.json /config/derp/public.json
   fi
 }
 trap cleanup EXIT
@@ -28,6 +30,15 @@ prepare() {
   unset xray_bundle
   GHOSTLINE_CONFIG="$awg_bundle" /usr/local/bin/ghostline-config awg /config/awg || return 1
   unset awg_bundle
+  if [ "${GHOSTLINE_DERP_REQUIRED:-false}" = true ]; then
+    # A partial/missing identity must fail the whole initializer before any engine becomes eligible.
+    [ -n "$derp_bundle" ] && [ -d /config/derp ] || return 1
+    rm -f /config/derp/*.crt /config/derp/*.key /config/derp/derper.json /config/derp/public.json || return 1
+    GHOSTLINE_CONFIG="$derp_bundle" /usr/local/bin/derp-tools render --directory /config/derp || return 1
+  elif [ -n "$derp_bundle" ]; then
+    return 1
+  fi
+  unset derp_bundle
 }
 
 if ! prepare 2>/dev/null; then

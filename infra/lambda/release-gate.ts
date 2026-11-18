@@ -27,6 +27,7 @@ export async function handler(event: { action?: string; source?: string; 'detail
   const gate = new AwsBlueGreen({ endpoint: process.env.ENDPOINT_STACK!, account: process.env.ACCOUNT!, region,
     cluster: process.env.CLUSTER!, service: process.env.SERVICE!, table: process.env.TABLE!, topic: process.env.TOPIC!,
     dnsRequired: process.env.DNS_REQUIRED === 'true',
+    derpRequired: process.env.DERP_REQUIRED === 'true',
     observerDocument: process.env.OBSERVER_DOCUMENT!, progressRule: process.env.PROGRESS_RULE!,
     templates: JSON.parse(process.env.SLOT_TEMPLATES!), role: process.env.SLOT_ROLE!, tags: JSON.parse(process.env.OWNER_TAGS!) },
     // Force deployment and address moves use observation-based recovery instead of automatic SDK mutation retries.

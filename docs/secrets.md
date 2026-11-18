@@ -1,6 +1,6 @@
 # Regional secrets
 
-Each maintained region stores six independent `SecureString` values at identical `/ghostline/prod` paths. Region belongs to the AWS client/ARN, not the path. A validated private trial catalog may select `/ghostline/trial/<name>` instead; its task execution role and all common credential operations use only that exact namespace. Parameter Store is the application source; local exports are convenience copies that can be recreated while the parameters remain available. No independent backup or LastPass closeout is required. Endpoint removal never deletes parameters.
+Each maintained region stores six existing engine/device SecureStrings at identical `/ghostline/prod` paths. DERP provisioning adds one server SecureString and one public pin String. Region belongs to the AWS client/ARN, not the path. A validated private trial catalog may select `/ghostline/trial/<name>` for gateway identities; the regional release-alert contact retains its fixed `/ghostline/prod/alerts/email` path. Parameter Store is the application source; local exports are convenience copies that can be recreated while parameters remain available. No independent backup or LastPass closeout is required. Endpoint removal never deletes parameters.
 
 | Parameter suffix under `/ghostline/prod/` | Value |
 | --- | --- |
@@ -8,18 +8,22 @@ Each maintained region stores six independent `SecureString` values at identical
 | `server/awg` | Native AWG server configuration |
 | `clients/macos/xray`, `clients/ios/xray` | Native Xray client JSON, with separate device UUIDs |
 | `clients/macos/awg`, `clients/ios/awg` | Native AWG device configs with independent private keys |
+| `server/derp` | Provisioned IP-SAN certificate, matching TLS private key and stable DERP server key; SecureString |
+| `derp/public` | Public IP, exact leaf-certificate SHA256 pin and expiry; String, no private material |
 
 REALITY server private keys, VLESS UUIDs, short IDs, AWG private/preshared keys and HeaderProtectionKey remain protected within these values. Public keys, addresses and tuning values are not independently secrets, but complete configs, links and QR images are credential copies. The engines do not need AWG client private keys.
 
 ## ECS delivery and threat boundary
 
-Only `gateway-config` receives `GHOSTLINE_XRAY_BUNDLE` and `GHOSTLINE_AWG_BUNDLE`. The task execution role gives the ECS agent exact `ssm:GetParameters` access to the two regional server ARNs. Engines receive neither secret environment variables nor AWS task-role credentials. The host role has no parameter-read permission. Use the regional default SSM key; do not grant recursive parent-path access merely for convenience.
+Only `gateway-config` receives `GHOSTLINE_XRAY_BUNDLE`, `GHOSTLINE_AWG_BUNDLE` and, when enabled, `GHOSTLINE_DERP_BUNDLE`. The execution role gives the ECS agent exact `ssm:GetParameters` access to those server ARNs. Engines receive neither secret environment variables nor task-role credentials; the host role has no parameter-read permission. Use the regional default SSM key, with no recursive parent-path grant.
 
-The initializer writes protocol-private RAM directories and exits successfully before engines start. It has no network, extra capabilities or writable root. Each engine mounts only its own directory read-only; AWG's writable network sockets/scratch remain separate. [Runtime permissions and lifetime](ecs.md#ram-configuration), [ECS execution roles](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_execution_IAM_role.html).
+The initializer writes protocol-private RAM directories and exits successfully before engines start. Xray rendering enforces the shared silence policy only on logging/REALITY diagnostic fields; stored credential bytes, keys and protocol settings stay intact. AWG is byte-preserving. DERP validates its certificate/key/IP and renders its private files plus public health metadata. Partial failure clears all configured protocol outputs. The initializer has no network, extra capabilities or writable root. Each engine mounts only its own directory read-only; AWG's writable sockets/scratch remain separate. [Runtime permissions and lifetime](ecs.md#ram-configuration), [ECS execution roles](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_execution_IAM_role.html).
 
-Read-only mounts prevent source-file changes through the engine mount; they do not hide usable keys from that engine or freeze its live protocol state. Both containers share the host kernel. Root/Docker/ECS administrators remain trusted, and original initializer environment values can persist in privileged container metadata on encrypted EBS. RAM storage reduces durable rendered files, not every disk trace or the impact of host compromise.
+Read-only mounts prevent source-file changes through the engine mount; they do not hide usable keys from that engine or freeze its live protocol state. All containers share the host kernel. Root/Docker/ECS administrators remain trusted, and original initializer environment values can persist in privileged container metadata on encrypted EBS. RAM storage reduces durable rendered files, not every disk trace or the impact of host compromise.
 
-The host exposes only TCP/UDP 443. SSM administration requires AWS authority and no public management port. IMDSv2 and bridge rules block protocol-container metadata access. Host attack paths also include the kernel, supply chain and AWS administration; container compromise is not the only possible route.
+The host exposes TCP/UDP 443 and, when DERP is enabled, source-restricted UDP 3478. DERP TCP 443 is also restricted by address/source-aware host rules until Headscale admission exists. SSM administration has no public management port. IMDSv2 and bridge rules block protocol-container metadata access. Host attack paths also include the kernel, supply chain and AWS administration.
+
+DERP identity creation is a separate explicit `npm run derp <target> provision` operation after the retained public IP exists. It never overwrites an existing identity or rotates Xray/AWG credentials. Certificates initially last 365 days; use public status/expiry and coordinate replacement with future map-pin propagation. Deployment/restart does not generate credentials. [Provisioning contract](derp-poc.md#identity-tls-and-secrets).
 
 ## Portable credential import
 

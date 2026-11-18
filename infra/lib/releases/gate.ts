@@ -3,11 +3,13 @@ import { readRelease, type Registry, type ReleaseRecord } from './registry.js';
 import type { Rollout } from './blue-green.js';
 import type { LifecycleState } from './lifecycle.js';
 
-export async function readiness(registry: Registry, dnsRequired = false): Promise<{ current?: ReleaseRecord; ready: boolean; reason?: string }> {
+export async function readiness(registry: Registry, dnsRequired = false, derpRequired = false): Promise<{ current?: ReleaseRecord; ready: boolean; reason?: string }> {
   const current = await readRelease(registry, releaseRepository, releaseSelector);
   if (!current) return { ready: false, reason: 'No production release document.' };
   // A selected release must match the target's task/host schema before aliases can authorize activation.
-  if (dnsRequired && current.release.schemaVersion !== 4) return { current, ready: false, reason: 'DNS-enabled gateway requires a six-image production release.' };
+  if (derpRequired && current.release.schemaVersion !== 5) return { current, ready: false, reason: 'DERP-enabled gateway requires a seven-image production release.' };
+  if (!derpRequired && current.release.schemaVersion === 5) return { current, ready: false, reason: 'Gateway is not configured for a DERP-bearing release.' };
+  if (dnsRequired && !derpRequired && current.release.schemaVersion !== 4) return { current, ready: false, reason: 'DNS-enabled gateway requires a six-image production release.' };
   if (!dnsRequired && current.release.schemaVersion === 4) return { current, ready: false, reason: 'Five-image gateway cannot select a DNS-bearing release.' };
   return { current, ...await aliasReadiness(registry, current) };
 }
@@ -30,9 +32,9 @@ export async function aliasReadiness(registry: Registry, current: ReleaseRecord)
 }
 
 export async function assertStartReady(ports: { registry: Registry; record<T>(key: string): Promise<T | undefined> },
-  dnsRequired = false): Promise<void> {
+  dnsRequired = false, derpRequired = false): Promise<void> {
   // Deliberate activation requires coherent local intent. Unexpected native boot does not call this preflight.
-  const ready = await readiness(ports.registry, dnsRequired);
+  const ready = await readiness(ports.registry, dnsRequired, derpRequired);
   if (!ready.ready || !ready.current?.release.os.targetVersion) throw new Error(`Release is not ready: ${ready.reason ?? 'qualified OS target missing'}`);
   const attempt = await ports.record<Rollout>('rollout/current');
   const lifecycle = await ports.record<LifecycleState>('lifecycle');

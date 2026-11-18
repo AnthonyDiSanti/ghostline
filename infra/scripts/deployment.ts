@@ -1,5 +1,6 @@
 import { assertBenchmarkExclusion } from '../lib/benchmark/exclusion.js';
 import { withLifecycle } from '../lib/lifecycle-operator.js';
+import { reportTrialExclusion } from '../lib/releases/trial-exclusions.js';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -32,7 +33,7 @@ async function preflight(config: DeploymentConfig) {
   if (!['opted-in', 'opt-in-not-required'].includes(status)) {
     throw new Error(`${config.region} is not enabled yet (${status}). Enable it explicitly and wait before retrying.`);
   }
-  const selectedRelease = await readiness(registry(config.region), config.dnsRequired);
+  const selectedRelease = await readiness(registry(config.region), config.dnsRequired, !!config.derp);
   const version = selectedRelease.current?.release.os.targetVersion;
   if (!selectedRelease.ready || !version) throw new Error('Preflight requires a complete local release with a centrally qualified OS.');
   const channel = `/aws/service/bottlerocket/aws-ecs-3/arm64/${version}`;
@@ -101,7 +102,8 @@ if (action === 'list') {
   };
   if (action === 'park') {
     assertNativeDeploymentSettled(command.config, args => aws(command.config, args));
-    await withLifecycle(command.config, action, operation, 'parked');
+    try { await withLifecycle(command.config, action, operation, 'parked'); }
+    catch (error) { if (reportTrialExclusion(error)) process.exitCode = 3; else throw error; }
   }
   else await operation();
 }

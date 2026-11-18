@@ -14,7 +14,7 @@ if kind == 'network-daemon':
     # Host diagnostic/import capabilities must not accidentally leak through a broad COPY.
     for name in ('daemon', 'discovery'):
         importlib.import_module(name)
-    for name in ('bootstrap.py', 'storage.py', 'boot_observation.py', 'host_support.py', 'diagnostics.py', 'isolation.py', 'network-probe.py'):
+    for name in ('bootstrap.py', 'storage.py', 'boot_observation.py', 'host_support.py', 'diagnostics.py', 'isolation.py', 'network-probe.py', 'derp-network-probe.py'):
         assert not (Path('/opt/ghostline') / name).exists(), name
     # Alpine's BusyBox supplies some host-tool applets even without util-linux. Check
     # the added packages; authority is constrained separately by the native task policy.

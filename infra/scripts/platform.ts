@@ -5,7 +5,7 @@ import { getDeployment } from '../lib/config.js';
 import { withLifecycle } from '../lib/lifecycle-operator.js';
 import { operatorGate, command, verifyAccount, root } from '../lib/releases/operator.js';
 import { assertCurrentBuildQualification, nativeQualificationPath, qualifyNativePlatform } from '../lib/platform-qualification.js';
-import { dnsReleaseArtifacts, imageArtifacts } from '../lib/image-artifacts.js';
+import { configuredArtifacts } from '../lib/image-artifacts.js';
 import { qualificationObservation } from '../lib/releases/generation-proof.js';
 
 assertBenchmarkExclusion();
@@ -33,7 +33,7 @@ verifyAccount();
     if (action === 'status') { console.log(JSON.stringify(generation, null, 2)); return; }
     const actual = qualificationObservation(generation);
     const qualified = JSON.parse(readFileSync(resolve(path!), 'utf8'));
-    assertCurrentBuildQualification(qualified, config.dnsRequired ? dnsReleaseArtifacts : imageArtifacts);
+    assertCurrentBuildQualification(qualified, configuredArtifacts(config));
     // This command closes central native qualification after the documented isolated lifecycle experiment, never a regional delivery gate.
     command(process.execPath, ['--import=tsx', 'scripts/ecs.ts', config.id, 'verify'], undefined, true);
     const proof = qualifyNativePlatform(qualified.images, actual, new Date().toISOString());

@@ -1,7 +1,7 @@
 import { imagePlatform } from './ecs-release.js';
 import type { DockerCommand } from './ecs-images.js';
 
-export function createTestRamStorage(name: string, initializer: string, docker: DockerCommand, protocol: 'xray' | 'awg' = 'xray', labels: string[] = []): () => void {
+export function createTestRamStorage(name: string, initializer: string, docker: DockerCommand, protocol: 'xray' | 'awg' | 'derp' = 'xray', labels: string[] = []): () => void {
   // Docker Desktop has no native Linux host mount: a fixture holds this RAM volume across test containers.
   const holder = `${name}-storage`;
   const cleanup = () => {
@@ -9,7 +9,7 @@ export function createTestRamStorage(name: string, initializer: string, docker: 
     docker(['volume', 'rm', name]);
   };
   docker(['volume', 'create', ...labels, '--driver', 'local', '--opt', 'type=tmpfs', '--opt', 'device=tmpfs',
-    '--opt', `o=size=1m,uid=65532,gid=65532,mode=${protocol === 'xray' ? '0700' : '0750'},nosuid,nodev,noexec,noswap`, name]);
+    '--opt', `o=size=1m,uid=65532,gid=65532,mode=${protocol === 'awg' ? '0750' : '0700'},nosuid,nodev,noexec,noswap`, name]);
   try {
     docker(['run', '-d', ...labels, '--name', holder, '--platform', imagePlatform, '--network', 'none', '--read-only',
       '--cap-drop', 'ALL', '--user', '65532:65532', '--security-opt', 'no-new-privileges:true', '--log-driver', 'none',

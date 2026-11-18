@@ -21,6 +21,7 @@ import { releaseRepository, repositoryPrefix } from './model.js';
 import { EcrReplicationCluster, replicationRulesEqual, type PublicationProfile, type ReplicationRule } from './topology.js';
 import { cleanPublicationProtection, seedReleaseHistory } from './publication.js';
 import { pruneRegionalArtifacts } from './retention-operator.js';
+import { reportTrialExclusion } from './trial-exclusions.js';
 import { withLifecycle, type LifecycleControl } from '../lifecycle-operator.js';
 
 export const root = fileURLToPath(new URL('../../../', import.meta.url));
@@ -106,16 +107,16 @@ export async function cleanPublicationRegions(): Promise<void> {
       if (await cleanPublicationProtection(registry(region))) console.log(`${region}: completed publication protection cleared.`);
       await pruneRegionalArtifacts(registry(region), credentials, deploymentIds.map(getDeployment).find(config => config.region === region));
     }
-    catch (error) { console.warn(`${region}: publication cleanup pending (${(error as Error).name}).`); }
+    catch (error) { if (!reportTrialExclusion(error)) console.warn(`${region}: publication cleanup pending (${(error as Error).name}).`); }
   }
 }
 
-export async function seedRegion(source: EcrRegistry, target: EcrRegistry, dnsRequired = false): Promise<void> {
+export async function seedRegion(source: EcrRegistry, target: EcrRegistry, dnsRequired = false, derpRequired = false): Promise<void> {
   // The target's selected runtime schema bounds which replicated release may become active there.
   await seedReleaseHistory(source, target, async (repo, imageDigest, tag) => {
     if (repo !== releaseRepository) console.log(`${target.region}: seed ${repo.slice(repositoryPrefix.length)} from ${source.region} (${imageDigest}).`);
     await copyImage(source, target, repo, repo, imageDigest, tag, console.log);
-  }, dnsRequired ? 'dns-migration-trial' : 'five-image');
+  }, derpRequired ? 'derp-migration-trial' : dnsRequired ? 'dns-migration-trial' : 'five-image');
 }
 
 export async function operatorGate(target: string): Promise<AwsBlueGreen> {
@@ -130,6 +131,7 @@ export async function operatorGate(target: string): Promise<AwsBlueGreen> {
   return new AwsBlueGreen({ endpoint: config.stackName, account: config.account, region: config.region, cluster: config.resourceName,
     service: `${config.resourceName}-gateway`, table: 'ghostline-prod-release-attempts', topic: env.TOPIC!,
     dnsRequired: config.dnsRequired === true,
+    derpRequired: !!config.derp,
     observerDocument: env.OBSERVER_DOCUMENT!, progressRule: env.PROGRESS_RULE!, templates: JSON.parse(env.SLOT_TEMPLATES),
     role: env.SLOT_ROLE, tags: JSON.parse(env.OWNER_TAGS) },
     { cfn: retryObservations(new CloudFormationClient(options)), ec2: retryObservations(new EC2Client(options)), ecs: retryObservations(new ECSClient(options)),

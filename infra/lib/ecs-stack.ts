@@ -14,6 +14,7 @@ import type { GuardDutySupport } from './guardduty-discovery.js';
 import { applicationArtifacts as artifacts } from './image-artifacts.js';
 import { production, repository } from './releases/model.js';
 import dnsPolicy from '../../runtime/ecs/dns-policy.json' with { type: 'json' };
+import derpPolicy from '../../runtime/ecs/derp-policy.json' with { type: 'json' };
 
 export interface GatewayPlatform {
   bootstrapImage: string;
@@ -28,7 +29,7 @@ export interface GatewayPlatform {
 export interface GatewayInputs {
   platform?: GatewayPlatform;
   parameterPrefix?: string;
-  images?: Record<(typeof artifacts)[number], string> & Partial<Record<'dns-policy', string>>;
+  images?: Record<(typeof artifacts)[number], string> & Partial<Record<'dns-policy' | 'derp', string>>;
 }
 
 export class EcsEndpointStack extends Stack {
@@ -42,7 +43,8 @@ export class EcsEndpointStack extends Stack {
     const parameterPrefix = props.gateway?.parameterPrefix ?? config.parameterPrefix ?? '/ghostline/prod';
     if (!/^\/ghostline\/(?:prod|trial\/[a-z0-9-]+)$/.test(parameterPrefix)) throw new Error('Invalid gateway parameter prefix.');
     // Durable regional repositories are activated separately and never owned by the disposable endpoint.
-    const repositoryNames = config.dnsRequired ? [...artifacts, 'dns-policy'] as const : artifacts;
+    const repositoryNames = [...artifacts, ...(config.dnsRequired ? ['dns-policy'] as const : []), ...(config.derp ? ['derp'] as const : [])];
+    const serverProtocols = ['xray', 'awg', ...(config.derp ? ['derp'] : [])];
     if (props.gateway?.images) {
       // Candidate task references must bind every executable member to an immutable regional manifest.
       const selected = props.gateway.images;
@@ -77,7 +79,8 @@ export class EcsEndpointStack extends Stack {
     const subnetRoutes = new ec2.CfnSubnetRouteTableAssociation(this, 'SubnetRoutes', { subnetId: subnet.ref, routeTableId: routes.ref });
     const security = new ec2.CfnSecurityGroup(this, 'SecurityGroup', {
       vpcId: vpc.ref, groupDescription: 'Authenticated VPN protocols; administration uses Session Manager',
-      securityGroupIngress: ['tcp', 'udp'].map(ipProtocol => ({ ipProtocol, fromPort: 443, toPort: 443, cidrIp: '0.0.0.0/0' })),
+      securityGroupIngress: [...['tcp', 'udp'].map(ipProtocol => ({ ipProtocol, fromPort: 443, toPort: 443, cidrIp: '0.0.0.0/0' })),
+        ...(config.derp?.allowedSources ?? []).map(cidrIp => ({ ipProtocol: 'udp', fromPort: derpPolicy.stunPort, toPort: derpPolicy.stunPort, cidrIp }))],
       securityGroupEgress: [{ ipProtocol: '-1', cidrIp: '0.0.0.0/0', description: 'VPN internet egress and AWS platform APIs' }],
     });
     let telemetry: ec2.CfnVPCEndpoint | undefined;
@@ -142,7 +145,7 @@ export class EcsEndpointStack extends Stack {
     const execution = new iam.Role(this, 'GatewayExecutionRole', { assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com') });
     for (const repository of Object.values(repositories)) repository.grantPull(execution);
     execution.addToPolicy(new iam.PolicyStatement({ actions: ['ssm:GetParameters'],
-      resources: ['xray', 'awg'].map(protocol => `arn:aws:ssm:${config.region}:${config.account}:parameter${parameterPrefix}/server/${protocol}`) }));
+      resources: serverProtocols.map(protocol => `arn:aws:ssm:${config.region}:${config.account}:parameter${parameterPrefix}/server/${protocol}`) }));
     const engines = (['xray', 'awg'] as const).map(protocol => ({ name: protocol, essential: true,
       image: props.gateway?.images?.[protocol] ?? `${repositories[protocol]!.repositoryUri}:${production}`,
       versionConsistency: 'enabled', cpu: 256, readonlyRootFilesystem: true,
@@ -181,21 +184,35 @@ export class EcsEndpointStack extends Stack {
         capabilities: { drop: ['ALL'] } },
       logConfiguration: { logDriver: 'json-file', options: { 'max-size': '1m', 'max-file': '1' } },
     }] : [];
+    const derp = config.derp ? [{
+      // New public listeners share AWG's address; the daemon owns destination dispatch and probe-source admission.
+      name: 'derp', essential: true, image: props.gateway?.images?.derp ?? `${repositories.derp!.repositoryUri}:${production}`,
+      entryPoint: ['/usr/local/bin/derp-tools', 'serve'], versionConsistency: 'enabled', cpu: 64, memory: 128,
+      readonlyRootFilesystem: true, user: '65532:65532', restartPolicy: { enabled: true, restartAttemptPeriod: 60 },
+      dockerSecurityOptions: ['no-new-privileges'], dependsOn: [{ containerName: 'gateway-config', condition: 'SUCCESS' }],
+      portMappings: [{ containerPort: derpPolicy.tlsPort, hostPort: derpPolicy.hostPort, protocol: 'tcp' },
+        { containerPort: derpPolicy.stunPort, hostPort: derpPolicy.stunPort, protocol: 'udp' }],
+      mountPoints: [{ sourceVolume: 'derp-config', containerPath: '/etc/ghostline/derp', readOnly: true }],
+      linuxParameters: { initProcessEnabled: true, capabilities: { drop: ['ALL'] } },
+      healthCheck: { command: ['CMD', '/usr/local/bin/derp-tools', 'health'], interval: 30, timeout: 5, retries: 3, startPeriod: 30 },
+      logConfiguration: { logDriver: 'json-file', options: { 'max-size': '1m', 'max-file': '1' } },
+    }] : [];
     const definition = new ecs.CfnTaskDefinition(this, 'GatewayTask', {
       family: `${config.resourceName}-gateway`, networkMode: 'bridge', requiresCompatibilities: ['EC2'],
       memory: String(memory.task), executionRoleArn: execution.roleArn,
       runtimePlatform: { cpuArchitecture: 'ARM64', operatingSystemFamily: 'LINUX' },
       volumes: [{ name: 'gateway-config', host: { sourcePath: configDirectory } },
-        ...(['xray', 'awg'] as const).map(protocol => ({ name: `${protocol}-config`, host: { sourcePath: `${configDirectory}/${protocol}` } }))],
-      containerDefinitions: [...engines, ...dns, {
+        ...serverProtocols.map(protocol => ({ name: `${protocol}-config`, host: { sourcePath: `${configDirectory}/${protocol}` } }))],
+      containerDefinitions: [...engines, ...dns, ...derp, {
         // Only the short-lived writer receives credentials. Both engines wait for the entire configuration set.
         name: 'gateway-config', essential: false, startTimeout: 60,
         image: props.gateway?.images?.['gateway-config'] ?? `${repositories['gateway-config']!.repositoryUri}:${production}`,
         versionConsistency: 'enabled', memory: 64, cpu: 16, user: '65532:65532', readonlyRootFilesystem: true, disableNetworking: true,
         dockerSecurityOptions: ['no-new-privileges'],
-        secrets: ['xray', 'awg'].map(protocol => ({ name: `GHOSTLINE_${protocol.toUpperCase()}_BUNDLE`,
+        secrets: serverProtocols.map(protocol => ({ name: `GHOSTLINE_${protocol.toUpperCase()}_BUNDLE`,
           valueFrom: `arn:aws:ssm:${config.region}:${config.account}:parameter${parameterPrefix}/server/${protocol}` })),
         mountPoints: [{ sourceVolume: 'gateway-config', containerPath: '/config', readOnly: false }],
+        ...(config.derp ? { environment: [{ name: 'GHOSTLINE_DERP_REQUIRED', value: 'true' }] } : {}),
         linuxParameters: { initProcessEnabled: true, capabilities: { drop: ['ALL'] } },
         logConfiguration: { logDriver: 'json-file', options: { 'max-size': '1m', 'max-file': '1' } },
       }],

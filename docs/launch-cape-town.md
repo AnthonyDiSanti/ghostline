@@ -11,6 +11,10 @@ Last active deployment: one official ECS-3 Bottlerocket ARM64 `t4g.small`, versi
 
 October 31 selection is the native-qualified minimal-CoreDNS release `sha256:0aca4d364d55bafd8ac093bc0169cbddceb9dc0f4d80c8f94a2778c903f37c9a`, with `ready:true`. Cape Town remains parked with no host or gateway task; its original EIPs and retained image identities remain. Release automation was restored to active mode without unparking. The new Go-probe image and ECS health command passed isolated Ireland and live Stockholm qualification, but have not run on a Cape Town host. The next `ecs unpark` must synthesize the current gateway task definition before accepting traffic.
 
+## DERP-ready parked state — November 17, 2026
+
+The seven-aware controller and qualified schema-v5 selector are ready; DERP identity/public pin provisioning adds two parameters without changing the prior seven values or either retained EIP. Final inventory confirms zero hosts/tasks, parked lifecycle, restored active controller mode and no operation/trial. No DERP service is running here. Retained last-verified runtime images remain historical six-image evidence; the selected seven-image release is ready for a later normal unpark. [Fleet runbook](derp-poc.md), evidence `.local/derp-implementation-2026-11-17/final-{continuity,release-acceptance,live-audit}.json`.
+
 ## Shared CoreDNS acceptance and return to parked state — 2026-10-26
 
 Normal `ecs unpark` selected the exact six-image schema-v4 release `sha256:c315a613f6401c92d1bdeaada6127ce2fb06eacc6b25ac766f19fdd9260c3524` on gateway task revision 7, including DNS image `sha256:2418cbeda31d4bfc62866277fcda405d06c6051d7e929d70a13d5ed7cc6d66ed`. Both original EIPs and client identities were preserved. Native host verification passed engine configuration, bridge isolation, private RAM, EIP egress, memory limits, no swap and HEALTHY GuardDuty v1.17.3. Both engine namespaces resolved A, AAAA and MX through intercepted port 53; live conntrack showed Cloudflare `1.1.1.1:853` and reply destination at the host primary `10.79.0.10`. Direct-path disposable REALITY and AWG clients loaded HTTPS through their original EIPs.

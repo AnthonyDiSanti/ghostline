@@ -70,11 +70,12 @@ with patch.object(host.guard.network, 'command') as lease_command, \
 # Docker's late MASQUERADE must never win over per-engine identity; repairs revoke leases first.
 events.clear()
 rules = '-A POSTROUTING -s 172.17.0.0/16 ! -o docker0 -j MASQUERADE\n-A POSTROUTING -j GHOSTLINE_SNAT'
+chain_rules = {}
 
 
 def ordering_command(args):
     if '-S' in args:
-        return rules
+        return chain_rules.get(args[-1], rules)
     events.append(args)
     return ''
 
@@ -96,6 +97,22 @@ assert events == []
 rules = '-A POSTROUTING -s 172.17.0.0/16 ! -o docker0 -j MASQUERADE'
 assert host.ensure_nat_order({})
 assert sum('-D' in event for event in events if isinstance(event, list)) == 1
+
+# A Docker restart must not send the AWG-address TCP443 connection to Xray before DERP dispatch.
+events.clear()
+chain_rules.update({'POSTROUTING': '-A POSTROUTING -j GHOSTLINE_SNAT',
+                    'PREROUTING': '-A PREROUTING -j DOCKER\n-A PREROUTING -j GHOSTLINE_PUBLIC\n-A PREROUTING -j GHOSTLINE_PUBLIC'})
+derp_config = {'derp': {'allowedSources': ['198.51.100.42/32']}}
+assert host.ensure_nat_order(derp_config)
+assert events[:3] == [['ipset', 'flush', 'GHOSTLINE_LIVE'], 'deny', 'guard']
+assert events.count(['iptables', '-w', '-t', 'nat', '-D', 'PREROUTING', '-j', 'GHOSTLINE_PUBLIC']) == 2
+assert events[-1] == ['iptables', '-w', '-t', 'nat', '-I', 'PREROUTING', '1', '-j', 'GHOSTLINE_PUBLIC']
+assert not any('DOCKER' in event for event in events if isinstance(event, list))
+events.clear()
+chain_rules['PREROUTING'] = '-A PREROUTING -j GHOSTLINE_PUBLIC\n-A PREROUTING -j DOCKER'
+assert not host.ensure_nat_order(derp_config)
+assert events == []
+chain_rules.clear()
 
 # Docker/application ACCEPT rules must never precede the lease check, including after duplicate jumps.
 events.clear()

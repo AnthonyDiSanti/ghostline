@@ -4,7 +4,7 @@
 
 **Prepared:** November 15, 2026
 
-**Status:** Proposed architecture; not yet deployed
+**Status:** Original standalone proposal; not deployed. The [selected Ghostline integration plan](../../docs/headscale.md) supersedes its ownership, sequence and immediate dual-stack requirements. The first implementation plan is the [Stockholm DERP PoC](../../docs/derp-poc.md). Retain as source context, not a competing deployment recipe.
 
 ## Objective
 

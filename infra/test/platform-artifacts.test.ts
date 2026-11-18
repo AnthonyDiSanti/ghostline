@@ -11,7 +11,7 @@ it('uses separate explicit build contexts for bootstrap authority and steady-sta
   expect(applicationArtifacts).toEqual(['xray', 'awg', 'gateway-config']);
   const bootstrap = releaseFiles('bootstrap');
   const daemon = releaseFiles('network-daemon');
-  expect(Object.keys(daemon).sort()).toEqual(['Dockerfile', 'daemon.py', 'discovery.py', 'dns-policy.json', 'guard.py', 'network.py', 'readiness.py']);
+  expect(Object.keys(daemon).sort()).toEqual(['Dockerfile', 'daemon.py', 'derp-policy.json', 'discovery.py', 'dns-policy.json', 'guard.py', 'network.py', 'readiness.py']);
   for (const name of ['bootstrap.py', 'storage.py', 'boot_observation.py', 'host_support.py', 'diagnostics.py', 'isolation.py', 'network-probe.py']) {
     expect(bootstrap[name]).toBeDefined();
     expect(daemon[name]).toBeUndefined();

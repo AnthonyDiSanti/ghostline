@@ -3,6 +3,14 @@ import type { ReleaseRecord } from './lifecycle.js';
 
 export interface OwnedResource { type: string; logicalId: string; id: string; stackId: string }
 export interface OwnedStack { id: string; name: string; resources: OwnedResource[]; outputs: Record<string, string> }
+export function teardownResources(status: string, resources: Array<{ ResourceStatus?: string; PhysicalResourceId?: string }>): typeof resources {
+  // Initial-create rollback retains billable resources too; omit resources CloudFormation already removed.
+  if (!['CREATE_COMPLETE', 'UPDATE_COMPLETE', 'UPDATE_ROLLBACK_COMPLETE', 'ROLLBACK_COMPLETE',
+    'DELETE_IN_PROGRESS', 'DELETE_FAILED', 'CREATE_FAILED', 'UPDATE_FAILED'].includes(status)) {
+    throw new Error('Regional stack is not ready for teardown.');
+  }
+  return resources.filter(resource => resource.PhysicalResourceId && resource.ResourceStatus !== 'DELETE_COMPLETE');
+}
 export type DestroyPhase = 'inventory' | 'quiesce' | 'replication' | 'endpoint' | 'support' | 'retained' | 'verify' | 'complete';
 export interface DestroyJournal {
   schema: 1; account: string; region: string; target: string; startedAt: string; owner: string;

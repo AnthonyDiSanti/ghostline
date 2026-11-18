@@ -1,4 +1,5 @@
 import { assertBenchmarkExclusion } from '../lib/benchmark/exclusion.js';
+import { reportTrialExclusion } from '../lib/releases/trial-exclusions.js';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
@@ -35,7 +36,10 @@ try {
   console.log(JSON.stringify({ target: config.id, phase: result.phase, retained: result.retained,
     persistent: ['Standard Parameter Store credentials', 'enabled regional GuardDuty', 'independent account CloudTrail'], pending: result.pending }, null, 2));
 } catch (error) {
+  if (reportTrialExclusion(error)) process.exitCode = 3;
+  else {
   console.error(error instanceof Error && error.constructor === Error ? error.message : `Regional cleanup failed (${(error as Error).name}).`);
   console.error(`Resume with the same command; exact pending work is recorded in ${path}.`);
   process.exitCode = 1;
+  }
 }

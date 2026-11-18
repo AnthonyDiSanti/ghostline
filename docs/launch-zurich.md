@@ -2,6 +2,14 @@
 
 Active fresh-install testing target `zurich`, account `757999402784`, profile `personal`, region `eu-central-2`, AZ `eu-central-2a`. Endpoint stack `GhostlineZurich`, resource prefix `ghostline-zurich`; use the common [ECS gateway recipe](ecs.md). Oregon remains primary, Stockholm remains active for testing and Cape Town remains parked.
 
+## DERP/STUN migration accepted — November 17, 2026 (New York)
+
+Current slot A host is `i-0c0e8edd4a979dad1`, ENI `eni-03b751d51ea180c9a`, official ECS-3 ARM64 Bottlerocket 1.66.0 AMI `ami-07ad8e7f604a7db4b`; gateway revision 2 runs qualified schema-v5 release `sha256:89ebce02a6f9ca9791fbba9213149573fc0766b9808ea70bef7affef97f052f2`. Native ECS completed SUCCESSFUL at `2026-11-18T00:02:35.244Z` with zero recorded health failures. Standard blue-green handoff, bake and source cleanup returned to one host and the two original EIPs: Xray `51.96.162.8`, AWG `16.18.122.26`.
+
+DERP TCP 443 and STUN UDP 3478 reuse the AWG address with admission restricted to the approved AWS probe exits. Native private-RAM/confinement verification and fresh exact-host GuardDuty HEALTHY v1.17.3 pass. Both disposable encrypted VPN clients pass HTTPS through the original EIPs; pinned public TLS, two-client relay and STUN pass through Oregon, and non-admitted relay/STUN/internal-port access is denied. All nine parameter metadata records, EIP allocations and protection settings are preserved. The controller is restored active with no operation/trial remaining.
+
+Evidence: `.local/derp-implementation-2026-11-17/zurich-{deploy,verify,clients,public}-seven.log`, `zurich-denial-seven.json`, `final-continuity.json` and `final-live-audit.json`. [Common evidence limits and native Mac route checks](derp-poc.md#qualification-and-acceptance) apply; native Headscale/Tailscale clients and uninterrupted sessions are later qualification.
+
 ## Clean starting state — November 7, 2026
 
 Initial live inventory found no active Ghostline stack, host, EIP or repository, but seven Standard SecureStrings, four log groups and one failure queue from September testing. Anthony explicitly requested purging Zurich. The normal `purge-region eu-central-2 plan` verified ownership and absence of live dependencies; the exact seven/four/one plan was reviewed before `execute`. Execution completed, and an independent subsequent plan reported zero parameters, logs, queues and task definitions with no live-resource blockers. Regional GuardDuty and independent shared account CloudTrail were retained. This is a fresh Ghostline infrastructure/identity installation, not first-time AWS region opt-in or account-security initialization.

@@ -1,7 +1,9 @@
-const repositories = '(?:XTLS/Xray-core|amnezia-vpn/amneziawg-(?:go|tools)|coredns/coredns)';
+const repositories = '(?:XTLS/Xray-core|amnezia-vpn/amneziawg-(?:go|tools)|coredns/coredns|tailscale/tailscale)';
 const metadata = new RegExp(`^/repos/${repositories}/(?:releases/latest|releases\\?per_page=1|tags\\?per_page=100&page=[1-9]\\d*|commits/v\\d+\\.\\d+\\.\\d+)$`);
 const archive = new RegExp(`^/${repositories}/tar\\.gz/[a-f0-9]{40}$`);
 const workflow = /^\/amnezia-vpn\/amneziawg-go\/[a-f0-9]{40}\/\.github\/workflows\/build-if-tag\.yml$/;
+const derpToolchain = /^\/tailscale\/tailscale\/[a-f0-9]{40}\/go\.toolchain\.rev$/;
+const derpToolchainRelease = /^\/repos\/tailscale\/go\/releases\/tags\/build-[a-f0-9]{40}$/;
 
 export function upstreamDownloadCommand(address: string): { executable: 'gh' | 'curl'; args: string[] } {
   // Authenticate only explicit GETs to the reviewed public upstream repositories. Do not let an
@@ -9,12 +11,12 @@ export function upstreamDownloadCommand(address: string): { executable: 'gh' | '
   const url = new URL(address);
   if (url.protocol !== 'https:' || url.username || url.password || url.port || url.hash) throw new Error('Unexpected upstream download URL.');
   const path = url.pathname + url.search;
-  if (url.hostname === 'api.github.com' && metadata.test(path)) {
+  if (url.hostname === 'api.github.com' && (metadata.test(path) || derpToolchainRelease.test(path))) {
     return { executable: 'gh', args: ['api', '--hostname', 'github.com', '--method', 'GET', path] };
   }
   // Raw source/workflow downloads stay anonymous; no token is exported or forwarded to curl.
   if ((url.hostname === 'codeload.github.com' && archive.test(path))
-    || (url.hostname === 'raw.githubusercontent.com' && workflow.test(path))) {
+    || (url.hostname === 'raw.githubusercontent.com' && (workflow.test(path) || derpToolchain.test(path)))) {
     return { executable: 'curl', args: ['--disable', '--fail', '--silent', '--show-error', '--location',
       '--proto', '=https', '--proto-redir', '=https', '--max-time', '90', address] };
   }

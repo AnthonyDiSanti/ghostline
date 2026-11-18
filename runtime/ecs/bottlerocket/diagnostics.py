@@ -101,7 +101,50 @@ def verify(config):
                           'hostAvailableMiB': next(int(line.split()[1]) // 1024 for line in Path('/proc/meminfo').read_text().splitlines()
                                                    if line.startswith('MemAvailable:'))}
     evidence['daemon'] = daemon_posture(config)
+    if config.get('derp'):
+        evidence['derp'] = derp_posture(config, peers)
     return evidence
+
+
+def derp_posture(config, peers):
+    # DERP admits inbound relay flows only; it must not inherit a VPN engine's internet egress permission.
+    ids = command(['docker', 'ps', '--filter', f'label=com.amazonaws.ecs.task-definition-family={config["family"]}-gateway',
+                   '--filter', 'label=com.amazonaws.ecs.container-name=derp', '--format', '{{.ID}}']).split()
+    if len(ids) != 1:
+        raise RuntimeError('Expected exactly one regional DERP container')
+    container = ids[0]
+    state = json.loads(command(['docker', 'inspect', '--format', '{{json .State}}', container]))
+    metadata = json.loads(command(['docker', 'inspect', '--format', '{{json .HostConfig}}', container]))
+    environment = json.loads(command(['docker', 'inspect', '--format', '{{json .Config.Env}}', container]))
+    if any(item.startswith(('GHOSTLINE_', 'AWS_')) and item.split('=', 1)[0] not in
+           {'AWS_REGION', 'AWS_DEFAULT_REGION', 'AWS_EXECUTION_ENV'} for item in environment):
+        raise RuntimeError('Unexpected DERP credential environment')
+    if metadata['Privileged'] or not metadata['ReadonlyRootfs'] or metadata['NetworkMode'] != 'bridge' or metadata['Memory'] != 128 * 1048576:
+        raise RuntimeError('DERP security or memory boundary differs')
+    pid = state['Pid']
+    status = dict(line.split(':', 1) for line in Path(f'/proc/{pid}/status').read_text().splitlines() if ':' in line)
+    if int(status['Uid'].split()[0]) != 65532 or int(status['CapEff'].strip(), 16) or status['NoNewPrivs'].strip() != '1' or status['Seccomp'].strip() != '2':
+        raise RuntimeError('DERP process confinement differs')
+    label = Path(f'/proc/{pid}/attr/current').read_text().strip()
+    if ':container_t:' not in label:
+        raise RuntimeError('DERP SELinux confinement differs')
+    directory = '/etc/ghostline/derp'
+    mounts = json.loads(command(['docker', 'inspect', '--format', '{{json .Mounts}}', container]))
+    mount = next(item for item in mounts if item['Destination'] == directory)
+    if mount['RW'] or mount['Source'] != '/mnt/ghostline/config/derp':
+        raise RuntimeError('DERP private mount differs')
+    root = Path(f'/proc/{pid}/root{directory}')
+    public = json.loads((root / 'public.json').read_text())
+    for name in ['public.json', 'derper.json', public['ip'] + '.crt', public['ip'] + '.key']:
+        path = root / name
+        attributes = path.stat()
+        if (attributes.st_uid, attributes.st_gid, stat.S_IMODE(attributes.st_mode)) != (65532, 65532, 0o400) or command(['stat', '-f', '-c', '%T', str(path)]) != 'tmpfs':
+            raise RuntimeError('DERP private RAM/file permissions differ')
+    command(['docker', 'exec', container, '/usr/local/bin/derp-tools', 'health'])
+    isolation = json.loads(command(['nsenter', '--target', str(pid), '--net', '--', 'python3', '/opt/ghostline/derp-network-probe.py',
+                                    config['awg'], config['xray'], *[peer['ip'] for peer in peers.values()]]))
+    return {'container': container, 'identity': public, 'configReadOnly': True, 'ramBacked': True,
+            'capabilities': [], 'noNewPrivileges': True, 'seccomp': True, 'memoryMiB': 128, 'healthy': True, **isolation}
 
 
 

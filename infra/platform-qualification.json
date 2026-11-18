@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "verifiedAt": "2026-10-30T23:31:36.696Z",
+  "verifiedAt": "2026-11-17T23:18:17.664Z",
   "os": {
     "variant": "aws-ecs-3",
     "architecture": "arm64",
@@ -14,12 +14,12 @@
   },
   "images": {
     "bootstrap": {
-      "buildTag": "sha-16b19ebb7dc28878a2c99e0236033740a084dea66b1ff85fc768a99268092528",
-      "runtimeDigest": "sha256:6a7698f083747f4d9955a00469a20f26f2e0c3e25847c920a70e632034515bbf"
+      "buildTag": "sha-9a93137df090b7040d2badd88d96b1f80f8205f66c187f3377f64cc43a25a445",
+      "runtimeDigest": "sha256:fa2a18dba6baf2b6255ff0eb2a63940afd22f7a6e21b87dbea2a6aae92648dc7"
     },
     "network-daemon": {
-      "buildTag": "sha-3401edf4b320699f36681136d72047706b208bba367a65b730078d20eca745ed",
-      "runtimeDigest": "sha256:9dbc028b7281b53d0dfc94e498865fe147eed771a3d3b294f66bd99b80d997b3"
+      "buildTag": "sha-f6b3922ea301ec3aa2bd2e736109558021b408645699ca062c2a25913bb4527c",
+      "runtimeDigest": "sha256:20a3ce0ab33d10fdb95e4af23e2bab003e2a00a03c549e8e5bc3f31c92760dd5"
     }
   }
 }

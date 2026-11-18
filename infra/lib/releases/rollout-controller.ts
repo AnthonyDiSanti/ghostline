@@ -9,6 +9,7 @@ import type { DeploymentHook } from './deployment-hook.js';
 export interface BlueGreenPorts extends RolloutPorts {
   registry: Registry;
   dnsRequired: boolean;
+  derpRequired?: boolean;
   template: string;
   record<T>(id: string): Promise<T | undefined>;
   put(id: string, value: unknown): Promise<void>;
@@ -37,7 +38,7 @@ export async function reconcileRollout(ports: BlueGreenPorts, action?: 'retry' |
     // Cleanup is not authorization to silently retry the same failed intent on the next hourly wakeup.
     await ports.progress(false); return { status: 'retry-required' };
   }
-  const ready = await readiness(ports.registry, ports.dnsRequired);
+  const ready = await readiness(ports.registry, ports.dnsRequired, ports.derpRequired);
   if (!ready.ready || !ready.current?.release.os.targetVersion) {
     await ports.alert(`incomplete/${ready.current?.digest ?? 'missing'}`, `Intentional rollout waits for a complete qualified release: ${ready.reason ?? 'missing target OS'}`);
     await ports.progress(false); return { status: 'waiting-for-release' };

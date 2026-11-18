@@ -1,5 +1,5 @@
 import { releaseArtifacts, releaseRepository, production, releaseSelector, repository, retainHistory, setIdentity, type Artifact, type Release } from './model.js';
-import { dnsReleaseArtifacts, imageArtifacts } from '../image-artifacts.js';
+import { derpReleaseArtifacts, dnsReleaseArtifacts, imageArtifacts } from '../image-artifacts.js';
 import { readRelease, type Manifest, type Registry, type ReleaseRecord } from './registry.js';
 
 export async function releaseHistory(registry: Registry, current: ReleaseRecord): Promise<ReleaseRecord[]> {
@@ -53,28 +53,36 @@ function windowArtifacts(slots: Array<{ names: readonly Artifact[] }>): Artifact
   return [...new Set(slots.flatMap(slot => slot.names))];
 }
 
-export type PublicationAdmission = 'five-image' | 'dns-migration-trial';
+export type PublicationAdmission = 'five-image' | 'dns-migration-trial' | 'derp-migration-trial';
 
-export function publicationSelection(dnsRequired: readonly boolean[]): {
-  schemaVersion: 3 | 4; names: readonly Artifact[]; admission: PublicationAdmission;
+export function publicationSelection(dnsRequired: readonly boolean[], derpRequired: readonly boolean[] = dnsRequired.map(() => false)): {
+  schemaVersion: 3 | 4 | 5; names: readonly Artifact[]; admission: PublicationAdmission;
 } {
   // A global selector must never expose a six-image intent while one maintained endpoint still expects five.
   if (!dnsRequired.length || dnsRequired.some(value => value !== dnsRequired[0])) {
     throw new Error('Maintained regions must agree on the DNS release schema before publication.');
   }
+  if (derpRequired.length !== dnsRequired.length || derpRequired.some(value => value !== derpRequired[0]) || derpRequired[0] && !dnsRequired[0]) {
+    throw new Error('Maintained regions must agree on the DERP release schema before publication.');
+  }
+  if (derpRequired[0]) return { schemaVersion: 5, names: derpReleaseArtifacts, admission: 'derp-migration-trial' };
   return dnsRequired[0]
     ? { schemaVersion: 4, names: dnsReleaseArtifacts, admission: 'dns-migration-trial' }
     : { schemaVersion: 3, names: imageArtifacts, admission: 'five-image' };
 }
 
-export function assertPublicationSchema(selected: 3 | 4, candidate: Release): void {
+export function assertPublicationSchema(selected: 3 | 4 | 5, candidate: Release): void {
   // Historical republishing must not strand endpoints on a document with the wrong task shape.
   if (candidate.schemaVersion !== selected) throw new Error('Retained release schema differs from maintained gateway configuration.');
 }
 
 function assertAdmitted(candidate: Release, current: Release | undefined, admission: PublicationAdmission): void {
+  // Seven-image publications require explicit fleet migration admission; ordinary push events cannot enable it.
+  if ((candidate.schemaVersion === 5 || current?.schemaVersion === 5) && admission !== 'derp-migration-trial') {
+    throw new Error('DERP-bearing release publication requires qualified seven-image migration admission.');
+  }
   // The DNS migration stays closed to ordinary publishers until client and regional acceptance authorizes it.
-  if (admission !== 'dns-migration-trial' && (candidate.schemaVersion === 4 || current?.schemaVersion === 4)) {
+  if (admission === 'five-image' && (candidate.schemaVersion === 4 || current?.schemaVersion === 4)) {
     throw new Error('DNS-bearing release publication is not enabled until all six-image runtime gates are qualified.');
   }
 }

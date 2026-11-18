@@ -1,4 +1,5 @@
 import { assertBenchmarkExclusion } from '../lib/benchmark/exclusion.js';
+import { reportTrialExclusion } from '../lib/releases/trial-exclusions.js';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -22,7 +23,7 @@ verifyAccount();
 const publication = getPublication();
 const publishers = publication.members;
 
-async function assertDnsControllersReady() {
+async function assertControllersReady(schemaVersion: 4 | 5) {
   // A replicated selector reaches every region, so migration must be held everywhere before alias rotation.
   const modes: ReleaseAutomationMode[] = [];
   for (const id of deploymentIds) {
@@ -31,16 +32,17 @@ async function assertDnsControllersReady() {
       FunctionName: 'ghostline-prod-release-gate',
     }));
     const env = result.Environment?.Variables;
-    if (env?.ENDPOINT_STACK !== config.stackName || env.DNS_REQUIRED !== 'true')
-      throw new Error(`${id}: install the DNS-aware release controller before six-image publication.`);
+    if (env?.ENDPOINT_STACK !== config.stackName || env.DNS_REQUIRED !== 'true'
+      || (env.DERP_REQUIRED === 'true') !== (schemaVersion === 5))
+      throw new Error(`${id}: install the matching release controller before publication.`);
     modes.push(releaseAutomationMode(env.AUTOMATION, env.OPERATOR_ONLY));
   }
   if (dnsPublicationControllerMode(modes) === 'active') {
-    // Once migration is over, allow normal publications only from a coherent six-image baseline.
+    // Once migration is over, require every region's complete configured artifact set before a routine publication.
     for (const id of deploymentIds) {
       const config = getDeployment(id);
-      const ready = await readiness(registry(config.region), true);
-      if (!ready.ready) throw new Error(`${id}: six-image production release is not ready: ${ready.reason}`);
+      const ready = await readiness(registry(config.region), true, schemaVersion === 5);
+      if (!ready.ready) throw new Error(`${id}: production release is not ready: ${ready.reason}`);
     }
   }
 }
@@ -48,8 +50,8 @@ async function assertDnsControllersReady() {
 async function publish() {
   const region = target && deploymentIds.includes(target) ? getDeployment(target).region : target;
   if (!region || !publication.members.includes(region)) throw new Error('Select an enrolled target or publication region.');
-  const selection = publicationSelection(deploymentIds.map(id => getDeployment(id).dnsRequired === true));
-  if (selection.schemaVersion === 4) await assertDnsControllersReady();
+  const selection = publicationSelection(deploymentIds.map(id => getDeployment(id).dnsRequired === true), deploymentIds.map(id => !!getDeployment(id).derp));
+  if (selection.schemaVersion === 4 || selection.schemaVersion === 5) await assertControllersReady(selection.schemaVersion);
   const destination = registry(region);
   const pending = await reconcileReplication();
   if (pending.includes(region)) throw new Error('Selected origin replication configuration is unresolved.');
@@ -69,17 +71,17 @@ async function publish() {
   await assertPublicationOrigin(destination, publication.members.filter(r => r !== region).map(region => ({ region, registry: registry(region) })), console.warn);
   let images: Release['images'];
   let os: Release['os'];
-  let schemaVersion: 3 | 4 = selection.schemaVersion;
+  let schemaVersion: 3 | 4 | 5 = selection.schemaVersion;
   if (reference) {
     if (!digestPattern.test(reference)) throw new Error('Select a retained release document by digest.');
     const old = await readRelease(destination, releaseRepository, reference);
     if (!old) throw new Error('Retained release is unavailable at the selected publisher.');
     if (old.release.schemaVersion < 3) throw new Error('Historical release has no selected OS; qualify its platform before republishing.');
     assertPublicationSchema(selection.schemaVersion, old.release);
-    schemaVersion = old.release.schemaVersion as 3 | 4;
+    schemaVersion = old.release.schemaVersion as 3 | 4 | 5;
     images = old.release.images; os = old.release.os;
   } else {
-    const path = resolve(root, `.local/deployments/image-builds/${schemaVersion === 4 ? 'qualified-dns.json' : 'qualified.json'}`);
+    const path = resolve(root, `.local/deployments/image-builds/${schemaVersion === 5 ? 'qualified-derp.json' : schemaVersion === 4 ? 'qualified-dns.json' : 'qualified.json'}`);
     if (!existsSync(path)) throw new Error('Run images:build once to qualify artifacts before publication.');
     const qualified = JSON.parse(readFileSync(path, 'utf8'));
     assertCurrentBuildQualification(qualified, selection.names);
@@ -103,7 +105,7 @@ async function publish() {
 
 async function status(id: string) {
   const gate = await operatorGate(id);
-  const ready = await readiness(gate.registry, gate.config.dnsRequired);
+  const ready = await readiness(gate.registry, gate.config.dnsRequired, gate.config.derpRequired);
   const lifecycle = await gate.record<{ mode: string }>('lifecycle');
   const actual = lifecycle?.mode === 'active' ? await gate.generation() : undefined;
   console.log(JSON.stringify({ target: id, release: ready.current, ready: ready.ready, reason: ready.reason,
@@ -136,7 +138,7 @@ try {
       }
     }
     // Seed before enabling outbound replication from a newly enrolled registry.
-    let seeded = (await readiness(registry(config.region), config.dnsRequired)).ready;
+    let seeded = (await readiness(registry(config.region), config.dnsRequired, !!config.derp)).ready;
     let unavailableSources = 0;
     const sources = [];
     for (const region of publishers) {
@@ -150,7 +152,7 @@ try {
       if (region === config.region) continue;
       try {
         if (!await readRelease(registry(region), releaseRepository, releaseSelector)) continue;
-        await seedRegion(registry(region), registry(config.region), config.dnsRequired === true); seeded = true; break;
+        await seedRegion(registry(region), registry(config.region), config.dnsRequired === true, !!config.derp); seeded = true; break;
       } catch (error) { console.warn(`${region}: seed attempt incomplete (${(error as Error).name}); try another available member.`); }
     }
     if (!seeded && (sources.length || unavailableSources)) throw new Error('Region is prepared but seeding is incomplete; replication enrollment remains pending.');
@@ -175,6 +177,9 @@ try {
   }
   if (['publish', 'reconcile', 'activate'].includes(action!)) await cleanPublicationRegions();
 } catch (error) {
+  if (reportTrialExclusion(error)) { process.exitCode = 3; }
+  else {
   console.error(error instanceof Error && error.constructor === Error ? error.message : `Release operation failed (${(error as Error).name}); details withheld.`);
   process.exitCode = 1;
+  }
 }

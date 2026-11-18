@@ -58,6 +58,11 @@ export async function probeImageTunnel(protocol: Protocol, server: string, engin
       writeFileSync(resolve(work, '..', `last-${protocol}-failure.json`), JSON.stringify(evidence), { mode: 0o600 });
     }
     assert.ok(passed, `${protocol}: synthetic encrypted application-data check`);
+    // Real encrypted traffic must not create a source/destination access record in either output stream.
+    const logs = execute(['logs', server], false);
+    const output = `${logs.stdout}${logs.stderr}`;
+    assert.ok(!/\b(?:accepted|rejected)\b/.test(output) && !output.includes(endpoint),
+      `${protocol}: production logs must omit synthetic connection identities`);
     if (protocol === 'awg') {
       // Reading only timestamps avoids displaying even disposable peer identities.
       const handshakes = docker(['exec', client, 'awg', 'show', 'client0', 'latest-handshakes']);

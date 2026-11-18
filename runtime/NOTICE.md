@@ -20,7 +20,13 @@ follow those terms. See upstream
   `/usr/share/licenses/`. The Alpine 3.24.1 runtime uses Ghostline's network
   startup and pinned direct packages, without a third-party supervisor.
 - Shared initializer: Alpine 3.24.1, jq 1.8.2-r0 and Ghostline's renderers.
-  It writes protocol-private RAM files; engines mount their own files read-only.
+  The DERP multi-target recipe supplies its static certificate renderer. It writes
+  protocol-private RAM files; engines mount their own files read-only.
+- DERP/STUN: unmodified `tailscale.com/cmd/derper` from the stable source commit
+  recorded in [image inputs](../infra/image-inputs.json), built with that source's
+  exact pinned Tailscale Go toolchain. The minimal `scratch` runtime includes CA
+  certificates, Ghostline's rendering/health entrypoint and the upstream BSD
+  license at `/usr/share/licenses/tailscale/LICENSE`. [Upstream source and terms](https://github.com/tailscale/tailscale/tree/v1.104.7).
 - Shared DNS: CoreDNS 1.15.0 official ARM64 binary and CA certificates by pinned
   upstream digest, packaged with a static Ghostline Go health command and
   Corefile in a minimal `scratch` runtime. CoreDNS uses the
@@ -29,7 +35,7 @@ follow those terms. See upstream
   [coredns/coredns](https://github.com/coredns/coredns). [Scope](../docs/dns.md).
 
 - Host bootstrap: `ecs/bottlerocket/bootstrap.Dockerfile` packages finite RAM/quarantine preparation and separately invoked diagnostics on Alpine 3.24.1, with explicitly versioned tools.
-- Network daemon: `ecs/bottlerocket/network-daemon.Dockerfile` packages only continued network/lease reconciliation, without Docker CLI or diagnostic/mount tooling. Both join the same six-image release pipeline. [Native qualification](../infra/platform-qualification.json) identifies qualified runtime bytes; AWS's official Bottlerocket AMI supplies the verified host OS/ECS agent and control container under their upstream terms.
+- Network daemon: `ecs/bottlerocket/network-daemon.Dockerfile` packages only continued network/lease reconciliation, without Docker CLI or diagnostic/mount tooling. Both join the same whole-stack release pipeline. [Native qualification](../infra/platform-qualification.json) identifies qualified runtime bytes; AWS's official Bottlerocket AMI supplies the verified host OS/ECS agent and control container under their upstream terms.
 
 No image contains server credentials or desktop-client code. Regional ECR
 publication uses immutable content identities. [Image policy](../docs/images.md)

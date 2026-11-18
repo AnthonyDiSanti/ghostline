@@ -37,7 +37,7 @@ def prepare_storage(config):
     kind, options = command(['findmnt', '-n', '-o', 'FSTYPE,OPTIONS', '--mountpoint', str(STORAGE)]).split()
     capacity = os.statvfs(STORAGE)
     validate_mount(kind, options, capacity.f_blocks * capacity.f_frsize, STORAGE.stat())
-    for name, mode in [('xray', 0o700), ('awg', 0o750)]:
+    for name, mode in [('xray', 0o700), ('awg', 0o750), *([('derp', 0o700)] if config.get('derp') else [])]:
         directory = STORAGE / name
         if directory.is_symlink():
             raise RuntimeError('Protocol storage cannot be a symbolic link')

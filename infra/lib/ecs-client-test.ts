@@ -45,7 +45,7 @@ export type ClientExercise = (client: { protocol: Protocol; request: (timeoutSec
 
 export async function testEcsClients(config: DeploymentConfig, root: string, work: string, outputs: Record<string, string>,
   images: Record<ApplicationArtifact, string>, exercise?: ClientExercise, benchmark?: { proxyImage: string; protocols?: Protocol[]; owner?: string;
-    onUnavailable?: (protocol: Protocol) => void }) {
+    onUnavailable?: (protocol: Protocol) => void }, fixture?: { profiles: string; protocols: Protocol[] }) {
   const platform = imagePlatform;
   const temporary = mkdtempSync(resolve(work, 'clients-'));
   function command(executable: string, args: string[], required = true): string {
@@ -66,9 +66,9 @@ export async function testEcsClients(config: DeploymentConfig, root: string, wor
         if (!networkInterface || networkInterface.startsWith('utun')) throw new Error('Disconnect the native VPN before direct regional client tests.');
       }
     }
-    for (const protocol of benchmark?.protocols ?? ['xray', 'awg'] as Protocol[]) {
+    for (const protocol of fixture?.protocols ?? benchmark?.protocols ?? ['xray', 'awg'] as Protocol[]) {
       const name = `ghostline-ecs-test-${randomUUID()}`;
-      const folder = resolve(root, '.local/recovery', `${config.id}-clients`);
+      const folder = fixture?.profiles ?? resolve(root, '.local/recovery', `${config.id}-clients`);
       const image = images[protocol];
       const volume = `${name}-config`;
       const expected = outputs[protocol === 'xray' ? 'EndpointIp' : 'AwgEndpointIp'];

@@ -4,6 +4,14 @@ Active additional proximity endpoint from Miami, requested November 8, 2026. Ore
 
 Target `nva`, account `757999402784`, region `us-east-1`, AZ `us-east-1a`, stack `GhostlineNva`, resource prefix `ghostline-nva`. Use the maintained catalog and common [ECS recipe](ecs.md), with no `GHOSTLINE_CATALOG` override or retained-publisher exception.
 
+## DERP/STUN migration accepted — November 17, 2026 (New York)
+
+Current slot A host is `i-05773fa514d0e5141`, ENI `eni-0b9a33703e4a2bdba`, official ECS-3 ARM64 Bottlerocket 1.66.0 AMI `ami-0334698af14d8bb05`; gateway revision 2 runs qualified schema-v5 release `sha256:89ebce02a6f9ca9791fbba9213149573fc0766b9808ea70bef7affef97f052f2`. Native ECS completed SUCCESSFUL at `2026-11-18T00:02:11.965Z` with zero recorded health failures. Standard blue-green handoff, bake and source cleanup returned to one host and the two original EIPs: Xray `32.193.23.120`, AWG `184.196.132.0`.
+
+DERP TCP 443 and STUN UDP 3478 reuse the AWG address with admission restricted to the approved AWS probe exits. Native private-RAM/confinement verification and fresh exact-host GuardDuty HEALTHY v1.17.3 pass. Both disposable encrypted VPN clients pass HTTPS through the original EIPs; pinned public TLS, two-client relay and STUN pass through Oregon, and non-admitted relay/STUN/internal-port access is denied. All nine parameter metadata records, EIP allocations and protection settings are preserved. The controller is restored active with no operation/trial remaining.
+
+Evidence: `.local/derp-implementation-2026-11-17/nva-{deploy,verify,clients,public}-seven.log`, `nva-denial-seven.json`, `final-continuity.json` and `final-live-audit.json`. [Common evidence limits and native Mac route checks](derp-poc.md#qualification-and-acceptance) apply; native Headscale/Tailscale clients and uninterrupted sessions are later qualification.
+
 ## Initialization and release preparation
 
 The prior trial's infrastructure, images, credentials, logs and queue were removed before this launch. Two old `ghostline-nva-fresh` task definitions were still non-runnable in AWS deletion progress at entry; final scoped readback across all three statuses now finds zero old-family records. Distinct maintained names and independently generated credentials avoid reuse. This is not first-time account security or region opt-in initialization.

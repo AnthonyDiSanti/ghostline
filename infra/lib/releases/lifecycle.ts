@@ -11,13 +11,17 @@ export interface LifecycleStore {
   replace(next: LifecycleState, previous?: LifecycleState): Promise<boolean>;
 }
 export class DynamoLifecycleStore implements LifecycleStore {
-  constructor(private readonly db: Pick<DynamoDBClient, 'send'>, private readonly table: string) {}
+  constructor(private readonly db: Pick<DynamoDBClient, 'send'>, private readonly table: string,
+    private readonly admission?: (kind: string) => Promise<void>) {}
+  async assertAdmission(kind: string): Promise<void> { await this.admission?.(kind); }
   async read(): Promise<LifecycleState | undefined> {
     const response = await this.db.send(new GetItemCommand({ TableName: this.table, Key: { id: { S: 'lifecycle' } }, ConsistentRead: true }));
     return response.Item?.record?.S ? JSON.parse(response.Item.record.S) as LifecycleState : undefined;
   }
   async replace(next: LifecycleState, previous?: LifecycleState): Promise<boolean> {
     // No TTL unlock: a killed CLI can leave an uncertain AWS operation, not permission for another writer to race it.
+    // Check after reading the lifecycle version: a concurrent trial writer changes that version, so CAS rejects the race.
+    if (next.operation && !previous?.operation) await this.assertAdmission(next.operation.kind);
     try {
       await this.db.send(new PutItemCommand({ TableName: this.table,
         Item: { id: { S: 'lifecycle' }, version: { N: String(next.version) }, record: { S: JSON.stringify(next) } },

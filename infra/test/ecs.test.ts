@@ -8,7 +8,8 @@ import { gatewayPlatform } from '../lib/gateway-platform.js';
 import { imageArtifacts, officialXrayImage, releaseFiles, releaseTag } from '../lib/ecs-release.js';
 
 afterAll(() => CloudAssembly.cleanupTemporaryDirectories());
-const config = { ...getDeployment('stockholm-ecs'), account: '000000000000' };
+// Keep the six-image migration baseline explicit; DERP's seven-image security contract has its own integration tests.
+const config = { ...getDeployment('stockholm-ecs'), account: '000000000000', derp: undefined };
 const { app, stack } = buildApp(config, { service: true, runtime: true });
 const template = Template.fromStack(stack);
 const resources = template.toJSON().Resources as Record<string, any>;

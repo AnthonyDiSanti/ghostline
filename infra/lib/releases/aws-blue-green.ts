@@ -19,7 +19,7 @@ import { nextAssociationChange } from './eip-handoff.js';
 import type { LifecycleMode } from './lifecycle.js';
 
 export interface BlueGreenConfig extends SlotStackConfig {
-  table: string; topic: string; cluster: string; service: string; progressRule: string; observerDocument: string; dnsRequired: boolean;
+  table: string; topic: string; cluster: string; service: string; progressRule: string; observerDocument: string; dnsRequired: boolean; derpRequired?: boolean;
 }
 interface Snapshot {
   inputs: SlotInputs; slots: Record<HostSlot, SlotObservation>; addresses?: HandoffAddresses; bindings?: AddressObservation;
@@ -36,6 +36,7 @@ export class AwsBlueGreen extends ReleaseState implements RolloutPorts {
     this.probe = new HostProbe(config.observerDocument, clients.ssm, this);
   }
   get dnsRequired() { return this.config.dnsRequired; }
+  get derpRequired() { return this.config.derpRequired; }
   async save(next: Rollout, previous: Rollout): Promise<void> {
     if (!await this.replace('rollout/current', next, previous)) throw new Error('Concurrent rollout state change.');
   }
@@ -110,7 +111,7 @@ export class AwsBlueGreen extends ReleaseState implements RolloutPorts {
     const snapshot = await this.inventory(rollout);
     const green = snapshot.slots[rollout.green], blue = snapshot.slots[rollout.source.slot];
     const [ready, tasks, greenProbe, blueProbe, deployment] = await Promise.all([
-      readiness(this.registry, this.config.dnsRequired).catch(async () => {
+      readiness(this.registry, this.config.dnsRequired, this.config.derpRequired).catch(async () => {
         // A failed registry read denies forward promotion but cannot suppress independently verified return-to-blue safety work.
         await this.alert(`${rollout.id}/registry-observation`, 'Release metadata is unreadable; forward promotion is withheld. Existing runtime and rollback observations continue.');
         return { ready: false, current: undefined };
@@ -201,7 +202,7 @@ export class AwsBlueGreen extends ReleaseState implements RolloutPorts {
         }
         break;
       case 'force': {
-        const ready = await readiness(this.registry, this.config.dnsRequired);
+        const ready = await readiness(this.registry, this.config.dnsRequired, this.config.derpRequired);
         if (!ready.ready || ready.current?.digest !== rollout.release || this.candidate(green) !== 'eligible'
           || this.candidate(snapshot.slots[rollout.source.slot]) !== 'ineligible') throw new Error('Release/placement changed immediately before force deployment.');
         await this.clients.ecs.send(new UpdateServiceCommand({ cluster: this.config.cluster, service: this.config.service, forceNewDeployment: true })); break;

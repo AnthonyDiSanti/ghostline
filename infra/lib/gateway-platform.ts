@@ -38,7 +38,8 @@ export function gatewayPlatform(config: DeploymentConfig, guardDuty: boolean, sl
   const memory = ecsMemoryBudget(config.instanceType);
   const settings = { family: config.resourceName, ...slotAddresses(slot),
     taskMemory: memory.task, reservedMemory: memory.reserved,
-    ...(config.dnsRequired ? { dnsRequired: true, dnsSource: slotPrimaryAddress(slot) } : {}) };
+    ...(config.dnsRequired ? { dnsRequired: true, dnsSource: slotPrimaryAddress(slot) } : {}),
+    ...(config.derp ? { derp: config.derp } : {}) };
   const encoded = (phase: string) => Buffer.from(JSON.stringify({ ...settings, phase })).toString('base64');
   return {
     bootstrapImage: image, daemonImage: images?.daemon ?? `${registry}/${repository('network-daemon')}:${production}`,
@@ -71,7 +72,8 @@ export function networkTaskDefinition(config: DeploymentConfig, image: string, e
       user: '0:0', cpu: 32, readonlyRootFilesystem: true, privileged: false,
       entryPoint: ['python3', '/opt/ghostline/daemon.py'],
       environment: [{ name: 'GHOSTLINE_NETWORK', value: JSON.stringify({ family: config.resourceName, ...slotAddresses(slot),
-        ...(config.dnsRequired ? { dnsRequired: true, dnsSource: slotPrimaryAddress(slot) } : {}) }) }],
+        ...(config.dnsRequired ? { dnsRequired: true, dnsSource: slotPrimaryAddress(slot) } : {}),
+        ...(config.derp ? { derp: config.derp } : {}) }) }],
       dockerSecurityOptions: ['no-new-privileges'],
       // NET_RAW is required by iptables' IP-set matcher; all other capabilities remain dropped.
       linuxParameters: { initProcessEnabled: true, capabilities: { drop: ['ALL'], add: ['NET_ADMIN', 'NET_RAW'] },

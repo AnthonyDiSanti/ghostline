@@ -41,10 +41,9 @@ export async function pruneRegionalArtifacts(registry: EcrRegistry, credentials:
 
 export async function regionalArtifactInventory(registry: EcrRegistry, history: ReleaseRecord[],
   runtime: ArtifactReference[]): Promise<ArtifactInventory[]> {
-  // A five-image region may not have created the DNS repository yet; a protected DNS reference makes its absence fatal.
-  const dnsRepository = repository('dns-policy');
-  const dnsRequired = history.some(record => releaseArtifacts(record.release).includes('dns-policy'))
-    || runtime.some(ref => ref.repository === dnsRepository);
+  // Expansion repositories may be absent historically; any protected document/runtime reference makes absence fatal.
+  const optional = new Map((['dns-policy', 'derp'] as const).map(name => [repository(name),
+    history.some(record => releaseArtifacts(record.release).includes(name)) || runtime.some(ref => ref.repository === repository(name))]));
   const inventory: ArtifactInventory[] = [];
   for (const name of repositoryArtifacts) {
     const repo = repository(name);
@@ -53,7 +52,7 @@ export async function regionalArtifactInventory(registry: EcrRegistry, history: 
       let page;
       try { page = await registry.client.send(new DescribeImagesCommand({ repositoryName: repo, nextToken, maxResults: 100 })); }
       catch (error) {
-        if (repo === dnsRepository && !dnsRequired && !nextToken
+        if (optional.get(repo) === false && !nextToken
           && (error as Error).name === 'RepositoryNotFoundException') break;
         throw error;
       }
@@ -76,6 +75,9 @@ async function prune(registry: EcrRegistry, credentials: AwsCredentialIdentityPr
   // Operator publication is serialized. Runtime Lambda has no image-write/delete authority.
   const current = await readRelease(registry, releaseRepository, releaseSelector);
   if (!current) return;
+  // Publication markers can arrive during replication. No deletion was issued, so defer without holding deployment exclusion.
+  const defer = () => report(`${registry.region}: image cleanup deferred while release publication is changing or protected.`);
+  if (await registry.get(releaseRepository, 'keep-publishing-release')) { defer(); return; }
   const runtime = config ? await retainedRuntime(config, credentials) : [];
   if (!runtime) { report(`${registry.region}: image cleanup deferred until stable runtime/power observations are available.`); return; }
   const history = await releaseHistory(registry, current);
@@ -85,7 +87,7 @@ async function prune(registry: EcrRegistry, credentials: AwsCredentialIdentityPr
   for (const item of plan.remove) {
     // Recheck publication intent and mutable protections before each bounded deletion, including interrupted publications.
     if ((await readRelease(registry, releaseRepository, releaseSelector))?.digest !== current.digest
-      || await registry.get(releaseRepository, 'keep-publishing-release')) throw new Error('Release intent changed during cleanup.');
+      || await registry.get(releaseRepository, 'keep-publishing-release')) { defer(); return; }
     const detail = await registry.client.send(new DescribeImagesCommand({ repositoryName: item.repository, imageIds: [{ imageDigest: item.digest }] }));
     if (detail.imageDetails?.some(image => image.imageTags?.some(tag => tag.startsWith('keep-')))) throw new Error('Image became protected during cleanup.');
     const removed = await registry.client.send(new BatchDeleteImageCommand({ repositoryName: item.repository, imageIds: [{ imageDigest: item.digest }] }));

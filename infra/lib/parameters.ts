@@ -7,17 +7,17 @@ import type { DeploymentConfig } from './config.js';
 
 export interface CredentialParameter { name: string; value: string; system: string }
 
-export function serverParameterNamesFor(prefix = '/ghostline/prod'): string[] {
+export function serverParameterNamesFor(prefix = '/ghostline/prod', derpRequired = false): string[] {
   // Keep metadata preflight and task secret references in the same validated namespace.
   if (!/^\/ghostline\/(?:prod|trial\/[a-z0-9-]+)$/.test(prefix)) throw new Error('Invalid credential parameter prefix.');
-  return ['xray', 'awg'].map(protocol => `${prefix}/server/${protocol}`);
+  return ['xray', 'awg', ...(derpRequired ? ['derp'] : [])].map(protocol => `${prefix}/server/${protocol}`);
 }
 
 export const serverParameterNames = serverParameterNamesFor();
 
-export function assertServerParameterMetadata(parameters: Array<{ Name?: string; Type?: string }>, prefix = '/ghostline/prod'): void {
+export function assertServerParameterMetadata(parameters: Array<{ Name?: string; Type?: string }>, prefix = '/ghostline/prod', derpRequired = false): void {
   // Deployment needs existence/type only; avoid decrypting server credentials just to discard their values.
-  const names = serverParameterNamesFor(prefix);
+  const names = serverParameterNamesFor(prefix, derpRequired);
   if (parameters.length !== names.length || !names.every(name =>
     parameters.some(parameter => parameter.Name === name && parameter.Type === 'SecureString'))) {
     throw new Error('Both server parameters must exist as SecureStrings before deployment.');

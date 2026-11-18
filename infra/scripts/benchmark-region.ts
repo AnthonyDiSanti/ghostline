@@ -11,7 +11,7 @@ if (profile.retainedMembers.includes(config.region)) throw new Error('Cannot ben
 if ((await readRelease(registry(source), releaseRepository, releaseSelector))?.digest !== expected) throw new Error('Release changed before benchmark activation.');
 // Reuse source identities/history and membership machinery without redeploying production release stacks.
 await deployReleaseRegion(config.region, 'held');
-await seedRegion(registry(source), registry(config.region), config.dnsRequired === true);
+await seedRegion(registry(source), registry(config.region), config.dnsRequired === true, !!config.derp);
 profile.members = [...new Set([...old, config.region])];
 persistPublication(profile);
 const pending = await reconcileReplication(profile, old);

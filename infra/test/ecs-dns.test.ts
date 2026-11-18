@@ -11,5 +11,6 @@ test('CoreDNS uses only host-allowed encrypted upstreams and blocks the retired 
   expect(corefile).toContain('rcode NXDOMAIN');
   expect(corefile).toContain('failfast_all_unhealthy_upstreams');
   expect(corefile).toContain('policy sequential');
+  expect(corefile).not.toMatch(/^\s*(?:errors|log)(?:\s|$)/m);
   expect(corefile).not.toMatch(/(?:dns|https):\/\//);
 });

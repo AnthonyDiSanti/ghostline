@@ -1,10 +1,10 @@
 # Bottlerocket platform
 
-Every regional gateway uses AWS's official ECS-3 ARM64 Bottlerocket OS. The supported image includes the ECS agent and restricted SSM control container. Oregon runs the qualified split-image release on official 1.66.0; Stockholm and Cape Town are parked. Their launch records and the [handoff](../.context/handoff.md) record observed identities, validation limits and remaining upstream limitations.
+Every regional gateway uses AWS's official ECS-3 ARM64 Bottlerocket OS. The supported image includes the ECS agent and restricted SSM control container. Oregon, NVA, Stockholm and Zurich run official1.66.0; Cape Town is parked. Launch records and the [handoff](../.context/handoff.md) own observed identities, validation limits and remaining upstream limitations.
 
 ## Images and ownership
 
-The common pipeline builds, qualifies and publishes six images: bootstrap, network-daemon, gateway-config, Xray, AWG and private CoreDNS policy. `GhostlineRelease` owns their local `ghostline/prod/` repositories plus the non-runnable `releases` metadata repository. There is no independent helper release cadence. CDK owns static local `keep-production` references and native settings; publication owns their targets and the authoritative whole-stack document. [Release workflow](releases.md).
+The common pipeline builds, qualifies and publishes seven images: bootstrap, network-daemon, gateway-config, Xray, AWG, private CoreDNS policy and DERP/STUN. `GhostlineRelease` owns their local repositories plus non-runnable `releases` metadata. There is no independent helper cadence. CDK owns static local references/native settings; publication owns their targets and the whole-stack document. The DERP native experiment is underway; do not infer its qualification from the prior six-image proof. [Release workflow](releases.md).
 
 The finite bootstrap image contains host preparation and explicitly invoked diagnostics. The separate daemon image excludes Docker CLI, mount tools, diagnostic fixtures and bootstrap-only dependencies. They share pure guard/network primitives in source, not authority or lifecycle. A successful `infra/platform-qualification.json` binds reusable native evidence to exact platform runtime manifests and build inputs; local image checks remain mandatory for each build. **Fresh native qualification must record the accepted startup availability limitation described below; prior failure evidence is never relabeled as a successful rollout.**
 

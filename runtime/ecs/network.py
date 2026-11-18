@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Reconcile named ECS bridge peers without granting them host network access."""
 import json
+import ipaddress
 import subprocess
 from pathlib import Path
 
 DNS_SETTINGS = json.loads(Path(__file__).with_name('dns-policy.json').read_text())
+DERP_SETTINGS = json.loads(Path(__file__).with_name('derp-policy.json').read_text())
+DERP_PORTS = [('tcp', 443, int(DERP_SETTINGS['tlsPort'])), ('udp', int(DERP_SETTINGS['stunPort']), int(DERP_SETTINGS['stunPort']))]
 
 
 def command(args, data=None):
@@ -32,7 +35,8 @@ def replace_chain(table, chain, rules):
 def policy(config, peers):
     # Identify egress by container address, never by transport of the tunneled user traffic.
     interface = config['interface']
-    if set(peers) - {'xray', 'awg', 'dns-policy'}:
+    sources = derp_sources(config)
+    if set(peers) - {'xray', 'awg', 'dns-policy', *(['derp'] if sources else [])}:
         raise RuntimeError('Unknown bridge peer')
     rules = ['-i docker0 -d 169.254.0.0/16 -j DROP']
     nat = []
@@ -53,6 +57,15 @@ def policy(config, peers):
         if name == 'dns-policy':
             continue
         source = peer['ip']
+        if name == 'derp':
+            # Relaying/STUN need replies on admitted inbound flows, not new arbitrary internet connections.
+            rules.append(f'-i docker0 -s {source}/32 -o {interface} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT')
+            for allowed in sources:
+                for transport, public_port, private_port in DERP_PORTS:
+                    rules.append(f'-i {interface} -o docker0 -s {allowed} -d {source}/32 -p {transport} --dport {private_port} '
+                                 f'-m conntrack --ctorigdst {config["awg"]} --ctorigdstport {public_port} -j ACCEPT')
+            nat.append(f'-s {source}/32 -o {interface} -j SNAT --to-source {config["awg"]}')
+            continue
         address = config[name]
         transport = 'tcp' if name == 'xray' else 'udp'
         if config.get('dnsRequired'):
@@ -79,6 +92,33 @@ def policy(config, peers):
     return rules + ['-i docker0 -j DROP', '-o docker0 -j DROP', '-j RETURN'], nat + ['-j RETURN']
 
 
+def derp_sources(config):
+    # Validate again at the packet-filter boundary; malformed input must never broaden host admission.
+    derp = config.get('derp')
+    if derp is None:
+        return []
+    if not isinstance(derp, dict) or set(derp) != {'allowedSources'}:
+        raise RuntimeError('Invalid DERP admission configuration')
+    sources = derp['allowedSources']
+    if not isinstance(sources, list) or not 1 <= len(sources) <= 16 or len(set(sources)) != len(sources):
+        raise RuntimeError('DERP requires bounded unique probe sources')
+    for source in sources:
+        network = ipaddress.ip_network(source, strict=True)
+        if network.version != 4 or network.prefixlen != 32 or str(network) != source or str(network.network_address) == '0.0.0.0':
+            raise RuntimeError('DERP requires explicit IPv4 probe sources')
+    return sorted(sources)
+
+
+def public_redirect(config, peers):
+    # Dispatch the second TCP-443 destination before Docker's host-wide Xray mapping.
+    peer = peers.get('derp')
+    if not derp_sources(config) or not peer:
+        return ['-j RETURN']
+    return [f'-i {config["interface"]} -d {config["awg"]}/32 -p {transport} --dport {public_port} '
+            f'-j DNAT --to-destination {peer["ip"]}:{private_port}'
+            for transport, public_port, private_port in DERP_PORTS] + ['-j RETURN']
+
+
 def dns_redirect(config, peers):
     # Redirect both engines' port-53 traffic only to the currently leased private resolver.
     dns = peers.get('dns-policy') if config.get('dnsRequired') else None
@@ -102,9 +142,18 @@ def initialize(config):
     replace_chain('nat', 'GHOSTLINE_SNAT', nat)
     replace_chain('nat', 'GHOSTLINE_DNS', ['-j RETURN'])
     replace_chain('filter', 'GHOSTLINE_HOST', ['-i docker0 -j DROP', '-j RETURN'])
-    ingress = [
+    ingress = []
+    if derp_sources(config):
+        # Only approved AWG-address public tuples bypass the existing wrong-address drops.
+        for source in derp_sources(config):
+            for transport, port, _private in DERP_PORTS:
+                ingress.append(f'-i {config["interface"]} -s {source} -d {config["awg"]}/32 -p {transport} --dport {port} -j RETURN')
+        ingress.extend([f'-i {config["interface"]} -p tcp --dport {DERP_SETTINGS["hostPort"]} -j DROP',
+                        f'-i {config["interface"]} -p udp --dport {DERP_SETTINGS["stunPort"]} -j DROP'])
+        replace_chain('nat', 'GHOSTLINE_PUBLIC', ['-j RETURN'])
+    ingress.extend([
         f'-i {config["interface"]} -p tcp --dport 443 ! -d {config["xray"]}/32 -j DROP',
-        f'-i {config["interface"]} -p udp --dport 443 ! -d {config["awg"]}/32 -j DROP']
+        f'-i {config["interface"]} -p udp --dport 443 ! -d {config["awg"]}/32 -j DROP'])
     if config.get('dnsRequired'):
         # Docker publishes the metadata binding, but no outside packet may use it as a DNS listener.
         ingress.extend(f'-i {config["interface"]} -p {transport} --dport {DNS_SETTINGS["hostPort"]} -j DROP'
@@ -115,6 +164,8 @@ def initialize(config):
     ensure_jump('raw', 'PREROUTING', ['-j', 'GHOSTLINE_INGRESS'])
     ensure_jump('nat', 'POSTROUTING', ['-j', 'GHOSTLINE_SNAT'])
     ensure_jump('nat', 'PREROUTING', ['-j', 'GHOSTLINE_DNS'])
+    if derp_sources(config):
+        ensure_jump('nat', 'PREROUTING', ['-j', 'GHOSTLINE_PUBLIC'])
 
 
 def reconcile(config, peers, previous=None):
@@ -134,5 +185,7 @@ def reconcile(config, peers, previous=None):
     # Jump ownership/order is established at startup; ordinary restarts must not detach global policy.
     replace_chain('filter', 'GHOSTLINE', policy(config, peers)[0])
     replace_chain('nat', 'GHOSTLINE_DNS', dns_redirect(config, peers))
+    if derp_sources(config):
+        replace_chain('nat', 'GHOSTLINE_PUBLIC', public_redirect(config, peers))
     Path('/run/ghostline-network-state.json').write_text(json.dumps(peers))
     print('Reconciled protocol network identities: ' + ','.join(sorted(peers)), flush=True)

@@ -11,11 +11,13 @@ STORAGE = ROOT / 'mnt/ghostline/config'
 
 def command(args, data=None, timeout=90):
     # Only selected metadata leaves this process; commands that inspect keys never print their output.
-    result = subprocess.run(args, input=data, text=True, capture_output=True, timeout=timeout, check=False)
+    try:
+        result = subprocess.run(args, input=data, text=True, capture_output=True, timeout=timeout, check=False)
+    except (subprocess.SubprocessError, OSError):
+        raise RuntimeError('Host diagnostic operation failed; details withheld') from None
     if result.returncode:
-        # These platform tools receive only public networking/mount inputs, so their errors are diagnostic-safe.
-        detail = result.stderr.strip()[:500] if args[0] in {'ip', 'ipset', 'iptables', 'iptables-restore', 'mount'} else 'details withheld'
-        raise RuntimeError(f'{args[0]} {args[1] if len(args) > 1 else ""}: {detail}')
+        # Tool/argument error text can include addresses or file contents even for a failed operation.
+        raise RuntimeError('Host diagnostic operation failed; details withheld')
     return result.stdout.strip()
 
 

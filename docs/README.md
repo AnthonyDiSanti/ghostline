@@ -5,6 +5,7 @@ Current specifications describe one regional ECS gateway architecture. Git histo
 | Task | Read |
 | --- | --- |
 | Understand product intent and evidence limits | [Product](product.md) |
+| Integrate DERP/STUN and plan Headscale/Tailscale exits | [Integration plan](headscale.md), [DERP qualification and rollout](derp-poc.md), [regional trial tooling](candidate-releases.md) |
 | Change regional topology, ownership or cost tags | [Architecture](architecture.md) |
 | Understand containers, RAM, networking, memory and recovery | [ECS gateway](ecs.md) |
 | Review shared gateway DNS and its acceptance gates | [Gateway DNS](dns.md) |
@@ -12,6 +13,7 @@ Current specifications describe one regional ECS gateway architecture. Git histo
 | Build, test, deploy or add another region | [Development](development.md) |
 | Inspect image provenance and release policy | [Images](images.md), [runtime notice](../runtime/NOTICE.md) |
 | Publish, replicate, retain or recover whole-stack releases | [Release workflow](releases.md) |
+| Coordinate a regional canary and lifecycle exclusion | [Regional release trials](candidate-releases.md) |
 | Import credentials or review their security boundary | [Secrets](secrets.md) |
 | Stop, rebuild, park or release an exit | [Lifecycle](deployment-lifecycle.md) |
 | Verify shared account audit coverage | [CloudTrail](cloudtrail.md) |

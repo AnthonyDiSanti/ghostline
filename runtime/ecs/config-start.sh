@@ -13,7 +13,7 @@ esac
 
 cleanup() {
   # Failed preparation must not leave a partial configuration for a later engine.
-  if [ -n "$temporary" ]; then rm -f -- "$temporary"; fi
+  if [ -n "$temporary" ]; then rm -f -- "$temporary" "$temporary.quiet"; fi
 }
 trap cleanup EXIT
 
@@ -35,6 +35,9 @@ prepare() {
     printf '%s' "$encoded" | base64 -d > "$temporary" || return 1
     unset encoded
     jq -e 'type == "object"' "$temporary" > /dev/null || return 1
+    # Rewrite only diagnostic settings in RAM; keep imported credentials and protocol behavior intact.
+    jq -f /usr/local/share/ghostline/xray-log-policy.jq "$temporary" > "$temporary.quiet" || return 1
+    mv -f "$temporary.quiet" "$temporary" || return 1
   else
     printf '%s' "${GHOSTLINE_CONFIG:-}" > "$temporary" || return 1
     unset GHOSTLINE_CONFIG

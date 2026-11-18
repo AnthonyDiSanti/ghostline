@@ -7,16 +7,20 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { fromIni } from '@aws-sdk/credential-providers';
 import type { DeploymentConfig } from './config.js';
 import { claimLifecycle, completeLifecycle, DynamoLifecycleStore, failLifecycle, handoffToRelease, type LifecycleMode } from './releases/lifecycle.js';
+import { assertTrialAdmission, readActiveTrial, RegionalTrialExcluded } from './releases/trial-exclusions.js';
 
 export function lifecycleStore(config: DeploymentConfig) {
-  return new DynamoLifecycleStore(new DynamoDBClient({ region: config.region, credentials: fromIni({ profile: process.env.AWS_PROFILE ?? 'personal' }) }),
-    'ghostline-prod-release-attempts');
+  const db = new DynamoDBClient({ region: config.region, credentials: fromIni({ profile: process.env.AWS_PROFILE ?? 'personal' }) });
+  const table = 'ghostline-prod-release-attempts';
+  return new DynamoLifecycleStore(db, table, async kind => assertTrialAdmission(await readActiveTrial(db, table), kind, config.id, process.env.GHOSTLINE_TRIAL_ID));
 }
 export interface LifecycleControl { handoff(): Promise<void> }
 export async function withLifecycle<T>(config: DeploymentConfig, kind: string, run: (control: LifecycleControl) => Promise<T>, completed?: LifecycleMode): Promise<T> {
   const gate = await new LambdaClient({ region: config.region, credentials: fromIni({ profile: process.env.AWS_PROFILE ?? 'personal' }) })
     .send(new GetFunctionConfigurationCommand({ FunctionName: 'ghostline-prod-release-gate' }));
   if (gate.Environment?.Variables?.LIFECYCLE_SCHEMA !== '1') throw new Error('Deploy the coordinated regional release controller before lifecycle mutations.');
+  const store = lifecycleStore(config);
+  await store.assertAdmission(kind);
   // Persist the token before acquiring ownership so the exact CLI operation can resume after process death.
   const folder = fileURLToPath(new URL(`../../.local/deployments/${config.id}/`, import.meta.url));
   mkdirSync(folder, { recursive: true, mode: 0o700 });
@@ -39,9 +43,14 @@ export async function withLifecycle<T>(config: DeploymentConfig, kind: string, r
   }
   receipt.pid = process.pid;
   writeFileSync(path, JSON.stringify(receipt) + '\n', { mode: 0o600 });
-  const store = lifecycleStore(config);
   const requested = ['stop', 'park', 'destroy'].includes(kind) ? ({ stop: 'stopped', park: 'parked', destroy: 'destroying' } as const)[kind as 'stop' | 'park' | 'destroy'] : undefined;
-  const claim = await claimLifecycle(store, kind, receipt.owner, requested);
+  let claim;
+  try { claim = await claimLifecycle(store, kind, receipt.owner, requested); }
+  catch (error) {
+    // Admission rejected before the conditional write; preserve uncertain AWS errors for exact receipt resumption.
+    if (error instanceof RegionalTrialExcluded) renameSync(path, resolve(folder, 'last-lifecycle-operation.json'));
+    throw error;
+  }
   if (!claim) {
     // No cloud operation occurred; the receipt can safely retire, while another actor's claim remains untouched.
     renameSync(path, resolve(folder, 'last-lifecycle-operation.json'));

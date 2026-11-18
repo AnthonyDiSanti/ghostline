@@ -2,14 +2,23 @@
 
 Active testing target `stockholm-ecs`; profile `personal`; account `757999402784`; region `eu-north-1`, AZ `eu-north-1a`. [Oregon](launch-oregon.md) remains primary; Cape Town remains parked. Endpoint stack `GhostlineEcsTrial`, release repositories `GhostlineRelease`, resource prefix `ghostline-ecs-stockholm`. These are stable cloud identities for the common [gateway recipe](ecs.md).
 
-The November 7 unpark restored one official ECS-3 Bottlerocket ARM64 `t4g.small` on `1.66.0-1ad6b4a4`, with encrypted 2 GiB OS and 30 GiB data disks. Current slot A host is `i-050807719680c88b6`, ENI `eni-03a0465f4c1f019f8`, on unchanged release `sha256:0aca4d364d55bafd8ac093bc0169cbddceb9dc0f4d80c8f94a2778c903f37c9a`. The November 5 park retired the former slot A host `i-02e7d273eef7f1b9b` and ENI `eni-0e49668f9c808fc9a`; their removal did not change credentials or retained EIPs.
+The November 17 DERP/STUN migration runs qualified schema-v5 release `sha256:89ebce02a6f9ca9791fbba9213149573fc0766b9808ea70bef7affef97f052f2` on slot A host `i-067dbe46fe520168f`, ENI `eni-015766838454c7e58`, official ECS-3 ARM64 Bottlerocket `1.66.0-1ad6b4a4`. The `t4g.small` retains encrypted 2 GiB OS/30 GiB data disks and both original public endpoints. Historical launch/unpark evidence follows below.
 
 | Protocol | Retained EIP | Allocation | Slot A private address |
 | --- | --- | --- | --- |
 | Xray | `51.20.163.146` | `eipalloc-079db1eebf4b5cc78` | `10.79.0.11` |
 | AWG | `16.16.73.146` | `eipalloc-07627e295d844e8de` | `10.79.0.10` |
+| DERP / STUN | Same AWG EIP, TCP 443 / UDP 3478 | Same AWG allocation | `10.79.0.10` |
 
 Original client identities and existing profiles remain valid after the unpark. Anthony accepted both iOS ARM64 protocols on September 15; the November 7 checks below use disposable real clients and do not establish new native-device acceptance. Mac REALITY uses OneXraySE, AWG uses Amnezia. Repeated sleep/wake remains separate in [client stability](mac-client-stability.md).
+
+## DERP/STUN canary accepted — November 17, 2026
+
+Native ECS deployment `56wbRq7-E2qXYCveotPO4` completed SUCCESSFUL at 23:38:21Z with zero recorded health failures. Shared gateway revision 12 adds the restricted DERP/STUN container through the common blue-green path, retained-EIP handoff, bake and source retirement. Existing Xray/AWG endpoints and all nine parameter metadata records remain unchanged. The ordinary stop entrypoint deferred with exit 3 during the trial; after acceptance, trial finish verified the selected generation and cleared its exclusion while preserving manual mode for fleet rollout. Automation was restored after the remaining nodes passed acceptance.
+
+Native verification passed private RAM, pinned TLS/STUN health, no engine secret environments, confinement/outbound denial, memory/no OOM and administrative lockdown. Fresh exact-host GuardDuty is HEALTHY v1.17.3. Both real disposable encrypted VPN clients passed HTTPS through their original EIPs. Two upstream DERP clients relayed 1,024 bytes through the pinned public endpoint over Oregon, with real STUN; non-admitted TCP 443/internal 18443/UDP 3478 access was denied with a reachable Xray control. Mac OS/VPN routes were freshly checked disconnected/en0; the OneXray window was unavailable, so no fresh visual/native-app acceptance is claimed. No new Headscale/Tailscale native-client, IPv6, censorship or uninterrupted-session qualification follows.
+
+Evidence: `.local/derp-implementation-2026-11-17/stockholm-{deploy,verify,clients,public}-seven.log`, `stockholm-denial-seven.json`, trial begin/defer/finish receipts and `stockholm-canary-continuity.json`. [Core runbook](derp-poc.md).
 
 ## Unpark for testing — November 7, 2026
 

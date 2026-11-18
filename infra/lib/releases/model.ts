@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto';
 import { bootstrapRaceIssue } from '../bottlerocket-limitations.js';
-import { dnsReleaseArtifacts, imageArtifacts, legacyReleaseArtifacts, type ImageArtifact } from '../image-artifacts.js';
+import { derpReleaseArtifacts, dnsReleaseArtifacts, imageArtifacts, legacyReleaseArtifacts, type BuildArtifact, type ImageArtifact } from '../image-artifacts.js';
 
 export const artifacts = imageArtifacts;
-export type Artifact = ImageArtifact | 'dns-policy';
-export const repositoryArtifacts = [...dnsReleaseArtifacts, 'releases'] as const;
+export type Artifact = BuildArtifact;
+export const repositoryArtifacts = [...derpReleaseArtifacts, 'releases'] as const;
 export type RepositoryArtifact = typeof repositoryArtifacts[number];
 export const production = 'keep-production';
 export const releaseSelector = `${production}-release`;
@@ -12,6 +12,7 @@ export const releaseAnnotation = 'io.ghostline.release';
 export const manifestType = 'application/vnd.oci.image.manifest.v1+json';
 export const releaseType = 'application/vnd.ghostline.release.v3+json';
 export const dnsReleaseType = 'application/vnd.ghostline.release.v4+json';
+export const derpReleaseType = 'application/vnd.ghostline.release.v5+json';
 const historicalReleaseType = 'application/vnd.ghostline.release.v2+json';
 export const emptyConfig = Buffer.from('{}');
 export const digest = (bytes: string | Uint8Array) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
@@ -27,12 +28,12 @@ export interface ReleaseImage {
   buildTag: string;
 }
 export interface Release {
-  schemaVersion: 2 | 3 | 4;
+  schemaVersion: 2 | 3 | 4 | 5;
   promotionId: string;
   promotedAt: string;
   origin: string;
   platform: 'linux/arm64';
-  images: Record<ImageArtifact, ReleaseImage> & Partial<Record<'dns-policy', ReleaseImage>>;
+  images: Record<ImageArtifact, ReleaseImage> & Partial<Record<'dns-policy' | 'derp', ReleaseImage>>;
   os: { variant: 'aws-ecs-3'; architecture: 'arm64'; compatibleVersions: string[]; targetVersion?: string; knownLimitations?: string[] };
   sourceApplicationRelease?: string;
   history: string[];
@@ -40,19 +41,19 @@ export interface Release {
 
 export function releaseArtifacts(release: Pick<Release, 'schemaVersion'>): readonly Artifact[] {
   // Historical documents remain exact five-image records; v4 alone owns the DNS artifact.
-  return release.schemaVersion === 4 ? dnsReleaseArtifacts : legacyReleaseArtifacts;
+  return release.schemaVersion === 5 ? derpReleaseArtifacts : release.schemaVersion === 4 ? dnsReleaseArtifacts : legacyReleaseArtifacts;
 }
 
 export function observedArtifacts(images: Record<string, unknown>): readonly Artifact[] | undefined {
   // A live or parked generation must contain exactly one known schema's images before it can authorize recovery.
-  const names = Object.hasOwn(images, 'dns-policy') ? dnsReleaseArtifacts : legacyReleaseArtifacts;
+  const names = Object.hasOwn(images, 'derp') ? derpReleaseArtifacts : Object.hasOwn(images, 'dns-policy') ? dnsReleaseArtifacts : legacyReleaseArtifacts;
   return Object.keys(images).length === names.length && names.every(name => Object.hasOwn(images, name)) ? names : undefined;
 }
 
 export function parseRelease(value: unknown): Release {
   // Registry metadata is input, never authority to redirect the gate to another repository or architecture.
   const r = value as Release;
-  if (!r || ![2, 3, 4].includes(r.schemaVersion) || !/^[a-z0-9-]{8,100}$/.test(r.promotionId)
+  if (!r || ![2, 3, 4, 5].includes(r.schemaVersion) || !/^[a-z0-9-]{8,100}$/.test(r.promotionId)
     || !Number.isFinite(Date.parse(r.promotedAt)) || !/^[a-z]{2}(?:-[a-z]+)+-\d+$/.test(r.origin)
     || r.platform !== 'linux/arm64' || !Array.isArray(r.history) || r.history.length > 3
     || r.history.some(d => !digestPattern.test(d)) || new Set(r.history).size !== r.history.length
@@ -84,7 +85,7 @@ export function parseRelease(value: unknown): Release {
 export function releaseManifest(release: Release): string {
   // No subject link: history documents must survive even when an initializer is shared by many releases.
   const document = JSON.stringify(parseRelease(release));
-  const media = release.schemaVersion === 4 ? dnsReleaseType : release.schemaVersion === 3 ? releaseType : historicalReleaseType;
+  const media = release.schemaVersion === 5 ? derpReleaseType : release.schemaVersion === 4 ? dnsReleaseType : release.schemaVersion === 3 ? releaseType : historicalReleaseType;
   return JSON.stringify({ schemaVersion: 2, mediaType: manifestType, artifactType: media,
     config: { mediaType: 'application/vnd.oci.empty.v1+json', digest: digest(emptyConfig), size: emptyConfig.length },
     // ECR requires at least one layer. The annotation lets the gate read the checksum-bound document without blob credentials.
@@ -94,12 +95,12 @@ export function releaseManifest(release: Release): string {
 
 export function readReleaseManifest(manifest: string): Release {
   const value = JSON.parse(manifest);
-  if (value.mediaType !== manifestType || ![dnsReleaseType, releaseType, historicalReleaseType].includes(value.artifactType) || value.subject) throw new Error('Invalid release artifact.');
+  if (value.mediaType !== manifestType || ![derpReleaseType, dnsReleaseType, releaseType, historicalReleaseType].includes(value.artifactType) || value.subject) throw new Error('Invalid release artifact.');
   const document = value.annotations?.[releaseAnnotation];
   if (typeof document !== 'string' || value.layers?.length !== 1 || value.layers[0].mediaType !== value.artifactType
     || value.layers[0].digest !== digest(document) || value.layers[0].size !== Buffer.byteLength(document)) throw new Error('Release document checksum mismatch.');
   const release = parseRelease(JSON.parse(document));
-  const expected = release.schemaVersion === 4 ? dnsReleaseType : release.schemaVersion === 3 ? releaseType : historicalReleaseType;
+  const expected = release.schemaVersion === 5 ? derpReleaseType : release.schemaVersion === 4 ? dnsReleaseType : release.schemaVersion === 3 ? releaseType : historicalReleaseType;
   if (value.artifactType !== expected) throw new Error('Release schema and media type differ.');
   return release;
 }

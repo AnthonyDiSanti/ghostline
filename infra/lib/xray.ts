@@ -17,13 +17,13 @@ export function generateXrayProfiles(endpoint: string) {
       streamSettings: { network: 'tcp', security: 'reality', realitySettings: {
         dest: `${serverName}:443`, fingerprint: 'chrome', privateKey, serverNames: [serverName], shortIds: [shortId],
       } } }],
-    log: { loglevel: 'error' }, outbounds: [{ protocol: 'freedom' }],
+    log: { access: 'none', error: 'none', loglevel: 'none', dnsLog: false }, outbounds: [{ protocol: 'freedom' }],
   };
   const bundle = validateXrayBundle({
     files: { 'server.json': Buffer.from(JSON.stringify(server, null, 2) + '\n').toString('base64') },
   });
   const profiles = Object.fromEntries(peers.map(({ name, id }) => [name, {
-    log: { loglevel: 'error' },
+    log: { access: 'none', error: 'none', loglevel: 'none', dnsLog: false },
     inbounds: [{ listen: '127.0.0.1', port: 10808, protocol: 'socks', settings: { udp: true } }],
     outbounds: [{ protocol: 'vless', settings: { vnext: [{ address: endpoint, port: 443,
       users: [{ id, flow: 'xtls-rprx-vision', encryption: 'none' }] }] },

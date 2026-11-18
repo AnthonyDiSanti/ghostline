@@ -75,7 +75,7 @@ it('limits whole-stack effects to owned services, exact tagged host and a fixed 
   ]);
   expect(ecrRules[1].Properties.EventPattern.detail.eventName).toEqual(['PutImage']);
   template.resourceCountIs('AWS::DynamoDB::Table', 1);
-  template.resourceCountIs('AWS::ECR::Repository', 7);
+  template.resourceCountIs('AWS::ECR::Repository', 8);
   expect(Object.values(resources).filter(r => r.Type === 'AWS::ECR::Repository')
     .map(r => r.Properties.RepositoryName)).toContain('ghostline/prod/dns-policy');
   template.resourceCountIs('AWS::EC2::Instance', 0);
@@ -91,7 +91,7 @@ it('does not create a gateway or deployment controller in publisher-only regions
   const stack = new RegionalReleaseStack(app, 'Publisher', { env: { account: '000000000000', region: 'us-east-1' }, automation: 'active',
     tags: { Project: 'ghostline', Environment: 'prod', System: 'shared' } });
   const template = Template.fromStack(stack);
-  template.resourceCountIs('AWS::ECR::Repository', 7);
+  template.resourceCountIs('AWS::ECR::Repository', 8);
   for (const type of ['AWS::Lambda::Function', 'AWS::EC2::Instance', 'AWS::DynamoDB::Table', 'AWS::CloudTrail::Trail']) template.resourceCountIs(type, 0);
 });
 

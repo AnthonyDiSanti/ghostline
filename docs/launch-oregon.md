@@ -1,6 +1,14 @@
 # Oregon gateway evidence
 
-Selected Miami primary target `oregon`; profile `personal`; account `757999402784`; region `us-west-2`, AZ `us-west-2a`. Endpoint stack `GhostlineOregon`, first host stack `GhostlineOregon-Host-a`, resource prefix `ghostline-oregon`. Uses the common [gateway recipe](ecs.md), with no new runtime images or protocol choices.
+Selected Miami primary target `oregon`; profile `personal`; account `757999402784`; region `us-west-2`, AZ `us-west-2a`. Endpoint stack `GhostlineOregon`, first host stack `GhostlineOregon-Host-a`, resource prefix `ghostline-oregon`. Uses the common [gateway recipe](ecs.md).
+
+## DERP/STUN migration accepted — November 17, 2026 (New York)
+
+Current slot A host is `i-0f03f5dd29ff20e8d`, ENI `eni-0fad34db1f29ef4cf`, official ECS-3 ARM64 Bottlerocket 1.66.0 AMI `ami-014019f8497d4b260`; gateway revision 2 runs qualified schema-v5 release `sha256:89ebce02a6f9ca9791fbba9213149573fc0766b9808ea70bef7affef97f052f2`. Native ECS completed SUCCESSFUL at `2026-11-18T00:02:29.563Z` with zero recorded health failures. Standard blue-green handoff, bake and source cleanup returned to one host and the two original EIPs: Xray `32.188.31.172`, AWG `54.190.232.225`.
+
+DERP TCP 443 and STUN UDP 3478 reuse the AWG address with admission restricted to the approved AWS probe exits. Native private-RAM/confinement verification and fresh exact-host GuardDuty HEALTHY v1.17.3 pass. Both disposable encrypted VPN clients pass HTTPS through the original EIPs; pinned public TLS, two-client relay and STUN pass through NVA, and non-admitted relay/STUN/internal-port access is denied. All nine parameter metadata records, EIP allocations and protection settings are preserved. The controller is restored active with no operation/trial remaining.
+
+Evidence: `.local/derp-implementation-2026-11-17/oregon-{deploy,verify,clients,public}-seven.log`, `oregon-denial-seven.json`, `final-continuity.json` and `final-live-audit.json`. [Common evidence limits and native Mac route checks](derp-poc.md#qualification-and-acceptance) apply; native Headscale/Tailscale clients and uninterrupted sessions are later qualification.
 
 ## First launch — November 5, 2026 (New York)
 

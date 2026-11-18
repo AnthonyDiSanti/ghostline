@@ -2,6 +2,11 @@
 
 Consult before infrastructure/vendor work. Current behavior belongs in `docs/`; git history owns superseded implementations.
 
+- [DERP/STUN integration](../../docs/derp-poc.md) — implemented official-source ARM64 image, shared ECS task, IP-only certificate pins, private identity provisioning and restricted probe admission; central native qualification and all four running-region migrations pass; Cape Town stays parked.
+- [Regional release trials](../../docs/candidate-releases.md) — executable begin/deploy/status/finish coordination and shared regional exclusions around normal production canaries/manual mode/native blue-green. No independent candidate selector or power lifecycle.
+- [Headscale integration](../../docs/headscale.md) — selected scope/five milestones, future service roles and direct/relay/exit traffic paths, enrollment/state boundaries, IPv6 and privacy deferrals; restored from the earlier planning worktree.
+- [EIP quota requests](eip-quota-requests.md) — November 16 live readback: all 33 submitted requests approved and quota 20 applied; Bahrain remains unreachable/unsubmitted.
+- [Legacy insightfulappetite recovery](legacy-insightfulappetite-recovery.md) — November 16 completed instance/disk/ENI/EIP retirement, retained encrypted AMI/snapshot and restore metadata; no boot restore trial.
 - [Production host platform](../../docs/platform.md) — qualified Bottlerocket OS/platform selection, durable regional image publication, bootstrap/daemon boundaries and diagnostic lockdown.
 - [Bootstrap pattern audit and upstream issue](../scratch/2026-09-22-coordinated-release/bootstrap-pattern-audit.md) — supported native bootstrap use, the reproduced host-ctr snapshot gap, exact uncertainty, upstream PR and accepted startup limitation (the in-place retry controller is now retired in source).
 - [Host OS evaluation](host-os-evaluation.md) — Bottlerocket versus AL2023/other hosts, current GuardDuty support and custom network/RAM security tradeoffs; current deployment orchestration lives in the lifecycle specification.
@@ -18,7 +23,7 @@ Consult before infrastructure/vendor work. Current behavior belongs in `docs/`; 
 - [ECR placement, cost and retention](ecr-placement.md) — live inventory, completed cleanup, full regional price CSV, proposed reusable publisher pair, retention and regional-outage/cache limits.
 - [Event-driven releases](event-driven-releases.md) — AWS source findings and selected ownership/rollback/retention boundaries; implementation contract in [release workflow](../../docs/releases.md).
 - [ECR replication cluster plan](../scratch/2026-09-22-ecr-replication-cluster/plan.md) — incorporated into coordinated release work: historical full-mesh, whole-stack expansion and union retirement evidence; current membership and retirement are in the handoff.
-- [Secret boundary](../../docs/secrets.md) — six regional parameters, portable import directory, exact execution-role scope, read-only mounts and residual environment metadata.
+- [Secret boundary](../../docs/secrets.md) — protocol identities and three DERP server parameters, portable import directory, exact execution-role scope, read-only mounts and residual environment metadata.
 - [Development fixtures](../../docs/development.md#typescript-and-npm) — native scripts, explicit rendering, recursive syntax/lint checks and real-file tests.
 - [Oregon evidence](../../docs/launch-oregon.md), [Stockholm evidence](../../docs/launch-stockholm-ecs.md), [Zurich evidence](../../docs/launch-zurich.md), [Cape Town evidence](../../docs/launch-cape-town.md), [NVA evidence](../../docs/launch-nva.md) — actual resource identities and tested behavior; read before cloud changes.
 - [Mac client stability](../../docs/mac-client-stability.md) — OneXraySE routing/awake tests, crash evidence, unsafe retired watchdog and release-watch criteria.

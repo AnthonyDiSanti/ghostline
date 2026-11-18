@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import committed from '../deployment.json' with { type: 'json' };
+import { isIPv4 } from 'node:net';
 
 // A campaign uses the same recipe with an explicit private catalog; never rewrite the maintained catalog.
 export const catalogPath = process.env.GHOSTLINE_CATALOG
@@ -22,6 +23,7 @@ export interface DeploymentConfig {
   globalTags: Record<string, string>;
   dnsRequired?: boolean;
   parameterPrefix?: string;
+  derp?: { allowedSources: string[] };
 }
 
 export function validateGlobalTags(tags: Record<string, string>): Record<string, string> {
@@ -41,7 +43,7 @@ export function validateGlobalTags(tags: Record<string, string>): Record<string,
 }
 
 // Both maintained and temporary catalogs receive the same strict validation before synthesis.
-if (!defaults || Object.keys(defaults).some(k => !['account', 'instanceType', 'dataVolumeGiB', 'globalTags', 'deployments', 'imagePublication'].includes(k))
+if (!defaults || Object.keys(defaults).some(k => !['account', 'instanceType', 'dataVolumeGiB', 'globalTags', 'deployments', 'imagePublication', 'derp'].includes(k))
   || !defaults.deployments || Array.isArray(defaults.deployments) || !Object.keys(defaults.deployments).length) throw new Error('Invalid deployment catalog.');
 export const deploymentIds = Object.keys(defaults.deployments);
 for (const id of deploymentIds) getDeployment(id);
@@ -78,9 +80,17 @@ export function validateDeployment(config: DeploymentConfig): DeploymentConfig {
   if (config.parameterPrefix !== undefined && !/^\/ghostline\/(?:prod|trial\/[a-z0-9-]+)$/.test(config.parameterPrefix)) {
     throw new Error('Invalid credential parameter prefix.');
   }
+  // Pre-Headscale relays admit only explicitly reviewed probe addresses, never an anonymous public pool.
+  if (config.derp !== undefined && (!config.dnsRequired || !config.derp || Object.keys(config.derp).join(',') !== 'allowedSources'
+    || !Array.isArray(config.derp.allowedSources) || !config.derp.allowedSources.length || config.derp.allowedSources.length > 16
+    || new Set(config.derp.allowedSources).size !== config.derp.allowedSources.length
+    || config.derp.allowedSources.some(source => typeof source !== 'string' || source.split('/').length !== 2
+      || source.split('/')[1] !== '32' || !isIPv4(source.split('/')[0]!) || source === '0.0.0.0/32'))) {
+    throw new Error('DERP requires DNS and one to sixteen unique explicit IPv4 /32 probe sources.');
+  }
   // Reject unsupported configuration instead of retaining an implicit alternative deployment mode.
   const fields = new Set(['id', 'stackName', 'resourceName', 'account', 'region', 'availabilityZone',
-    'instanceType', 'dataVolumeGiB', 'globalTags', 'dnsRequired', 'parameterPrefix']);
+    'instanceType', 'dataVolumeGiB', 'globalTags', 'dnsRequired', 'parameterPrefix', 'derp']);
   if (Object.keys(config).some(key => !fields.has(key))) throw new Error('Unknown deployment configuration field.');
   return { ...config, globalTags: validateGlobalTags(config.globalTags) };
 }

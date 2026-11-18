@@ -1,7 +1,14 @@
 import { expect, it, vi } from 'vitest';
-import { assertExclusiveRegionalHosts, captureDetachedEndpoint, destroyRegion, type DestroyJournal, type DestroyPorts } from '../lib/regional-destroy.js';
+import { assertExclusiveRegionalHosts, captureDetachedEndpoint, destroyRegion, teardownResources, type DestroyJournal, type DestroyPorts } from '../lib/regional-destroy.js';
 import { getDeployment } from '../lib/config.js';
 const config = { ...getDeployment('stockholm-ecs'), id: 'disposable', region: 'eu-west-1' };
+it('cleans retained resources after initial-create rollback without requiring already-deleted logs or touching an in-flight stack', () => {
+  const retained = { PhysicalResourceId: 'owned-repository', ResourceStatus: 'DELETE_SKIPPED' };
+  const removed = { PhysicalResourceId: 'removed-log-group', ResourceStatus: 'DELETE_COMPLETE' };
+  expect(teardownResources('ROLLBACK_COMPLETE', [retained, removed, { ResourceStatus: 'CREATE_FAILED' }])).toEqual([retained]);
+  expect(() => teardownResources('ROLLBACK_IN_PROGRESS', [retained])).toThrow('not ready');
+  expect(() => teardownResources('CREATE_IN_PROGRESS', [retained])).toThrow('not ready');
+});
 function fixture() {
   let saved: DestroyJournal | undefined;
   const calls: string[] = [];

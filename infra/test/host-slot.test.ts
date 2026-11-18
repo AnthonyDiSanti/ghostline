@@ -49,7 +49,7 @@ it('gives each host a distinct address pair and owns temporary allocations separ
 
 it('renders an isolated six-image native candidate through the common endpoint and host templates', () => {
   // Qualification binds exact regional manifests and trial secrets without moving production aliases.
-  const trial = { ...config, dnsRequired: true };
+  const trial = { ...config, dnsRequired: true, derp: undefined };
   const image = (name: (typeof dnsReleaseArtifacts)[number]) =>
     `${trial.account}.dkr.ecr.${trial.region}.amazonaws.com/${repository(name)}@sha256:${'a'.repeat(64)}`;
   const images = Object.fromEntries(dnsReleaseArtifacts.map(name => [name, image(name)])) as Record<(typeof dnsReleaseArtifacts)[number], string>;

@@ -12,7 +12,9 @@ Use Node 24 and the strict TypeScript package under `infra/`, including its reus
 | `infra/lib/releases/`, `infra/lambda/release-gate.ts`, `infra/scripts/release.ts` | Global publication, regional image infrastructure and static-task deployment gate |
 | `infra/packages/notifications/` | Independent SNS event/alarm routing and private-parameter email subscription |
 | `infra/lib/ecs-memory.ts`, `infra/lib/bottlerocket-os.ts` | Memory budget and AWS host-image checks |
-| `infra/lib/ecs-release.ts`, `infra/lib/ecs-images.ts` | Six ARM64 image artifacts, content identities and publication |
+| `infra/lib/ecs-release.ts`, `infra/lib/ecs-images.ts` | Seven ARM64 image artifacts, content identities and publication |
+| `infra/lib/derp-*.ts`, `infra/scripts/derp.ts` | DERP identity provisioning, local/public protocol proofs and image checks |
+| `infra/lib/releases/trial-exclusions.ts`, `infra/scripts/trial.ts` | Shared regional admission and bounded production-canary coordination |
 | `infra/lib/stable-images.ts`, `infra/lib/upstream-download.ts`, `infra/image-inputs.json` | Stable resolution, scoped authenticated metadata reads and recorded verified build inputs |
 | `infra/lib/region-initialization*.ts`, `infra/scripts/init-region.ts` | Reviewed fresh-region identity/contact initialization and recoverable private staging |
 | `infra/lib/logged-nodejs-function.ts` | Local Node.js Lambda/log-group construction with explicit caller policy |
@@ -29,7 +31,7 @@ From `infra/`, run `npm ci` then `npm test`. Typecheck without emitting files; k
 
 Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra/test/fixtures/`, including nested programs. Bottlerocket TOML settings live beside the platform fixtures. `renderFixture()` replaces exact `@@NAME@@` slots once and rejects missing/unused inputs; it does not perform shell escaping or recursive expansion. Validate identifiers and encode transported files before rendering.
 
-`gatewayPlatform()` renders nonsecret Bottlerocket settings. The common six-image pipeline publishes distinct bootstrap/diagnostic and restricted daemon artifacts alongside the private DNS policy. Every meaningful component, host-template or qualified OS change prepares a temporary green host through the same native ECS/EIP rollout; unchanged releases remain no-ops. [Platform workflow](platform.md).
+`gatewayPlatform()` renders nonsecret Bottlerocket settings. The common seven-image pipeline publishes distinct bootstrap/diagnostic and restricted daemon artifacts alongside private DNS and DERP/STUN. Every meaningful component, host-template or qualified OS change prepares a temporary green host through the same native ECS/EIP rollout; unchanged releases remain no-ops. [Platform workflow](platform.md).
 
 ## Commands
 
@@ -41,9 +43,13 @@ Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra
 | `npm run lint:shell` / `npm run lint:docker` | Focused asset linting |
 | `npm run test:cdk` | Fresh offline synthesis of the maintained catalog |
 | `npm test` | Full local gate: typecheck, asset checks, synth and Vitest |
-| `npm run images:build` | Resolve official stable engines and CoreDNS, build/test the six-image release locally, then record the successful selection |
-| `npm run images:build -- coredns` | Refresh only official stable CoreDNS while reusing recorded engines; run the same six-image gate before recording |
-| `npm run test:ecs-images` | Build/test six release ARM64 artifacts, platform package boundaries and real local encrypted tunnels with synthetic credentials |
+| `npm run images:build` | Resolve stable engines, CoreDNS and DERP; build/test the seven-image release locally before recording inputs |
+| `npm run images:build -- coredns` | Refresh only CoreDNS while reusing recorded engines/DERP; run the full gate |
+| `npm run images:build -- --derp` | Refresh only DERP and run its focused local proof; still require whole-set qualification before publication |
+| `npm run test:ecs-images` | Check seven ARM64 artifacts, platform boundaries, real encrypted tunnels and DERP/STUN with synthetic credentials |
+| `npm run derp <target> provision` / `status` | Explicit no-overwrite DERP identity import/public pin status against the retained AWG IP |
+| `npm run derp <target> test -- --via <maintained-target>` | Probe pinned public relay/STUN through an admitted, different AWS AWG endpoint |
+| `npm run trial <target> begin` / `deploy` / `status` / `finish` | Coordinate a bounded manual-mode production canary and shared regional exclusion |
 | `npm run platform <target> status` | Observe actual boot, OS and component identities |
 | `npm run platform <target> qualify <qualified-file>` | Close central native qualification after the documented experiment; verify runtime and record exact platform/OS compatibility |
 | `npm run deployments` | List maintained targets; allocate nothing |
@@ -69,9 +75,9 @@ Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra
 
 The primary target is `oregon`; `stockholm-ecs` and `zurich` are active for testing; `cape-town` is the parked backup. Npm accepts these positional arguments without `--`; the delimiter is only useful when forwarding options such as `npm run test:assets -- --docker`. AWS commands use profile `personal`. CDK receives `GHOSTLINE_DEPLOYMENT` from the wrapper; only explicit `active`/`parked` lifecycle modes are supported. No SSH key or operator CIDR input exists.
 
-Maintained targets default to the six `/ghostline/prod` credential paths. An isolated private catalog may set a validated `parameterPrefix` under `/ghostline/trial/<name>`; the common endpoint task/IAM, metadata preflight, import, verification and profile export all use that same namespace. This keeps a disposable region's enrolled device identities separate while exercising the normal `park`/`ecs unpark` lifecycle. It does not add a maintained regional target. [Credential boundary](secrets.md), [Ireland evidence](../.context/scratch/2026-10-19-tor-retirement/tor-dns-trial.md#managed-ireland-trial--october-13-2026).
+Maintained engine/device credentials and DERP identities use `/ghostline/prod`; the secret inventory includes their exact paths and the separate release-alert contact. An isolated private catalog may set a validated `parameterPrefix` under `/ghostline/trial/<name>`; the common endpoint task/IAM, metadata preflight, import, verification and profile export all use that same namespace. This keeps a disposable region's enrolled device identities separate while exercising the normal `park`/`ecs unpark` lifecycle. It does not add a maintained regional target. [Credential boundary](secrets.md), [Ireland evidence](../.context/scratch/2026-10-19-tor-retirement/tor-dns-trial.md#managed-ireland-trial--october-13-2026).
 
-Use `images:build` for a new whole-set official stable selection with `gh` authenticated to `github.com`; use `images:build -- coredns` when only CoreDNS should advance. Both commands run the six-image local gate before recording `image-inputs.json`; review and commit that file. Publication and deployment reuse the selection without contacting release channels. [Image workflow and evidence limits](images.md). Use `ecs deploy` for a normal active rollout, including [regional GuardDuty](guardduty.md). First detector creation accepts AWS defaults plus supported Runtime Monitoring; existing detectors are discovered live and receive only missing available protection, preserving other settings. Confirmed service/feature gaps produce explicit reduced-protection results; access/installation failures still surface. `npm run deploy` delegates to the same coordinated ECS lifecycle; there is no second direct deployment path. The [release workflow](releases.md) prepares local images before initial infrastructure deployment; ordinary image updates use its gate without a CDK rollout. Never use `--all`, deploy a retired catalog recipe, or run an unreviewed change against a live exit.
+Use `images:build` for a new whole-set stable selection with `gh` authenticated to `github.com`. Review recorded inputs; publication/deployment reuse them without rediscovery. [Image workflow and evidence limits](images.md). `ecs deploy` uses the common native rollout and enable-only [GuardDuty reconciliation](guardduty.md); confirmed service gaps are reported, while access/installation failures remain errors. `npm run deploy` delegates to the same lifecycle. Never use `--all`, deploy a retired recipe or run an unreviewed live change. Active trial exclusions defer conflicting regional mutations with status 3; finish a verified trial before power operations. [Trial boundary](candidate-releases.md#operational-boundary).
 
 ## Explicit regional initialization
 

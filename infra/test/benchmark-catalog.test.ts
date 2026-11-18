@@ -8,7 +8,8 @@ describe('temporary catalog subprocess propagation', () => {
   it('writes membership only into the explicit temporary catalog', () => {
     const folder = mkdtempSync(resolve(tmpdir(), 'ghostline-catalog-'));
     const before = readFileSync('deployment.json', 'utf8'), catalog = JSON.parse(before);
-    catalog.deployments['bm-example'] = { region: 'eu-central-1', availabilityZone: 'eu-central-1a', stackName: 'GhostlineBenchmark-example-gateway', resourceName: 'bm-example' };
+    // Temporary targets inherit the shared protocol selection and must satisfy its DNS prerequisite.
+    catalog.deployments['bm-example'] = { region: 'eu-central-1', availabilityZone: 'eu-central-1a', stackName: 'GhostlineBenchmark-example-gateway', resourceName: 'bm-example', dnsRequired: true };
     const path = resolve(folder, 'deployment.json'); writeFileSync(path, JSON.stringify(catalog));
     try {
       const result = spawnSync(process.execPath, ['--import=tsx', '--input-type=module', '-e',
