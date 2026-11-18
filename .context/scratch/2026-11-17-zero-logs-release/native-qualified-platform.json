@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "verifiedAt": "2026-11-18T03:56:00.342Z",
+  "os": {
+    "variant": "aws-ecs-3",
+    "architecture": "arm64",
+    "compatibleVersions": [
+      "1.66.0"
+    ],
+    "targetVersion": "1.66.0",
+    "knownLimitations": [
+      "https://github.com/bottlerocket-os/bottlerocket-core-kit/issues/1059"
+    ]
+  },
+  "images": {
+    "bootstrap": {
+      "buildTag": "sha-21335724cbb25dec56b8d464d2159e3ca5c65f70c472ecb100eeddbd77a5b4ce",
+      "runtimeDigest": "sha256:747c24f33ef90cca7603b51559f9617df7b397211df2811c7f4e348e1be7ce60"
+    },
+    "network-daemon": {
+      "buildTag": "sha-19d1287de4f75f9f9a42ae14f484c1bb499f7a8fb5ca69e7807c4f1a20a37f15",
+      "runtimeDigest": "sha256:3af0f085d573bda1cf736c86aa4dff0e3c61d84f1b7ae5427c804b9827886464"
+    }
+  }
+}

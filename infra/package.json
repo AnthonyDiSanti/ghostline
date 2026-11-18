@@ -12,6 +12,7 @@
     "test:vitest": "vitest run",
     "test:ecs-images": "node --import=tsx scripts/ecs-image-test.ts",
     "test:derp-image": "node --import=tsx scripts/derp-image-test.ts",
+    "test:ram-runtime": "python3 -B test/fixtures/ram-runtime.py",
     "images:build": "node --import=tsx scripts/images-build.ts",
     "test:cdk": "node --import=tsx scripts/synth-test.ts",
     "test:assets": "python3 -B scripts/check-assets.py",

@@ -11,6 +11,10 @@ Last active deployment: one official ECS-3 Bottlerocket ARM64 `t4g.small`, versi
 
 October 31 selection is the native-qualified minimal-CoreDNS release `sha256:0aca4d364d55bafd8ac093bc0169cbddceb9dc0f4d80c8f94a2778c903f37c9a`, with `ready:true`. Cape Town remains parked with no host or gateway task; its original EIPs and retained image identities remain. Release automation was restored to active mode without unparking. The new Go-probe image and ECS health command passed isolated Ireland and live Stockholm qualification, but have not run on a Cape Town host. The next `ecs unpark` must synthesize the current gateway task definition before accepting traffic.
 
+## Credential release retained while parked — November 18, 2026
+
+Production selector is ready on `sha256:5e2731f3523b75340b39df164f714f1260dd2301c3aa293fb18ccf74ca741257` with its complete seven-image protected history and updated shared controller/host templates. Original active automation is restored; lifecycle stays parked with zero hosts/disks/tasks, both original endpoint allocation/IP pairs and all nine parameter metadata records unchanged. No native SDK loader acceptance is claimed on a Cape Town host. Normal unpark must synthesize the current direct-to-RAM task-role recipe before starting traffic. GuardDuty/EBS/CloudTrail settings are preserved. [Fleet closeout](../.context/scratch/2026-11-17-zero-logs-release/fleet-adoption.md).
+
 ## DERP-ready parked state — November 17, 2026
 
 The seven-aware controller and qualified schema-v5 selector are ready; DERP identity/public pin provisioning adds two parameters without changing the prior seven values or either retained EIP. Final inventory confirms zero hosts/tasks, parked lifecycle, restored active controller mode and no operation/trial. No DERP service is running here. Retained last-verified runtime images remain historical six-image evidence; the selected seven-image release is ready for a later normal unpark. [Fleet runbook](derp-poc.md), evidence `.local/derp-implementation-2026-11-17/final-{continuity,release-acceptance,live-audit}.json`.
@@ -118,3 +122,8 @@ Private migration evidence lives in `.local/diagnostics/cape-town-gateway-2026-0
 - The original source stack is `DELETE_COMPLETE`; old instance `i-017247cce7d2bf84f` is terminated. Its disk, ENI, VPC and SSH key are absent. Cape Town has exactly one active Ghostline host, one encrypted root volume, two original EIPs and one running gateway task. No temporary EIPs were allocated.
 
 All three content release tags match Stockholm. Current manifest digests are recorded above. Local builds are not claimed byte-identical across regional publication; [image provenance](images.md) defines the distinction.
+
+
+## Quiet logging release — November 17, 2026
+
+Retained production release intent is `sha256:a9ee9cfbc8a10b008e5e456d15f7713289def2184bd71e77de77f68c00d04cd7`. Cape Town remains parked with zero hosts and its original two endpoint allocations; no unpark, credential change or GuardDuty change occurred. [Release evidence](../.context/scratch/2026-11-17-zero-logs-release/README.md).

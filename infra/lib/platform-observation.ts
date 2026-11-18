@@ -4,7 +4,7 @@ import { isIPv4 } from 'node:net';
 
 export interface NetworkObservation {
   healthy: boolean;
-  peers: Partial<Record<'xray' | 'awg' | 'dns-policy' | 'derp',
+  peers: Partial<Record<'xray' | 'awg' | 'dns-policy' | 'derp' | 'gateway-config',
     { id: string; ip: string; task: string; started: string; restarts: number }>>;
 }
 
@@ -38,12 +38,14 @@ function parseNetworkObservation(value: unknown): NetworkObservation | undefined
   if (value === undefined || value === null) return undefined;
   const report = value as NetworkObservation & { schema: number };
   if (report.schema !== 1 || typeof report.healthy !== 'boolean' || !report.peers || Array.isArray(report.peers)
-    || Object.keys(report.peers).some(name => !['xray', 'awg', 'dns-policy', 'derp'].includes(name))
+    || Object.keys(report.peers).some(name => !['xray', 'awg', 'dns-policy', 'derp', 'gateway-config'].includes(name))
     || (!report.healthy && Object.keys(report.peers).length)) throw new Error('Network observation is malformed.');
-  for (const peer of Object.values(report.peers)) {
+  for (const [name, peer] of Object.entries(report.peers)) {
     if (!peer || !/^[a-f0-9]{64}$/.test(peer.id) || !isIPv4(peer.ip)
       || !/^arn:aws:ecs:[a-z0-9-]+:\d{12}:task\/[a-z0-9-]+\/[a-f0-9]{32}$/.test(peer.task)
-      || !Number.isFinite(Date.parse(peer.started)) || !Number.isSafeInteger(peer.restarts) || peer.restarts < 0) {
+      || !Number.isFinite(Date.parse(peer.started)) || !Number.isSafeInteger(peer.restarts) || peer.restarts < 0
+      // The initializer is a one-shot leased peer; observing it never establishes steady gateway readiness.
+      || name === 'gateway-config' && peer.restarts !== 0) {
       throw new Error('Network peer observation is malformed.');
     }
   }

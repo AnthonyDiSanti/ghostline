@@ -13,18 +13,26 @@ RUN mkdir -p /usr/local/go && tar -xzf /tmp/go.tar.gz -C /usr/local/go --strip-c
 ENV PATH="/usr/local/go/bin:${PATH}" CGO_ENABLED=0 GOTOOLCHAIN=local
 RUN go mod download && go mod verify
 COPY derp-tools.go derp-tools_test.go cmd/ghostline-derp-tools/
+COPY secret-loader.go secret-loader_test.go cmd/ghostline-secrets/
 RUN go test ./cmd/ghostline-derp-tools && \
+    go test ./cmd/ghostline-secrets && \
     go build -trimpath -ldflags="-s -w -X tailscale.com/version.longStamp=${DERP_VERSION} -X tailscale.com/version.shortStamp=${DERP_VERSION} -X tailscale.com/version.gitCommitStamp=${DERP_COMMIT}" -o /out/derper ./cmd/derper && \
-    go build -trimpath -ldflags='-s -w' -o /out/derp-tools ./cmd/ghostline-derp-tools
+    go build -trimpath -ldflags='-s -w' -o /out/derp-tools ./cmd/ghostline-derp-tools && \
+    go build -trimpath -ldflags='-s -w' -o /out/secret-loader ./cmd/ghostline-secrets
+COPY --chmod=755 collect-go-licenses.sh /usr/local/bin/collect-go-licenses
+RUN collect-go-licenses /out/licenses ./cmd/ghostline-secrets
 
 # The initializer reuses this exact renderer build while retaining its existing private shell/jq boundary.
 FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS gateway-config
 RUN apk add --no-cache jq=1.8.2-r0
 COPY --from=build /out/derp-tools /usr/local/bin/derp-tools
+COPY --from=build /out/secret-loader /usr/local/bin/ghostline-secrets
+COPY --from=build /out/licenses/ /usr/share/licenses/ghostline-secrets/
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --chmod=755 config-start.sh /usr/local/bin/ghostline-config
 COPY --chmod=755 gateway-config.sh /usr/local/bin/ghostline-gateway-config
 COPY xray-log-policy.jq /usr/local/share/ghostline/xray-log-policy.jq
-ENTRYPOINT ["/usr/local/bin/ghostline-gateway-config"]
+ENTRYPOINT ["/usr/local/bin/ghostline-secrets"]
 
 # Probe libraries remain test-only; the runtime image contains no synthetic client or credentials.
 FROM build AS probe-build

@@ -1,0 +1,447 @@
+{
+  "release": {
+    "digest": "sha256:a9ee9cfbc8a10b008e5e456d15f7713289def2184bd71e77de77f68c00d04cd7",
+    "promotionId": "c660910d-017e-4dc6-83a3-be5b1eb84ca4",
+    "os": {
+      "variant": "aws-ecs-3",
+      "architecture": "arm64",
+      "compatibleVersions": [
+        "1.66.0"
+      ],
+      "targetVersion": "1.66.0",
+      "knownLimitations": [
+        "https://github.com/bottlerocket-os/bottlerocket-core-kit/issues/1059"
+      ]
+    }
+  },
+  "nativeQualification": {
+    "schema": 1,
+    "verifiedAt": "2026-11-17T17:49:10.981Z",
+    "os": {
+      "variant": "aws-ecs-3",
+      "architecture": "arm64",
+      "compatibleVersions": [
+        "1.66.0"
+      ],
+      "targetVersion": "1.66.0",
+      "knownLimitations": [
+        "https://github.com/bottlerocket-os/bottlerocket-core-kit/issues/1059"
+      ]
+    },
+    "images": {
+      "bootstrap": {
+        "buildTag": "sha-f55742c611324b5e29a8dbb5eb48c2868bc77305c0aa8be0b441a1ecb8c966b5",
+        "runtimeDigest": "sha256:1cbc9b5d535d05f28d7d36cca6097c3895f48e691502d7bc1a617e8c9fc5cab6"
+      },
+      "network-daemon": {
+        "buildTag": "sha-e842a2fe08179041704ace2d8010d5532ba473f651d0aed2a02c459a051482aa",
+        "runtimeDigest": "sha256:5ed9d10c8e07542ce2e04e1b792499051b3d51ae17851eca134d752614f3455b"
+      }
+    }
+  },
+  "localVerification": {
+    "tests": 484,
+    "testFiles": 75,
+    "sixArm64ImageChecksPassed": true
+  },
+  "regions": [
+    {
+      "target": "stockholm-ecs",
+      "region": "eu-north-1",
+      "lifecycle": "active",
+      "releaseDigest": "sha256:a9ee9cfbc8a10b008e5e456d15f7713289def2184bd71e77de77f68c00d04cd7",
+      "liveHostCount": 1,
+      "host": "i-03dbda16cac462d4d",
+      "slot": "b",
+      "boot": "cf9e0ea6-a19e-48c0-bf82-1f345221c73a",
+      "os": "1.66.0",
+      "ami": "ami-0c0df096a3b9de91b",
+      "interface": "eni-025ad7cb17cc7578e",
+      "imagesMatch": true,
+      "sourceHostTerminated": true,
+      "rolloutPhase": "complete"
+    },
+    {
+      "target": "oregon",
+      "region": "us-west-2",
+      "lifecycle": "active",
+      "releaseDigest": "sha256:a9ee9cfbc8a10b008e5e456d15f7713289def2184bd71e77de77f68c00d04cd7",
+      "liveHostCount": 1,
+      "host": "i-071674c209c803d52",
+      "slot": "b",
+      "boot": "9b5e72b7-cc47-481a-99b4-5adf26fa45f9",
+      "os": "1.66.0",
+      "ami": "ami-014019f8497d4b260",
+      "interface": "eni-0214c8d6256aa7d46",
+      "imagesMatch": true,
+      "sourceHostTerminated": true,
+      "rolloutPhase": "complete"
+    },
+    {
+      "target": "zurich",
+      "region": "eu-central-2",
+      "lifecycle": "active",
+      "releaseDigest": "sha256:a9ee9cfbc8a10b008e5e456d15f7713289def2184bd71e77de77f68c00d04cd7",
+      "liveHostCount": 1,
+      "host": "i-0b19382d505f4b325",
+      "slot": "b",
+      "boot": "cd00f8de-b65f-4304-8d66-7461cbc9f2a4",
+      "os": "1.66.0",
+      "ami": "ami-07ad8e7f604a7db4b",
+      "interface": "eni-04f1fe61ba317fcac",
+      "imagesMatch": true,
+      "sourceHostTerminated": true,
+      "rolloutPhase": "complete"
+    },
+    {
+      "target": "cape-town",
+      "region": "af-south-1",
+      "lifecycle": "parked",
+      "releaseDigest": "sha256:a9ee9cfbc8a10b008e5e456d15f7713289def2184bd71e77de77f68c00d04cd7",
+      "liveHostCount": 0
+    },
+    {
+      "target": "nva",
+      "region": "us-east-1",
+      "lifecycle": "active",
+      "releaseDigest": "sha256:a9ee9cfbc8a10b008e5e456d15f7713289def2184bd71e77de77f68c00d04cd7",
+      "liveHostCount": 1,
+      "host": "i-0118416c97626b88d",
+      "slot": "b",
+      "boot": "026647fd-f4b0-4910-89d8-78c2717e6386",
+      "os": "1.66.0",
+      "ami": "ami-0334698af14d8bb05",
+      "interface": "eni-0c91402868e2806a4",
+      "imagesMatch": true,
+      "sourceHostTerminated": true,
+      "rolloutPhase": "complete"
+    }
+  ],
+  "smokes": [
+    {
+      "target": "nva",
+      "verification": true,
+      "encryptedClients": true,
+      "logPolicy": true,
+      "newTestExportsRemoved": true
+    },
+    {
+      "target": "oregon",
+      "verification": true,
+      "encryptedClients": true,
+      "logPolicy": true,
+      "newTestExportsRemoved": true
+    },
+    {
+      "target": "stockholm-ecs",
+      "verification": true,
+      "encryptedClients": true,
+      "logPolicy": true,
+      "newTestExportsRemoved": true
+    },
+    {
+      "target": "zurich",
+      "verification": true,
+      "encryptedClients": true,
+      "logPolicy": true,
+      "newTestExportsRemoved": true
+    }
+  ],
+  "controlComparison": {
+    "stockholm-ecs": {
+      "parameterMetadataPreserved": true,
+      "endpointAllocationsAndIpsPreserved": true,
+      "guardDutyPolicyPreserved": true
+    },
+    "oregon": {
+      "parameterMetadataPreserved": true,
+      "endpointAllocationsAndIpsPreserved": true,
+      "guardDutyPolicyPreserved": true
+    },
+    "zurich": {
+      "parameterMetadataPreserved": true,
+      "endpointAllocationsAndIpsPreserved": true,
+      "guardDutyPolicyPreserved": true
+    },
+    "cape-town": {
+      "parameterMetadataPreserved": true,
+      "endpointAllocationsAndIpsPreserved": true,
+      "guardDutyPolicyPreserved": true
+    },
+    "nva": {
+      "parameterMetadataPreserved": true,
+      "endpointAllocationsAndIpsPreserved": true,
+      "guardDutyPolicyPreserved": true
+    }
+  },
+  "boundedLogChecks": [
+    {
+      "target": "nva",
+      "administrativeLockdownRestored": true,
+      "accessRecordCount": 0,
+      "dnsQuestionRecordCount": 0,
+      "credentialPatternLineCount": 0,
+      "initializerPersistedSecretEntryCount": 2,
+      "containerSamples": [
+        {
+          "container": "xray",
+          "sampledLines": 3,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        },
+        {
+          "container": "awg",
+          "sampledLines": 9,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        },
+        {
+          "container": "dns-policy",
+          "sampledLines": 4,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        },
+        {
+          "container": "gateway-config",
+          "sampledLines": 0,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        },
+        {
+          "container": "network",
+          "sampledLines": 3,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        }
+      ]
+    },
+    {
+      "target": "oregon",
+      "administrativeLockdownRestored": true,
+      "accessRecordCount": 0,
+      "dnsQuestionRecordCount": 0,
+      "credentialPatternLineCount": 0,
+      "initializerPersistedSecretEntryCount": 2,
+      "containerSamples": [
+        {
+          "container": "xray",
+          "sampledLines": 3,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        },
+        {
+          "container": "awg",
+          "sampledLines": 9,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        },
+        {
+          "container": "dns-policy",
+          "sampledLines": 4,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        },
+        {
+          "container": "gateway-config",
+          "sampledLines": 0,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        },
+        {
+          "container": "network",
+          "sampledLines": 4,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        }
+      ]
+    },
+    {
+      "target": "stockholm-ecs",
+      "administrativeLockdownRestored": true,
+      "accessRecordCount": 0,
+      "dnsQuestionRecordCount": 0,
+      "credentialPatternLineCount": 0,
+      "initializerPersistedSecretEntryCount": 2,
+      "containerSamples": [
+        {
+          "container": "xray",
+          "sampledLines": 3,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        },
+        {
+          "container": "awg",
+          "sampledLines": 9,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        },
+        {
+          "container": "dns-policy",
+          "sampledLines": 4,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        },
+        {
+          "container": "gateway-config",
+          "sampledLines": 0,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        },
+        {
+          "container": "network",
+          "sampledLines": 4,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        }
+      ]
+    },
+    {
+      "target": "zurich",
+      "administrativeLockdownRestored": true,
+      "accessRecordCount": 0,
+      "dnsQuestionRecordCount": 0,
+      "credentialPatternLineCount": 0,
+      "initializerPersistedSecretEntryCount": 2,
+      "containerSamples": [
+        {
+          "container": "xray",
+          "sampledLines": 3,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        },
+        {
+          "container": "awg",
+          "sampledLines": 9,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        },
+        {
+          "container": "dns-policy",
+          "sampledLines": 4,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        },
+        {
+          "container": "gateway-config",
+          "sampledLines": 0,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        },
+        {
+          "container": "network",
+          "sampledLines": 4,
+          "globalIpv4Lines": 0,
+          "metadataFilesystem": "xfs"
+        }
+      ]
+    }
+  ],
+  "nativeLeaseChecks": {
+    "expiredWithoutCleanup": true,
+    "bothEnginesBlocked": true,
+    "bothEnginesRecovered": true,
+    "administrativeLockdownRestored": true,
+    "daemonReplaced": true,
+    "hostBootAndGatewayPreserved": true
+  },
+  "trialCleanup": {
+    "activeStacks": 0,
+    "hosts": 0,
+    "volumes": 0,
+    "addresses": 0,
+    "vpcs": 0,
+    "repositories": 0,
+    "functions": 0,
+    "tables": 0,
+    "parameters": 0,
+    "logGroups": 0,
+    "queues": 0,
+    "replicationRules": 0,
+    "sharedGuardDutyRetainedEnabled": true,
+    "exclusiveAssetBucketAbsent": true
+  },
+  "pendingTrialTaskDefinitionDeletions": [
+    {
+      "id": "arn:aws:ecs:eu-west-1:757999402784:task-definition/ghostline-zero-logs-gateway:1",
+      "status": "DELETE_IN_PROGRESS"
+    },
+    {
+      "id": "arn:aws:ecs:eu-west-1:757999402784:task-definition/ghostline-zero-logs-network-b:1",
+      "status": "DELETE_IN_PROGRESS"
+    },
+    {
+      "id": "arn:aws:ecs:eu-west-1:757999402784:task-definition/ghostline-zero-logs-network:1",
+      "status": "DELETE_IN_PROGRESS"
+    }
+  ],
+  "limits": [
+    "Bounded pattern checks are not a complete audit of all journals/cloud error paths.",
+    "Initializer secret injection still persists two nonempty bundles in Docker metadata on each active host.",
+    "GuardDuty settings remain unchanged; AWS runtime events are not customer-accessible.",
+    "No new native Mac/iOS client acceptance or upstream OS repair is claimed."
+  ],
+  "publicationWindow": [
+    {
+      "region": "eu-north-1",
+      "repairedAliasCount": 0,
+      "windowConsistent": true
+    },
+    {
+      "region": "af-south-1",
+      "repairedAliasCount": 0,
+      "windowConsistent": true
+    },
+    {
+      "region": "us-west-2",
+      "repairedAliasCount": 0,
+      "windowConsistent": true
+    },
+    {
+      "region": "eu-central-2",
+      "repairedAliasCount": 0,
+      "windowConsistent": true
+    },
+    {
+      "region": "us-east-1",
+      "repairedAliasCount": 0,
+      "windowConsistent": true
+    }
+  ],
+  "boundedImageCleanup": [
+    {
+      "target": "stockholm-ecs",
+      "complete": true,
+      "messages": [
+        "eu-north-1: pruned 12 old unreferenced artifacts; protected release/runtime identities remain."
+      ]
+    },
+    {
+      "target": "oregon",
+      "complete": true,
+      "messages": [
+        "us-west-2: pruned 12 old unreferenced artifacts; protected release/runtime identities remain."
+      ]
+    },
+    {
+      "target": "zurich",
+      "complete": true,
+      "messages": [
+        "eu-central-2: pruned 12 old unreferenced artifacts; protected release/runtime identities remain."
+      ]
+    },
+    {
+      "target": "cape-town",
+      "complete": true,
+      "messages": [
+        "af-south-1: pruned 1 old unreferenced artifacts; protected release/runtime identities remain."
+      ]
+    },
+    {
+      "target": "nva",
+      "complete": true,
+      "messages": [
+        "us-east-1: pruned 12 old unreferenced artifacts; protected release/runtime identities remain."
+      ]
+    }
+  ]
+}

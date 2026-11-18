@@ -49,3 +49,34 @@ it('does not fabricate a second launch after an uncertain CloudFormation submiss
   }, wake)).rejects.toThrow('Connection lost');
   expect(f.current().effectIssued).toBe(1000); expect(wake).not.toHaveBeenCalled();
 });
+
+it('retries a throttled controller wake while preserving the one deployment and handoff', async () => {
+  // A rejected Lambda Invoke does not undo the native rollout already handed to AWS.
+  const f = prepared(), deploy = vi.fn(f.deploy), handoff = vi.fn(f.handoff), wait = vi.fn(async () => {});
+  const busy = Object.assign(new Error('Controller busy'), { name: 'TooManyRequestsException' });
+  const wake = vi.fn().mockRejectedValueOnce(busy).mockRejectedValueOnce(busy).mockImplementation(f.wake);
+  await deployWithGreen(f.gate, { handoff }, 'task', deploy, wake, wait);
+  expect(deploy).toHaveBeenCalledTimes(1); expect(handoff).toHaveBeenCalledTimes(1);
+  expect(wake).toHaveBeenCalledTimes(3); expect(wait.mock.calls).toEqual([[1000], [2000]]);
+  expect(f.current().phase).toBe('complete'); expect(f.current().effectIssued).toBe(1000);
+});
+
+it('bounds controller throttling without submitting another deployment', async () => {
+  // Exhaustion retains the delegated AWS operation rather than silently treating it as complete.
+  const f = prepared(), deploy = vi.fn(f.deploy), handoff = vi.fn(f.handoff), wait = vi.fn(async () => {});
+  const busy = Object.assign(new Error('Controller busy'), { name: 'TooManyRequestsException' });
+  const wake = vi.fn(async () => { throw busy; });
+  await expect(deployWithGreen(f.gate, { handoff }, 'task', deploy, wake, wait)).rejects.toBe(busy);
+  expect(deploy).toHaveBeenCalledTimes(1); expect(handoff).toHaveBeenCalledTimes(1);
+  expect(wake).toHaveBeenCalledTimes(7);
+  expect(wait.mock.calls).toEqual([[1000], [2000], [4000], [8000], [10_000], [10_000]]);
+  expect(f.current().effectIssued).toBe(1000);
+});
+
+it('preserves non-throttling wake failures without retrying or relaunching', async () => {
+  // Permission and function errors still require inspection, even after a successful IaC submission.
+  const f = prepared(), deploy = vi.fn(f.deploy), wait = vi.fn(async () => {}), denied = new Error('Invoke denied');
+  const wake = vi.fn(async () => { throw denied; });
+  await expect(deployWithGreen(f.gate, { handoff: f.handoff }, 'task', deploy, wake, wait)).rejects.toBe(denied);
+  expect(deploy).toHaveBeenCalledTimes(1); expect(wake).toHaveBeenCalledTimes(1); expect(wait).not.toHaveBeenCalled();
+});

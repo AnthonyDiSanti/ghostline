@@ -7,8 +7,10 @@ it('requires working HTTPS before proving metadata isolation and rejects unexpec
   const script = fileURLToPath(new URL('./fixtures/ecs-verify-probe.py', import.meta.url));
   const results = JSON.parse(execFileSync('python3', ['-B', script], { encoding: 'utf8' }));
   expect(results).toEqual([
-    { mode: 'blocked', passed: true, evidence: { publicIp: '198.51.100.1', metadataBlocked: true } },
+    { mode: 'blocked', passed: true, evidence: { publicIp: '198.51.100.1', metadataBlocked: true, taskCredentialsBlocked: true } },
     { mode: 'metadata-open', passed: false },
+    { mode: 'task-credentials-open', passed: false },
+    { mode: 'task-credentials-refused', passed: false },
     { mode: 'https-failed', passed: false },
     { mode: 'socket-failed', passed: false },
   ]);

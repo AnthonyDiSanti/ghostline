@@ -11,10 +11,12 @@ import { releaseAutomationMode } from '../lib/releases/automation.js';
 import { reportTrialExclusion, type ActiveTrial } from '../lib/releases/trial-exclusions.js';
 import type { Generation } from '../lib/releases/blue-green.js';
 import { resolve } from 'node:path';
+import { candidateOperation } from '../lib/releases/candidate-operator.js';
 
 interface Trial extends ActiveTrial { baseline: Generation; originalMode: 'manual'; verifiedAt?: string }
 const [target, action, ...extra] = process.argv.slice(2);
-if (extra.length || !['begin', 'deploy', 'status', 'finish'].includes(action ?? '')) throw new Error('Usage: npm run trial <target> <begin|deploy|status|finish>');
+if (extra.length > 1 || !['stage', 'begin', 'deploy', 'return', 'status', 'finish'].includes(action ?? '')
+  || extra.length && !['stage', 'begin'].includes(action ?? '')) throw new Error('Usage: npm run trial <target> <stage qualified.json|begin [candidate-digest]|deploy|return|status|finish>');
 const config = getDeployment(target);
 async function manual() {
   // Release intent is already staged by the normal publication transaction; this tool coordinates regional operations only.
@@ -34,7 +36,10 @@ async function verified(gate: Awaited<ReturnType<typeof operatorGate>>, trial: T
 }
 try {
   verifyAccount();
-  if (action === 'status') {
+  const active = await (await operatorGate(config.id)).record<ActiveTrial & { kind?: string }>('trial/current');
+  if (action !== 'status' && (action === 'stage' || action === 'return' || action === 'begin' && !!extra[0] || active?.kind === 'candidate')) {
+    await candidateOperation(config.id, action!, extra[0]);
+  } else if (action === 'status') {
     const gate = await operatorGate(config.id);
     console.log(JSON.stringify({ target, trial: await gate.record('trial/current'), rollout: await gate.record('rollout/current') }, null, 2));
   } else if (action === 'begin') {

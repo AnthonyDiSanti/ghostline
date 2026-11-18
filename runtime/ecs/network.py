@@ -7,6 +7,7 @@ from pathlib import Path
 
 DNS_SETTINGS = json.loads(Path(__file__).with_name('dns-policy.json').read_text())
 DERP_SETTINGS = json.loads(Path(__file__).with_name('derp-policy.json').read_text())
+INITIALIZER_SETTINGS = json.loads(Path(__file__).with_name('initializer-policy.json').read_text())
 DERP_PORTS = [('tcp', 443, int(DERP_SETTINGS['tlsPort'])), ('udp', int(DERP_SETTINGS['stunPort']), int(DERP_SETTINGS['stunPort']))]
 
 
@@ -36,7 +37,7 @@ def policy(config, peers):
     # Identify egress by container address, never by transport of the tunneled user traffic.
     interface = config['interface']
     sources = derp_sources(config)
-    if set(peers) - {'xray', 'awg', 'dns-policy', *(['derp'] if sources else [])}:
+    if set(peers) - {'xray', 'awg', 'dns-policy', 'gateway-config', *(['derp'] if sources else [])}:
         raise RuntimeError('Unknown bridge peer')
     rules = ['-i docker0 -d 169.254.0.0/16 -j DROP']
     nat = []
@@ -44,7 +45,7 @@ def policy(config, peers):
     if dns:
         # DNS is the only permitted bridge peer, and replies must belong to established exchanges.
         port = int(DNS_SETTINGS['listenPort'])
-        for name in ('awg', 'xray'):
+        for name in ('awg', 'xray', 'gateway-config'):
             if name not in peers:
                 continue
             source = peers[name]['ip']
@@ -57,6 +58,15 @@ def policy(config, peers):
         if name == 'dns-policy':
             continue
         source = peer['ip']
+        if name == 'gateway-config':
+            # Only the short-lived, verified initializer may initiate TLS API requests; private/link-local destinations stay denied.
+            rules.extend(f'-i docker0 -s {source}/32 -d {subnet} -j DROP' for subnet in
+                         ['0.0.0.0/8', '10.0.0.0/8', '127.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '224.0.0.0/4', '240.0.0.0/4'])
+            rules.extend([
+                f'-i docker0 -s {source}/32 -o {interface} -p tcp --dport 443 -j ACCEPT',
+                f'-i {interface} -o docker0 -d {source}/32 -p tcp --sport 443 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT'])
+            nat.append(f'-s {source}/32 -o {interface} -j SNAT --to-source {config.get("dnsSource", config["awg"])}')
+            continue
         if name == 'derp':
             # Relaying/STUN need replies on admitted inbound flows, not new arbitrary internet connections.
             rules.append(f'-i docker0 -s {source}/32 -o {interface} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT')
@@ -126,7 +136,7 @@ def dns_redirect(config, peers):
         return ['-j RETURN']
     port = int(DNS_SETTINGS['listenPort'])
     rules = []
-    for name in ('awg', 'xray'):
+    for name in ('awg', 'xray', 'gateway-config'):
         if name not in peers:
             continue
         for transport in ('tcp', 'udp'):
@@ -135,14 +145,23 @@ def dns_redirect(config, peers):
     return rules + ['-j RETURN']
 
 
+def host_policy(peers):
+    # The task credential endpoint is available only to the leased initializer, never the engines.
+    writer = peers.get('gateway-config')
+    return ([f'-i docker0 -s {writer["ip"]}/32 -d 127.0.0.1/32 -p tcp --dport {INITIALIZER_SETTINGS["credentialsPort"]} '
+             '-m set --match-set GHOSTLINE_LIVE src -j ACCEPT']
+            if writer else []) + ['-i docker0 -j DROP', '-j RETURN']
+
+
 def initialize(config):
     # Deny forwarded container traffic before ECS starts; missing reconciliation never uses default NAT.
     rules, nat = policy(config, {})
     replace_chain('filter', 'GHOSTLINE', rules)
     replace_chain('nat', 'GHOSTLINE_SNAT', nat)
     replace_chain('nat', 'GHOSTLINE_DNS', ['-j RETURN'])
-    replace_chain('filter', 'GHOSTLINE_HOST', ['-i docker0 -j DROP', '-j RETURN'])
-    ingress = []
+    replace_chain('filter', 'GHOSTLINE_HOST', host_policy({}))
+    # The non-listening published identity tuple exists only for kernel/ECS correlation, never public access.
+    ingress = [f'-i {config["interface"]} -p tcp --dport {INITIALIZER_SETTINGS["identityPort"]} -j DROP']
     if derp_sources(config):
         # Only approved AWG-address public tuples bypass the existing wrong-address drops.
         for source in derp_sources(config):
@@ -185,6 +204,7 @@ def reconcile(config, peers, previous=None):
     # Jump ownership/order is established at startup; ordinary restarts must not detach global policy.
     replace_chain('filter', 'GHOSTLINE', policy(config, peers)[0])
     replace_chain('nat', 'GHOSTLINE_DNS', dns_redirect(config, peers))
+    replace_chain('filter', 'GHOSTLINE_HOST', host_policy(peers))
     if derp_sources(config):
         replace_chain('nat', 'GHOSTLINE_PUBLIC', public_redirect(config, peers))
     Path('/run/ghostline-network-state.json').write_text(json.dumps(peers))

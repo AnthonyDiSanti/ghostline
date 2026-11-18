@@ -1,0 +1,43 @@
+{
+  "observedAtUtc": "2026-11-18T06:04:12.395956+00:00",
+  "records": {
+    "amneziaIssue": {
+      "html_url": "https://github.com/amnezia-vpn/amnezia-client/issues/2933",
+      "state": "open",
+      "comments": 7,
+      "updated_at": "2026-11-07T21:08:27Z"
+    },
+    "amneziaLatest": {
+      "html_url": "https://github.com/amnezia-vpn/amnezia-client/releases/tag/5.1.0.6",
+      "updated_at": "2026-11-04T03:54:45Z",
+      "tag_name": "5.1.0.6",
+      "published_at": "2026-11-02T16:52:02Z"
+    },
+    "bootstrapIssue": {
+      "html_url": "https://github.com/bottlerocket-os/bottlerocket-core-kit/issues/1059",
+      "state": "open",
+      "comments": 1,
+      "updated_at": "2026-09-28T00:02:16Z"
+    },
+    "bootstrapPullRequest": {
+      "html_url": "https://github.com/bottlerocket-os/bottlerocket-core-kit/pull/1063",
+      "state": "open",
+      "comments": 0,
+      "updated_at": "2026-09-28T00:08:14Z",
+      "merged_at": null,
+      "headSha": "6a4c053219b4741a1dddc0738e7a91d099deff83"
+    },
+    "bottlerocketLatest": {
+      "html_url": "https://github.com/bottlerocket-os/bottlerocket/releases/tag/v1.69.0",
+      "updated_at": "2026-11-13T20:19:44Z",
+      "tag_name": "v1.69.0",
+      "published_at": "2026-11-10T22:36:58Z"
+    },
+    "ipv6Issue": {
+      "html_url": "https://github.com/bottlerocket-os/bottlerocket/issues/4954",
+      "state": "open",
+      "comments": 0,
+      "updated_at": "2026-09-27T23:50:39Z"
+    }
+  }
+}

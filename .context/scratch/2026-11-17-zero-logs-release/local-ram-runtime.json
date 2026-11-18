@@ -1,0 +1,153 @@
+{
+  "startedAt": "2026-11-18T00:41:18.404366+00:00",
+  "runId": "7c3b34f42994",
+  "cases": [
+    {
+      "mode": "control",
+      "dockerVersion": "29.7.0",
+      "driver": "overlayfs",
+      "liveMarkerFiles": {
+        "docker": 3,
+        "containerd": 1,
+        "other": 0,
+        "filesScanned": 126,
+        "dockerConfigMarkerFiles": 3,
+        "containerdDatabaseMarkerFiles": 1
+      },
+      "persistentMarkerFilesAfterStop": {
+        "docker": 3,
+        "containerd": 1,
+        "other": 0,
+        "filesScanned": 84,
+        "dockerConfigMarkerFiles": 3,
+        "containerdDatabaseMarkerFiles": 1
+      },
+      "outerFilesystemMarkerFilesAfterStop": {
+        "docker": 0,
+        "containerd": 0,
+        "other": 0,
+        "filesScanned": 725,
+        "dockerConfigMarkerFiles": 0,
+        "containerdDatabaseMarkerFiles": 0
+      },
+      "dockerRestartPreservedConfiguration": true,
+      "emptyAfterSimulatedRamLoss": false,
+      "recreationAfterRamLoss": false,
+      "readerReadOnlyAndWithoutSecretEnvironment": true,
+      "fixedFailureOutput": true,
+      "cgroupSwapDisabled": true,
+      "liveSecretMetadataPositiveControl": true,
+      "outerRuntimePeakBytes": 134643712,
+      "storeUsedKiB": {
+        "docker": 8704,
+        "containerd": 6588
+      }
+    },
+    {
+      "mode": "docker-ram",
+      "dockerVersion": "29.7.0",
+      "driver": "overlayfs",
+      "liveMarkerFiles": {
+        "docker": 3,
+        "containerd": 1,
+        "other": 0,
+        "filesScanned": 126,
+        "dockerConfigMarkerFiles": 3,
+        "containerdDatabaseMarkerFiles": 1
+      },
+      "persistentMarkerFilesAfterStop": {
+        "docker": 0,
+        "containerd": 1,
+        "other": 0,
+        "filesScanned": 48,
+        "dockerConfigMarkerFiles": 0,
+        "containerdDatabaseMarkerFiles": 1
+      },
+      "outerFilesystemMarkerFilesAfterStop": {
+        "docker": 0,
+        "containerd": 0,
+        "other": 0,
+        "filesScanned": 725,
+        "dockerConfigMarkerFiles": 0,
+        "containerdDatabaseMarkerFiles": 0
+      },
+      "dockerRestartPreservedConfiguration": true,
+      "emptyAfterSimulatedRamLoss": true,
+      "recreationAfterRamLoss": false,
+      "readerReadOnlyAndWithoutSecretEnvironment": true,
+      "fixedFailureOutput": true,
+      "cgroupSwapDisabled": true,
+      "liveSecretMetadataPositiveControl": true,
+      "outerRuntimePeakBytes": 133984256,
+      "storeUsedKiB": {
+        "docker": 8584,
+        "containerd": 6588
+      }
+    },
+    {
+      "mode": "all-ram",
+      "dockerVersion": "29.7.0",
+      "driver": "overlayfs",
+      "liveMarkerFiles": {
+        "docker": 3,
+        "containerd": 1,
+        "other": 0,
+        "filesScanned": 126,
+        "dockerConfigMarkerFiles": 3,
+        "containerdDatabaseMarkerFiles": 1
+      },
+      "persistentMarkerFilesAfterStop": {
+        "docker": 0,
+        "containerd": 0,
+        "other": 0,
+        "filesScanned": 0,
+        "dockerConfigMarkerFiles": 0,
+        "containerdDatabaseMarkerFiles": 0
+      },
+      "outerFilesystemMarkerFilesAfterStop": {
+        "docker": 0,
+        "containerd": 0,
+        "other": 0,
+        "filesScanned": 725,
+        "dockerConfigMarkerFiles": 0,
+        "containerdDatabaseMarkerFiles": 0
+      },
+      "dockerRestartPreservedConfiguration": true,
+      "emptyAfterSimulatedRamLoss": true,
+      "recreationAfterRamLoss": true,
+      "readerReadOnlyAndWithoutSecretEnvironment": true,
+      "fixedFailureOutput": true,
+      "cgroupSwapDisabled": true,
+      "liveSecretMetadataPositiveControl": true,
+      "outerRuntimePeakBytes": 132509696,
+      "storeUsedKiB": {
+        "docker": 8372,
+        "containerd": 6176
+      }
+    }
+  ],
+  "scope": "local-synthetic-only",
+  "host": {
+    "context": "desktop-linux",
+    "localUnixEndpoint": true,
+    "dockerVersion": "29.9.2",
+    "architecture": "aarch64",
+    "memoryMiB": 7933
+  },
+  "images": [
+    "sha256:084e385b0c9b7ab35d5a46dfedd033721448c000dbec71adcf13da8a9e71baa8",
+    "sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec"
+  ],
+  "inputs": {
+    "ram-runtime.py": "f90af5bb7e40650ee329f3a450eb99f15cf54aa4319e20c88a021f01aae82bfe",
+    "ram-runtime-daemons.sh": "3a1936e60fc8c90768c70a7e4dcb76bfa037d5add5056d5d15e631d5e3c68d1b",
+    "ram-runtime-workload.sh": "4fdff0296505b884b20edc8d4549730c05c4db1faa51cf22da38e6937e52edc7"
+  },
+  "missingRamFailsBeforeDaemonStart": true,
+  "passed": true,
+  "cleanup": {
+    "passed": true,
+    "failures": []
+  },
+  "finishedAt": "2026-11-18T00:41:39.423520+00:00"
+}

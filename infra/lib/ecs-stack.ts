@@ -15,6 +15,7 @@ import { applicationArtifacts as artifacts } from './image-artifacts.js';
 import { production, repository } from './releases/model.js';
 import dnsPolicy from '../../runtime/ecs/dns-policy.json' with { type: 'json' };
 import derpPolicy from '../../runtime/ecs/derp-policy.json' with { type: 'json' };
+import initializerPolicy from '../../runtime/ecs/initializer-policy.json' with { type: 'json' };
 
 export interface GatewayPlatform {
   bootstrapImage: string;
@@ -144,7 +145,13 @@ export class EcsEndpointStack extends Stack {
     const memory = ecsMemoryBudget(config.instanceType);
     const execution = new iam.Role(this, 'GatewayExecutionRole', { assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com') });
     for (const repository of Object.values(repositories)) repository.grantPull(execution);
-    execution.addToPolicy(new iam.PolicyStatement({ actions: ['ssm:GetParameters'],
+    // The short-lived initializer fetches directly into RAM; ECS never receives plaintext server values.
+    const taskRole = new iam.Role(this, 'GatewayTaskRole', { assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com', {
+      // ECS requires a regional account wildcard here; trust cannot currently be narrowed to one cluster ARN.
+      conditions: { StringEquals: { 'aws:SourceAccount': config.account },
+        ArnLike: { 'aws:SourceArn': `arn:aws:ecs:${config.region}:${config.account}:*` } },
+    }) });
+    taskRole.addToPolicy(new iam.PolicyStatement({ actions: ['ssm:GetParameters'],
       resources: serverProtocols.map(protocol => `arn:aws:ssm:${config.region}:${config.account}:parameter${parameterPrefix}/server/${protocol}`) }));
     const engines = (['xray', 'awg'] as const).map(protocol => ({ name: protocol, essential: true,
       image: props.gateway?.images?.[protocol] ?? `${repositories[protocol]!.repositoryUri}:${production}`,
@@ -169,7 +176,7 @@ export class EcsEndpointStack extends Stack {
       logConfiguration: { logDriver: 'json-file', options: { 'max-size': '1m', 'max-file': '1' } },
     }));
     const dns = config.dnsRequired ? [{
-      // This private forwarder starts before either engine and receives no credentials or task role.
+      // This private forwarder starts before either engine; host policy blocks its access to the shared task credentials.
       name: 'dns-policy', essential: true,
       image: props.gateway?.images?.['dns-policy'] ?? `${repositories['dns-policy']!.repositoryUri}:${production}`,
       versionConsistency: 'enabled', cpu: 64, readonlyRootFilesystem: true, user: '65532:65532',
@@ -199,20 +206,22 @@ export class EcsEndpointStack extends Stack {
     }] : [];
     const definition = new ecs.CfnTaskDefinition(this, 'GatewayTask', {
       family: `${config.resourceName}-gateway`, networkMode: 'bridge', requiresCompatibilities: ['EC2'],
-      memory: String(memory.task), executionRoleArn: execution.roleArn,
+      memory: String(memory.task), executionRoleArn: execution.roleArn, taskRoleArn: taskRole.roleArn,
       runtimePlatform: { cpuArchitecture: 'ARM64', operatingSystemFamily: 'LINUX' },
       volumes: [{ name: 'gateway-config', host: { sourcePath: configDirectory } },
         ...serverProtocols.map(protocol => ({ name: `${protocol}-config`, host: { sourcePath: `${configDirectory}/${protocol}` } }))],
       containerDefinitions: [...engines, ...dns, ...derp, {
-        // Only the short-lived writer receives credentials. Both engines wait for the entire configuration set.
+        // Only the short-lived writer can reach the task credential endpoint; IAM authority remains task-wide.
         name: 'gateway-config', essential: false, startTimeout: 60,
         image: props.gateway?.images?.['gateway-config'] ?? `${repositories['gateway-config']!.repositoryUri}:${production}`,
-        versionConsistency: 'enabled', memory: 64, cpu: 16, user: '65532:65532', readonlyRootFilesystem: true, disableNetworking: true,
+        versionConsistency: 'enabled', memory: 64, cpu: 16, user: '65532:65532', readonlyRootFilesystem: true,
         dockerSecurityOptions: ['no-new-privileges'],
-        secrets: serverProtocols.map(protocol => ({ name: `GHOSTLINE_${protocol.toUpperCase()}_BUNDLE`,
-          valueFrom: `arn:aws:ssm:${config.region}:${config.account}:parameter${parameterPrefix}/server/${protocol}` })),
+        dnsServers: ['1.1.1.1'], dependsOn: config.dnsRequired ? [{ containerName: 'dns-policy', condition: 'HEALTHY' }] : [],
+        // A non-listening internal tuple lets the daemon join exact ECS identity to Docker's kernel binding.
+        portMappings: [{ containerPort: initializerPolicy.identityPort, hostPort: initializerPolicy.identityPort, protocol: 'tcp' }],
+        environment: [{ name: 'GHOSTLINE_PARAMETERS', value: JSON.stringify(Object.fromEntries(serverProtocols.map(protocol => [protocol,
+          `arn:aws:ssm:${config.region}:${config.account}:parameter${parameterPrefix}/server/${protocol}`]))) }],
         mountPoints: [{ sourceVolume: 'gateway-config', containerPath: '/config', readOnly: false }],
-        ...(config.derp ? { environment: [{ name: 'GHOSTLINE_DERP_REQUIRED', value: 'true' }] } : {}),
         linuxParameters: { initProcessEnabled: true, capabilities: { drop: ['ALL'] } },
         logConfiguration: { logDriver: 'json-file', options: { 'max-size': '1m', 'max-file': '1' } },
       }],
@@ -233,7 +242,8 @@ export class EcsEndpointStack extends Stack {
       deploymentConfiguration: { strategy: 'BLUE_GREEN', minimumHealthyPercent: 100, maximumPercent: 200, bakeTimeInMinutes: 5,
         lifecycleHooks: [{ hookTargetArn: hookArn, roleArn: hook.roleArn, lifecycleStages: [...deploymentStages],
           timeoutConfiguration: { timeoutInMinutes: 30, action: 'ROLLBACK' } }] }, propagateTags: 'TASK_DEFINITION' });
-    service.node.addDependency(execution.node.findChild('DefaultPolicy'), hook.node.findChild('DefaultPolicy'));
+    // Startup may retrieve secrets immediately; attach every required policy before ECS updates the service.
+    service.node.addDependency(execution.node.findChild('DefaultPolicy'), taskRole.node.findChild('DefaultPolicy'), hook.node.findChild('DefaultPolicy'));
     new CfnOutput(this, 'GatewayServiceName', { value: service.attrName });
     new CfnOutput(this, 'GatewayTaskDefinitionArn', { value: definition.ref });
     new CfnOutput(this, 'ClusterName', { value: config.resourceName });

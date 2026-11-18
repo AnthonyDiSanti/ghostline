@@ -27,7 +27,8 @@ export async function testEcsImages(images?: Record<ImageArtifact, string>): Pro
   function execute(args: string[], required = true, secret?: string | Record<string, string>) {
     // Even synthetic credential fixtures stay out of assertion messages and subprocess output.
     const result = spawnSync('docker', args, { encoding: 'utf8', timeout: 180_000, maxBuffer: 8 * 1024 * 1024,
-      env: secret === undefined ? process.env : { ...process.env, ...(typeof secret === 'string' ? { GHOSTLINE_CONFIG: secret } : secret) } });
+      input: secret === undefined ? undefined : typeof secret === 'string' ? secret : JSON.stringify({
+        xray: secret.GHOSTLINE_XRAY_BUNDLE, awg: secret.GHOSTLINE_AWG_BUNDLE, derp: secret.GHOSTLINE_DERP_BUNDLE }) });
     if (required && (result.error || result.status !== 0)) throw new Error(`Docker ${args[0]} failed; details withheld.`);
     return result;
   }
@@ -88,8 +89,32 @@ export async function testEcsImages(images?: Record<ImageArtifact, string>): Pro
     // Test-only probes remain ordinary shell files and are mounted read-only, outside the image release.
     const configProbe = resolve(work, 'image-config.sh');
     copyFileSync(new URL('../test/fixtures/image-config.sh', import.meta.url), configProbe);
-    // Test the production two-protocol entrypoint independently from reusable per-protocol rendering.
+    // Test the production private-pipe renderer; SDK retrieval has behavioral Go tests and a separate native gate.
     const shared = selected['gateway-config'];
+    for (const file of ['go/LICENSE', 'github.com/aws/aws-sdk-go-v2@v1.46.0/LICENSE.txt', 'github.com/aws/smithy-go@v1.28.1/LICENSE']) {
+      docker(['run', '--rm', ...common, '--network', 'none', '--entrypoint', '/usr/bin/test', shared,
+        '-s', `/usr/share/licenses/ghostline-secrets/${file}`]);
+    }
+    const clientVolume = `${stem}-client`;
+    const cleanupClient = createTestRamStorage(clientVolume, shared, docker, 'xray');
+    try {
+      // Exercise the real CLI's private client writer independently of the server initializer's historical input API.
+      const profile = JSON.stringify({ log: { loglevel: 'debug' }, outbounds: [{ protocol: 'blackhole' }] });
+      const run = ['run', '--rm', '--interactive', ...common, '--network', 'none', '--user', '65532:65532',
+        '-v', `${clientVolume}:/config`, '-v', `${resolve(root, 'runtime/ecs/client-config.sh')}:/test/client-config.sh:ro`,
+        '-v', `${resolve(root, 'runtime/ecs/xray-log-policy.jq')}:/test/log-policy.jq:ro`, '--entrypoint', '/bin/sh', shared, '/test/client-config.sh'];
+      const written = execute(run, false, profile);
+      assert.equal(written.status, 0); assert.equal(written.stdout, ''); assert.equal(written.stderr, '');
+      const hash = docker(['run', '--rm', ...common, '--network', 'none', '--user', '65532:65532', '-v', `${clientVolume}:/config:ro`,
+        '--entrypoint', '/bin/busybox', shared, 'sha256sum', '/config/server.json']).split(' ')[0];
+      assert.equal(hash, createHash('sha256').update(renderXrayServerConfig(profile)).digest('hex'));
+      const invalid = execute(run, false, '{invalid');
+      assert.equal(invalid.status, 1); assert.equal(invalid.stdout, '');
+      assert.equal(invalid.stderr.trim(), 'Client preparation failed; details withheld.');
+      assert.notEqual(execute(['run', '--rm', ...common, '--network', 'none', '--user', '65532:65532', '-v', `${clientVolume}:/config:ro`,
+        '--entrypoint', '/usr/bin/test', shared, '-e', '/config/server.json'], false).status, 0);
+      console.log('Client staging: private stdin/RAM, quiet policy and invalid-input cleanup pass.');
+    } finally { cleanupClient(); }
     const sharedProbe = resolve(work, 'gateway-config.sh');
     copyFileSync(new URL('../test/fixtures/gateway-config.sh', import.meta.url), sharedProbe);
     const environmentProbe = resolve(work, 'config-environment.sh');
@@ -101,8 +126,8 @@ export async function testEcsImages(images?: Record<ImageArtifact, string>): Pro
     const sharedSecrets = { GHOSTLINE_XRAY_BUNDLE: JSON.stringify(sharedBundle), GHOSTLINE_AWG_BUNDLE: sharedAwg };
     const probe = (action: string) => docker(['run', '--rm', ...common, '--network', 'none', '--user', '65532:65532',
       '-v', `${sharedVolume}:/config`, '-v', `${sharedProbe}:/test/probe.sh:ro`, '--entrypoint', '/bin/sh', shared, '/test/probe.sh', action]);
-    const initialize = (secrets: Record<string, string>, inspectEnvironment = false) => execute(['run', '--rm', ...common, '--network', 'none', '--user', '65532:65532',
-      '--env', 'GHOSTLINE_XRAY_BUNDLE', '--env', 'GHOSTLINE_AWG_BUNDLE', '-v', `${sharedVolume}:/config`,
+    const initialize = (secrets: Record<string, string>, inspectEnvironment = false) => execute(['run', '--rm', '--interactive', ...common, '--network', 'none', '--user', '65532:65532',
+      '-v', `${sharedVolume}:/config`, '--entrypoint', '/usr/local/bin/ghostline-gateway-config',
       ...(inspectEnvironment ? ['-v', `${environmentProbe}:/usr/local/bin/ghostline-config:ro`] : []), shared], false, secrets);
     try {
       probe('directories');
@@ -168,8 +193,8 @@ export async function testEcsImages(images?: Record<ImageArtifact, string>): Pro
         const cleanupStorage = test.name === 'disk-backed'
           ? (docker(['volume', 'create', volume]), () => { docker(['volume', 'rm', volume]); })
           : createTestRamStorage(volume, initializer, docker, protocol);
-        const prepare = () => execute(['run', '--rm', ...common, '--network', 'none', '--user', '65532:65532',
-          '--env', 'GHOSTLINE_CONFIG', '-v', `${volume}:/config`, '--entrypoint', '/usr/local/bin/ghostline-config', initializer, protocol], false, secret);
+        const prepare = () => execute(['run', '--rm', '--interactive', ...common, '--network', 'none', '--user', '65532:65532',
+          '-v', `${volume}:/config`, '--entrypoint', '/usr/local/bin/ghostline-config', initializer, protocol], false, secret);
         try {
           if (test.name !== 'disk-backed') {
             // A new initializer must work with existing private non-root files and remove stale data on failure.

@@ -28,10 +28,9 @@ prepare() {
   rm -f "$directory/$filename" "$directory"/.pending.* || return 1
   temporary=$(mktemp "$directory/.pending.XXXXXX") || return 1
   if [ "$filename" = server.json ]; then
-    encoded=$(printf '%s' "${GHOSTLINE_CONFIG:-}" | jq -er '
+    encoded=$(jq -er '
       .files["server.json"] | select(type == "string" and length > 0) |
       select(test("^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"))') || return 1
-    unset GHOSTLINE_CONFIG
     printf '%s' "$encoded" | base64 -d > "$temporary" || return 1
     unset encoded
     jq -e 'type == "object"' "$temporary" > /dev/null || return 1
@@ -39,8 +38,7 @@ prepare() {
     jq -f /usr/local/share/ghostline/xray-log-policy.jq "$temporary" > "$temporary.quiet" || return 1
     mv -f "$temporary.quiet" "$temporary" || return 1
   else
-    printf '%s' "${GHOSTLINE_CONFIG:-}" > "$temporary" || return 1
-    unset GHOSTLINE_CONFIG
+    cat > "$temporary" || return 1
     # Validate the server envelope without interpreting hooks or changing a single credential byte.
     # The protocol engine remains responsible for detailed AWG option validation via setconf.
     awk '

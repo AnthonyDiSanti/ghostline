@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { generationMatchesIntent, reconcileRollout, type BlueGreenPorts } from '../lib/releases/rollout-controller.js';
+import { generationMatchesContract, generationMatchesIntent, reconcileRollout, type BlueGreenPorts } from '../lib/releases/rollout-controller.js';
 import { artifacts, digest, releaseManifest, releaseRepository, type Release } from '../lib/releases/model.js';
 import type { Generation, Rollout, RolloutObservation } from '../lib/releases/blue-green.js';
 
@@ -21,12 +21,24 @@ function fixture() {
     }, generation: async () => observed ? generation : undefined, progress: vi.fn(async () => {}), alert: vi.fn(async () => {}),
     observe: async () => observation, save: async (next, previous) => { expect((state.get('rollout/current') as Rollout).version).toBe(previous.version); state.set('rollout/current', next); },
     effect: vi.fn(async () => {}) };
-  return { ports, generation, state, tick: (action?: 'retry' | 'prepare') => reconcileRollout(ports, action),
+  return { ports, generation, release, state, tick: (action?: 'retry' | 'prepare') => reconcileRollout(ports, action),
     absent: () => { present = false; }, pending: () => { observed = false; }, advance: (ms: number) => { time += ms; } };
 }
 it('makes repeated unchanged releases and hourly events no-ops', async () => {
   const f = fixture(); expect((await f.tick()).status).toBe('already-running'); expect((await f.tick()).status).toBe('already-running');
   expect(f.ports.effect).not.toHaveBeenCalled(); expect(f.ports.progress).toHaveBeenLastCalledWith(false);
+});
+it('requires the exact installed OS, host recipe and images before capturing or accepting a trial baseline', () => {
+  // A merely compatible OS or a newly staged controller recipe must not become an asserted baseline.
+  const f = fixture();
+  expect(generationMatchesContract(f.generation, f.release, f.ports.template)).toBe(true);
+  f.release.os.compatibleVersions.push('1.67.0');
+  f.generation.os = '1.67.0';
+  expect(generationMatchesContract(f.generation, f.release, f.ports.template)).toBe(false);
+  f.generation.os = '1.66.0'; f.generation.template = 'previous-recipe';
+  expect(generationMatchesContract(f.generation, f.release, f.ports.template)).toBe(false);
+  f.generation.template = f.ports.template; f.generation.images.awg = digest('different');
+  expect(generationMatchesContract(f.generation, f.release, f.ports.template)).toBe(false);
 });
 it('never treats a five-image source as already running a six-image intent', () => {
   // Shared old digests do not prove that the essential DNS container exists.

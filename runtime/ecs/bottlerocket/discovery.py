@@ -16,10 +16,13 @@ DNS_PORT = int(DNS_SETTINGS['listenPort'])
 DNS_HOST_PORT = int(DNS_SETTINGS['hostPort'])
 DERP_PATH = POLICY_PATH.with_name('derp-policy.json')
 DERP_SETTINGS = json.loads(DERP_PATH.read_text())
+INITIALIZER_SETTINGS = json.loads(POLICY_PATH.with_name('initializer-policy.json').read_text())
+INITIALIZER_PORT = int(INITIALIZER_SETTINGS['identityPort'])
 DERP_TLS_PORT, DERP_HOST_PORT, STUN_PORT = (int(DERP_SETTINGS[name]) for name in ('tlsPort', 'hostPort', 'stunPort'))
 PORTS = {'xray': {(443, 443, 'tcp')}, 'awg': {(443, 443, 'udp')},
          'dns-policy': {(DNS_PORT, DNS_HOST_PORT, 'tcp'), (DNS_PORT, DNS_HOST_PORT, 'udp')},
-         'derp': {(DERP_TLS_PORT, DERP_HOST_PORT, 'tcp'), (STUN_PORT, STUN_PORT, 'udp')}}
+         'derp': {(DERP_TLS_PORT, DERP_HOST_PORT, 'tcp'), (STUN_PORT, STUN_PORT, 'udp')},
+         'gateway-config': {(INITIALIZER_PORT, INITIALIZER_PORT, 'tcp')}}
 
 
 def identities(document, family):
@@ -34,8 +37,10 @@ def identities(document, family):
     for task in tasks:
         for container in task['Containers']:
             name = container['Name']
-            if name not in PORTS or task['KnownStatus'] == 'PENDING' and name != 'dns-policy':
+            if name not in PORTS or task['KnownStatus'] == 'PENDING' and name not in {'dns-policy', 'gateway-config'}:
                 continue
+            if name == 'gateway-config' and (not container.get('DockerId') or not container.get('StartedAt')):
+                continue  # A not-yet-started writer has no network authority to grant.
             if name in peers or not re.fullmatch('[a-f0-9]{64}', container.get('DockerId', '')):
                 raise RuntimeError('Invalid engine identity')
             # ECS can repeat equivalent bindings for multiple address families; normalize only identical tuples.
@@ -43,9 +48,12 @@ def identities(document, family):
             if ports != PORTS[name]:
                 raise RuntimeError('Unexpected gateway port bindings')
             started = container.get('StartedAt')
-            restarts = container.get('RestartCount')
+            # ECS omits RestartCount for this nonrestartable one-shot; DockerId/StartedAt plus NAT bind its generation.
+            restarts = container.get('RestartCount', 0) if name == 'gateway-config' else container.get('RestartCount')
             if not isinstance(started, str) or not started.endswith('Z') or not isinstance(restarts, int) or restarts < 0:
                 raise RuntimeError('Missing engine restart generation')
+            if name == 'gateway-config' and restarts != 0:
+                raise RuntimeError('Initializer must remain nonrestartable')
             peers[name] = {'id': container['DockerId'], 'started': started, 'restarts': restarts, 'task': task['Arn']}
     return peers
 
@@ -56,7 +64,8 @@ def destinations(rules, bridge):
     mapping = {('tcp', '443'): ('xray', '443'), ('udp', '443'): ('awg', '443'),
                ('tcp', str(DNS_HOST_PORT)): ('dns-tcp', str(DNS_PORT)),
                ('udp', str(DNS_HOST_PORT)): ('dns-udp', str(DNS_PORT)),
-               ('tcp', str(DERP_HOST_PORT)): ('derp-tcp', str(DERP_TLS_PORT)), ('udp', str(STUN_PORT)): ('derp-stun', str(STUN_PORT))}
+               ('tcp', str(DERP_HOST_PORT)): ('derp-tcp', str(DERP_TLS_PORT)), ('udp', str(STUN_PORT)): ('derp-stun', str(STUN_PORT)),
+               ('tcp', str(INITIALIZER_PORT)): ('gateway-config', str(INITIALIZER_PORT))}
     subnet = ipaddress.ip_network(bridge, strict=False)
     for line in rules.splitlines():
         words = shlex.split(line)
@@ -90,7 +99,8 @@ def destinations(rules, bridge):
         raise RuntimeError('Engines share a bridge destination')
     return {**{name: targets[name] for name in ('xray', 'awg') if name in targets},
             **({'dns-policy': targets['dns-tcp']} if 'dns-tcp' in targets else {}),
-            **({'derp': targets['derp-tcp']} if 'derp-tcp' in targets else {})}
+            **({'derp': targets['derp-tcp']} if 'derp-tcp' in targets else {}),
+            **({'gateway-config': targets['gateway-config']} if 'gateway-config' in targets else {})}
 
 
 def snapshot():

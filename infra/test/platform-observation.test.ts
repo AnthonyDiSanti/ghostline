@@ -38,6 +38,18 @@ it('accepts an exact private DNS peer identity', () => {
   const value = { ...report(), network: { schema: 1, healthy: true, peers: { 'dns-policy': peer } } };
   expect(parseHostObservation(JSON.stringify(value)).network?.peers['dns-policy']).toEqual(peer);
 });
+it('accepts a transient one-shot initializer peer and rejects restarted or unknown peers', () => {
+  // ECS can report the initializer while retrieval is in flight, before a steady gateway exists.
+  const peer = { id: 'a'.repeat(64), ip: '172.17.0.6',
+    task: `arn:aws:ecs:eu-west-1:111111111111:task/trial/${'b'.repeat(32)}`,
+    started: '2026-09-28T00:00:00Z', restarts: 0 };
+  const value = { ...report(), network: { schema: 1, healthy: true, peers: { 'gateway-config': peer } } };
+  expect(parseHostObservation(JSON.stringify(value)).network?.peers['gateway-config']).toEqual(peer);
+  peer.restarts = 1;
+  expect(() => parseHostObservation(JSON.stringify(value))).toThrow('malformed');
+  expect(() => parseHostObservation(JSON.stringify({ ...value, network: { schema: 1, healthy: true,
+    peers: { unknown: { ...peer, restarts: 0 } } } }))).toThrow('malformed');
+});
 it('withdraws observed readiness before the forwarding lease can expire', () => {
   const script = new URL('./fixtures/daemon-readiness.py', import.meta.url).pathname;
   expect(execFileSync('python3', ['-B', script], { encoding: 'utf8' })).toContain('bounded readiness passed');

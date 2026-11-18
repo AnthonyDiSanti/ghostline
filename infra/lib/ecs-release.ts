@@ -33,6 +33,9 @@ export function releaseFiles(protocol: BuildArtifact): Record<string, Buffer> {
     Dockerfile: readFileSync(new URL('../../runtime/ecs/derp.Dockerfile', import.meta.url)),
     'derp-tools.go': readFileSync(new URL('../../runtime/ecs/derp-tools.go', import.meta.url)),
     'derp-tools_test.go': readFileSync(new URL('../../runtime/ecs/derp-tools_test.go', import.meta.url)),
+    'secret-loader.go': readFileSync(new URL('../../runtime/ecs/secret-loader.go', import.meta.url)),
+    'secret-loader_test.go': readFileSync(new URL('../../runtime/ecs/secret-loader_test.go', import.meta.url)),
+    'collect-go-licenses.sh': readFileSync(new URL('../../runtime/ecs/collect-go-licenses.sh', import.meta.url)),
     'derp-probe.go': readFileSync(new URL('../test/fixtures/derp-probe.go', import.meta.url)),
     'config-start.sh': readFileSync(new URL('../../runtime/ecs/config-start.sh', import.meta.url)),
     'gateway-config.sh': readFileSync(new URL('../../runtime/ecs/gateway-config.sh', import.meta.url)),
@@ -55,6 +58,7 @@ export function releaseFiles(protocol: BuildArtifact): Record<string, Buffer> {
     files['network.py'] = readFileSync(new URL('../../runtime/ecs/network.py', import.meta.url));
     files['dns-policy.json'] = readFileSync(new URL('../../runtime/ecs/dns-policy.json', import.meta.url));
     files['derp-policy.json'] = readFileSync(new URL('../../runtime/ecs/derp-policy.json', import.meta.url));
+    files['initializer-policy.json'] = readFileSync(new URL('../../runtime/ecs/initializer-policy.json', import.meta.url));
     if (protocol === 'bootstrap') {
       files['network-probe.py'] = readFileSync(new URL('../../runtime/ecs/network-probe.py', import.meta.url));
       files['derp-network-probe.py'] = readFileSync(new URL('../../runtime/ecs/derp-network-probe.py', import.meta.url));

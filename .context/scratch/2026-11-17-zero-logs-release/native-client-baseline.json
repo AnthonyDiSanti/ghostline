@@ -1,0 +1,9 @@
+{
+  "at": "2026-11-18T04:12:07.831Z",
+  "baseline": "sha256:89ebce02a6f9ca9791fbba9213149573fc0766b9808ea70bef7affef97f052f2",
+  "instance": "i-025cdcfa1041e5d7b",
+  "boot": "42ff4947-c115-4d41-8b6f-bc1a4446cb1b",
+  "encryptedProtocolsPassed": 2,
+  "identitiesPreserved": true,
+  "temporaryExportsRemoved": true
+}

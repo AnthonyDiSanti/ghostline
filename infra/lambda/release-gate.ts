@@ -15,6 +15,7 @@ import { relevantReleaseEvent } from '../lib/releases/events.js';
 import { activationHook } from '../lib/releases/activation-hook.js';
 import { mayReconcileRelease, releaseAutomationMode } from '../lib/releases/automation.js';
 import type { Rollout } from '../lib/releases/blue-green.js';
+import { trialHostTemplates } from '../lib/releases/candidates.js';
 
 export async function handler(event: { action?: string; source?: string; 'detail-type'?: string; detail?: Record<string, any>; lifecycleStage?: string } = {}) {
   if (!relevantReleaseEvent(event)) return { status: 'irrelevant-event' };
@@ -24,12 +25,14 @@ export async function handler(event: { action?: string; source?: string; 'detail
   if (!['true', 'false'].includes(process.env.DNS_REQUIRED ?? '')) throw new Error('DNS target schema is unspecified.');
   const db = new DynamoDBClient({ region });
   const lifecycle = new DynamoLifecycleStore(db, process.env.TABLE!);
+  const templates = await trialHostTemplates(JSON.parse(process.env.SLOT_TEMPLATES!), db, process.env.TABLE!,
+    { account: process.env.ACCOUNT!, region, endpoint: process.env.ENDPOINT_STACK! });
   const gate = new AwsBlueGreen({ endpoint: process.env.ENDPOINT_STACK!, account: process.env.ACCOUNT!, region,
     cluster: process.env.CLUSTER!, service: process.env.SERVICE!, table: process.env.TABLE!, topic: process.env.TOPIC!,
     dnsRequired: process.env.DNS_REQUIRED === 'true',
     derpRequired: process.env.DERP_REQUIRED === 'true',
     observerDocument: process.env.OBSERVER_DOCUMENT!, progressRule: process.env.PROGRESS_RULE!,
-    templates: JSON.parse(process.env.SLOT_TEMPLATES!), role: process.env.SLOT_ROLE!, tags: JSON.parse(process.env.OWNER_TAGS!) },
+    templates, role: process.env.SLOT_ROLE!, tags: JSON.parse(process.env.OWNER_TAGS!) },
     // Force deployment and address moves use observation-based recovery instead of automatic SDK mutation retries.
     { cfn: new CloudFormationClient({ region }), ec2: new EC2Client({ region, maxAttempts: 1 }),
       ecs: new ECSClient({ region, maxAttempts: 1 }), db, ssm: new SSMClient({ region }),

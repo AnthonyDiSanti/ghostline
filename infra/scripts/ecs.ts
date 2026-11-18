@@ -115,7 +115,7 @@ async function verify() {
     console.log(`${protocol}: private read-only tmpfs, absent engine secret environment and disabled host swap verified.`);
   }
   if (config.derp) {
-    // Compare only public pin metadata; the DERP engine has no runtime Parameter Store access.
+    // Compare only public pin metadata; the DERP namespace cannot reach the shared task credential endpoint.
     const result = await parameters.send(new GetParameterCommand({ Name: `${parameterPrefix}/derp/public` }));
     const identity = parseJson(result.Parameter?.Value ?? '{}');
     if (identity.ip !== outputs.AwgEndpointIp || evidence.derp?.identity?.pin !== identity.pin || !evidence.derp?.healthy) {

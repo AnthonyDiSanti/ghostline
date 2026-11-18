@@ -1,0 +1,142 @@
+{
+  "observedAtUtc": "2026-11-17T23:10:03.511959+00:00",
+  "scope": "Existing diagnostic container; fixed public DNS canary only; actual CoreDNS policy comparison, resolver classification and redirect counters. No raw packet/log/client data returned.",
+  "regions": {
+    "stockholm-ecs": {
+      "region": "eu-north-1",
+      "hostCount": 1,
+      "dns": {
+        "corefileMatchesSource": true,
+        "hostResolvers": {
+          "resolverCount": 1,
+          "awsResolverCount": 0,
+          "loopbackResolverCount": 1
+        },
+        "engines": {
+          "xray": {
+            "syntheticQueries": 4,
+            "successfulAnswers": 4
+          },
+          "awg": {
+            "syntheticQueries": 4,
+            "successfulAnswers": 4
+          }
+        },
+        "redirectCounterDeltas": {
+          "xray-udp": 2,
+          "xray-tcp": 2,
+          "awg-udp": 2,
+          "awg-tcp": 2
+        },
+        "allQueriesAnswered": true,
+        "allEngineTransportRedirectsObserved": true
+      },
+      "diagnosticsDisabled": true,
+      "adminDisabled": true,
+      "controlNotSuperpowered": true
+    },
+    "oregon": {
+      "region": "us-west-2",
+      "hostCount": 1,
+      "dns": {
+        "corefileMatchesSource": true,
+        "hostResolvers": {
+          "resolverCount": 1,
+          "awsResolverCount": 0,
+          "loopbackResolverCount": 1
+        },
+        "engines": {
+          "xray": {
+            "syntheticQueries": 4,
+            "successfulAnswers": 4
+          },
+          "awg": {
+            "syntheticQueries": 4,
+            "successfulAnswers": 4
+          }
+        },
+        "redirectCounterDeltas": {
+          "xray-udp": 2,
+          "xray-tcp": 2,
+          "awg-udp": 2,
+          "awg-tcp": 2
+        },
+        "allQueriesAnswered": true,
+        "allEngineTransportRedirectsObserved": true
+      },
+      "diagnosticsDisabled": true,
+      "adminDisabled": true,
+      "controlNotSuperpowered": true
+    },
+    "zurich": {
+      "region": "eu-central-2",
+      "hostCount": 1,
+      "dns": {
+        "corefileMatchesSource": true,
+        "hostResolvers": {
+          "resolverCount": 1,
+          "awsResolverCount": 0,
+          "loopbackResolverCount": 1
+        },
+        "engines": {
+          "xray": {
+            "syntheticQueries": 4,
+            "successfulAnswers": 4
+          },
+          "awg": {
+            "syntheticQueries": 4,
+            "successfulAnswers": 4
+          }
+        },
+        "redirectCounterDeltas": {
+          "xray-udp": 2,
+          "xray-tcp": 2,
+          "awg-udp": 2,
+          "awg-tcp": 2
+        },
+        "allQueriesAnswered": true,
+        "allEngineTransportRedirectsObserved": true
+      },
+      "diagnosticsDisabled": true,
+      "adminDisabled": true,
+      "controlNotSuperpowered": true
+    },
+    "cape-town": {
+      "region": "af-south-1",
+      "hostCount": 0
+    },
+    "nva": {
+      "region": "us-east-1",
+      "hostCount": 1,
+      "dns": {
+        "corefileMatchesSource": true,
+        "hostResolvers": {
+          "resolverCount": 1,
+          "awsResolverCount": 0,
+          "loopbackResolverCount": 1
+        },
+        "engines": {
+          "xray": {
+            "syntheticQueries": 4,
+            "successfulAnswers": 4
+          },
+          "awg": {
+            "syntheticQueries": 4,
+            "successfulAnswers": 4
+          }
+        },
+        "redirectCounterDeltas": {
+          "xray-udp": 2,
+          "xray-tcp": 2,
+          "awg-udp": 2,
+          "awg-tcp": 2
+        },
+        "allQueriesAnswered": true,
+        "allEngineTransportRedirectsObserved": true
+      },
+      "diagnosticsDisabled": true,
+      "adminDisabled": true,
+      "controlNotSuperpowered": true
+    }
+  }
+}

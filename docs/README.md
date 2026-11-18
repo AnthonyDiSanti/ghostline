@@ -9,11 +9,13 @@ Current specifications describe one regional ECS gateway architecture. Git histo
 | Change regional topology, ownership or cost tags | [Architecture](architecture.md) |
 | Understand containers, RAM, networking, memory and recovery | [ECS gateway](ecs.md) |
 | Review shared gateway DNS and its acceptance gates | [Gateway DNS](dns.md) |
+| Audit sensitive records, shutdown persistence and tracking exposure | [Logging and privacy audit](logging-privacy-audit.md) |
+| Review credential delivery, fleet adoption and Runtime opt-out decisions | [Privacy plan](../.context/scratch/2026-11-17-zero-logs-release/credential-delivery-plan.md), [fleet adoption](../.context/scratch/2026-11-17-zero-logs-release/fleet-adoption.md) |
 | Build/update the platform or qualify an isolated candidate | [Platform](platform.md), [isolated validation](bottlerocket-trial.md) |
 | Build, test, deploy or add another region | [Development](development.md) |
 | Inspect image provenance and release policy | [Images](images.md), [runtime notice](../runtime/NOTICE.md) |
 | Publish, replicate, retain or recover whole-stack releases | [Release workflow](releases.md) |
-| Coordinate a regional canary and lifecycle exclusion | [Regional release trials](candidate-releases.md) |
+| Coordinate a regional experiment and lifecycle exclusion | [Regional release trials](candidate-releases.md) |
 | Import credentials or review their security boundary | [Secrets](secrets.md) |
 | Stop, rebuild, park or release an exit | [Lifecycle](deployment-lifecycle.md) |
 | Verify shared account audit coverage | [CloudTrail](cloudtrail.md) |

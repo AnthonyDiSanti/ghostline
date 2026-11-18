@@ -13,11 +13,12 @@ describe('Bottlerocket gateway boundaries', () => {
     const template = Template.fromStack(buildApp(config, { service: true, runtime: true }).stack).toJSON();
     const resources = Object.values(template.Resources) as any[];
     const task = resources.find(r => r.Type === 'AWS::ECS::TaskDefinition').Properties;
-    expect(task.TaskRoleArn).toBeUndefined();
+    expect(task.TaskRoleArn).toBeDefined();
     expect(task.ContainerDefinitions).toHaveLength(4);
     const initializer = task.ContainerDefinitions.find((c: any) => c.Name === 'gateway-config');
-    expect(initializer.DisableNetworking).toBe(true);
-    expect(initializer.Secrets.map((s: any) => s.ValueFrom)).toEqual(['xray', 'awg'].map(name =>
+    expect(initializer.DisableNetworking).toBeUndefined();
+    expect(initializer.Secrets).toBeUndefined();
+    expect(Object.values(JSON.parse(initializer.Environment[0].Value))).toEqual(['xray', 'awg'].map(name =>
       `arn:aws:ssm:eu-north-1:757999402784:parameter/ghostline/prod/server/${name}`));
     for (const engine of task.ContainerDefinitions.filter((c: any) => ['xray', 'awg'].includes(c.Name))) {
       expect(engine.DependsOn).toEqual([{ ContainerName: 'gateway-config', Condition: 'SUCCESS' }, { ContainerName: 'dns-policy', Condition: 'HEALTHY' }]);

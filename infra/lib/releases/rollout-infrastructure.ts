@@ -10,9 +10,10 @@ import type { PlatformImageInputs } from '../gateway-platform.js';
 import { hostTemplates } from '../host-slot.js';
 import { slotProvisionerName } from '../host-slot-authority.js';
 import { hostSlots, slotStackName, transitionAddressStackName } from '../host-slot-model.js';
+import { assertTrialTemplateUrl } from './candidates.js';
 
 export function rolloutInfrastructure(stack: Stack, handler: IFunction, config: DeploymentConfig, guardDuty: boolean,
-  images?: PlatformImageInputs) {
+  images?: PlatformImageInputs, captured?: Record<'a' | 'b' | 'addresses', string>) {
   // Host templates use the same regional CDK file-asset publication as Lambda code, never Docker image assets.
   const folder = mkdtempSync(join(tmpdir(), 'ghostline-slot-templates-'));
   const templates = hostTemplates(config, guardDuty, images);
@@ -27,9 +28,18 @@ export function rolloutInfrastructure(stack: Stack, handler: IFunction, config: 
   const stackArns = stackNames.map(name => stack.formatArn({ service: 'cloudformation', resource: 'stack', resourceName: `${name}/*` }));
   const roleArn = stack.formatArn({ service: 'iam', region: '', resource: 'role', resourceName: slotProvisionerName(config.resourceName) });
   const add = (props: ConstructorParameters<typeof PolicyStatement>[0]) => handler.addToRolePolicy(new PolicyStatement(props));
+  // A bounded candidate may return only to the exact three owned templates captured before it began.
+  if (captured) {
+    if (Object.keys(captured).sort().join(',') !== 'a,addresses,b') throw new Error('Incomplete trial host templates.');
+    for (const value of Object.values(captured)) assertTrialTemplateUrl(value, config);
+    add({ actions: ['s3:GetObject'], resources: Object.values(captured).map(value => {
+      const url = new URL(value), key = url.pathname.split('/').at(-1)!;
+      return `arn:${stack.partition}:s3:::ghostline-release-assets-${config.account}-${config.region}/${key}`;
+    }) });
+  }
   add({ actions: ['cloudformation:CreateStack', 'cloudformation:UpdateStack'], resources: stackArns,
     // StringEquals (not IfExists) disallows TemplateBody/UsePreviousTemplate and an arbitrary administrator execution role.
-    conditions: { StringEquals: { 'cloudformation:TemplateUrl': Object.values(urls), 'cloudformation:RoleArn': roleArn } } });
+    conditions: { StringEquals: { 'cloudformation:TemplateUrl': [...new Set([...Object.values(urls), ...Object.values(captured ?? {})])], 'cloudformation:RoleArn': roleArn } } });
   add({ actions: ['cloudformation:DeleteStack'], resources: [stackArns[2]!],
     conditions: { StringEquals: { 'cloudformation:RoleArn': roleArn } } });
   add({ actions: ['cloudformation:DescribeStacks', 'cloudformation:ListStackResources'], resources: [...stackArns,

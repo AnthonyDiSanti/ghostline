@@ -22,6 +22,7 @@ import { EcrReplicationCluster, replicationRulesEqual, type PublicationProfile, 
 import { cleanPublicationProtection, seedReleaseHistory } from './publication.js';
 import { pruneRegionalArtifacts } from './retention-operator.js';
 import { reportTrialExclusion } from './trial-exclusions.js';
+import { trialHostTemplates } from './candidates.js';
 import { withLifecycle, type LifecycleControl } from '../lifecycle-operator.js';
 
 export const root = fileURLToPath(new URL('../../../', import.meta.url));
@@ -128,11 +129,13 @@ export async function operatorGate(target: string): Promise<AwsBlueGreen> {
   if (!env?.SLOT_TEMPLATES || !env.SLOT_ROLE || !env.OWNER_TAGS || env.ENDPOINT_STACK !== config.stackName || env.ACCOUNT !== config.account) {
     throw new Error('Deploy the blue-green release infrastructure before host-slot operations.');
   }
+  const templates = await trialHostTemplates(JSON.parse(env.SLOT_TEMPLATES), new DynamoDBClient(options), 'ghostline-prod-release-attempts',
+    { account: config.account, region: config.region, endpoint: config.stackName });
   return new AwsBlueGreen({ endpoint: config.stackName, account: config.account, region: config.region, cluster: config.resourceName,
     service: `${config.resourceName}-gateway`, table: 'ghostline-prod-release-attempts', topic: env.TOPIC!,
     dnsRequired: config.dnsRequired === true,
     derpRequired: !!config.derp,
-    observerDocument: env.OBSERVER_DOCUMENT!, progressRule: env.PROGRESS_RULE!, templates: JSON.parse(env.SLOT_TEMPLATES),
+    observerDocument: env.OBSERVER_DOCUMENT!, progressRule: env.PROGRESS_RULE!, templates,
     role: env.SLOT_ROLE, tags: JSON.parse(env.OWNER_TAGS) },
     { cfn: retryObservations(new CloudFormationClient(options)), ec2: retryObservations(new EC2Client(options)), ecs: retryObservations(new ECSClient(options)),
       db: retryObservations(new DynamoDBClient(options)), ssm: retryObservations(new SSMClient(options)), sns: new SNSClient(options), events: new EventBridgeClient(options) }, registry(config.region), 'active');

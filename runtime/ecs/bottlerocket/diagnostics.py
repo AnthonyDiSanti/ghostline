@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import re
 import socket
 import stat
 import sys
@@ -11,6 +12,18 @@ from pathlib import Path
 
 import network
 from host_support import ROOT, command, configuration, diagnostic_peers, prepare_tools
+
+
+def credential_environment(environment):
+    # ECS shares task-role authority. Its opaque locator is public metadata; static keys and application secrets are forbidden.
+    allowed = {'AWS_REGION', 'AWS_DEFAULT_REGION', 'AWS_EXECUTION_ENV'}
+    for item in environment:
+        name, _, value = item.partition('=')
+        if name == 'AWS_CONTAINER_CREDENTIALS_RELATIVE_URI':
+            if not re.fullmatch(r'/v2/credentials/[a-f0-9-]{36}', value):
+                raise RuntimeError('Unexpected task credential locator')
+        elif name.startswith(('GHOSTLINE_', 'AWS_')) and name not in allowed:
+            raise RuntimeError('Unexpected engine credential environment')
 
 
 def daemon_identity(config):
@@ -62,10 +75,7 @@ def verify(config):
         pid = state['Pid']
         metadata = json.loads(command(['docker', 'inspect', '--format', '{{json .HostConfig}}', peer['id']]))
         env = json.loads(command(['docker', 'inspect', '--format', '{{json .Config.Env}}', peer['id']]))
-        # ECS injects harmless region/runtime markers even without a task role; reject credential channels.
-        platform_names = {'AWS_REGION', 'AWS_DEFAULT_REGION', 'AWS_EXECUTION_ENV'}
-        if any(item.startswith(('GHOSTLINE_', 'AWS_')) and item.split('=', 1)[0] not in platform_names for item in env):
-            raise RuntimeError('Unexpected engine credential environment')
+        credential_environment(env)
         if metadata['Privileged'] or not metadata['ReadonlyRootfs'] or metadata['NetworkMode'] != 'bridge':
             raise RuntimeError('Engine security boundary differs')
         process_label = Path(f'/proc/{pid}/attr/current').read_text().strip()
@@ -116,9 +126,7 @@ def derp_posture(config, peers):
     state = json.loads(command(['docker', 'inspect', '--format', '{{json .State}}', container]))
     metadata = json.loads(command(['docker', 'inspect', '--format', '{{json .HostConfig}}', container]))
     environment = json.loads(command(['docker', 'inspect', '--format', '{{json .Config.Env}}', container]))
-    if any(item.startswith(('GHOSTLINE_', 'AWS_')) and item.split('=', 1)[0] not in
-           {'AWS_REGION', 'AWS_DEFAULT_REGION', 'AWS_EXECUTION_ENV'} for item in environment):
-        raise RuntimeError('Unexpected DERP credential environment')
+    credential_environment(environment)
     if metadata['Privileged'] or not metadata['ReadonlyRootfs'] or metadata['NetworkMode'] != 'bridge' or metadata['Memory'] != 128 * 1048576:
         raise RuntimeError('DERP security or memory boundary differs')
     pid = state['Pid']

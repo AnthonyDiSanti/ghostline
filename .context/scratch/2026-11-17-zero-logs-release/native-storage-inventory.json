@@ -1,0 +1,66 @@
+{
+  "observedAt": "2026-11-18T01:12:19.198Z",
+  "target": "stockholm-ecs",
+  "initializers": 1,
+  "nonemptyBundles": {
+    "GHOSTLINE_XRAY_BUNDLE": true,
+    "GHOSTLINE_AWG_BUNDLE": true,
+    "GHOSTLINE_DERP_BUNDLE": true
+  },
+  "docker": {
+    "version": "29.0.4",
+    "driver": "overlayfs",
+    "dataRoot": "/var/lib/docker"
+  },
+  "footprintKiB": {
+    "docker": 262692,
+    "containerd": 344616,
+    "ecs": 176
+  },
+  "memoryKiB": {
+    "MemTotal": 1887048,
+    "MemAvailable": 1186164
+  },
+  "stores": {
+    "dockerMetadata": {
+      "filesScanned": 38,
+      "bytesScanned": 45402,
+      "unreadable": 0,
+      "unstable": 0,
+      "complete": true,
+      "matchedFiles": {
+        "GHOSTLINE_XRAY_BUNDLE": 1,
+        "GHOSTLINE_AWG_BUNDLE": 1,
+        "GHOSTLINE_DERP_BUNDLE": 1
+      },
+      "exists": true
+    },
+    "ecsCheckpoint": {
+      "filesScanned": 1,
+      "bytesScanned": 262144,
+      "unreadable": 0,
+      "unstable": 0,
+      "complete": true,
+      "matchedFiles": {
+        "GHOSTLINE_XRAY_BUNDLE": 1,
+        "GHOSTLINE_AWG_BUNDLE": 1,
+        "GHOSTLINE_DERP_BUNDLE": 1
+      },
+      "exists": true
+    },
+    "ecsLogs": {
+      "filesScanned": 1,
+      "bytesScanned": 141585,
+      "unreadable": 0,
+      "unstable": 0,
+      "complete": true,
+      "matchedFiles": {
+        "GHOSTLINE_XRAY_BUNDLE": 0,
+        "GHOSTLINE_AWG_BUNDLE": 0,
+        "GHOSTLINE_DERP_BUNDLE": 0
+      },
+      "exists": true
+    }
+  },
+  "administrativeLockdownVerified": true
+}

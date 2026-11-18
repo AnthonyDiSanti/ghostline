@@ -1,0 +1,88 @@
+{
+  "observedAtUtc": "2026-11-17T23:05:46.670127+00:00",
+  "readOnly": true,
+  "scope": "Customer flow-log resources at VPC/subnet/ENI scope, direct/profile Resolver query-log associations and DHCP DNS metadata; no log content read.",
+  "regions": {
+    "stockholm-ecs": {
+      "region": "eu-north-1",
+      "vpcCount": 1,
+      "vpcs": [
+        {
+          "subnetCount": 1,
+          "interfaceCount": 2,
+          "flowLogCount": 0,
+          "flowLogs": [],
+          "directResolverQueryLogAssociationCount": 0,
+          "directResolverQueryLogStatuses": [],
+          "profileAssociationReadError": false,
+          "profileAssociations": [],
+          "amazonProvidedDnsInDhcp": true,
+          "customDhcpResolverCount": 0,
+          "dnsSupportEnabled": true
+        }
+      ]
+    },
+    "oregon": {
+      "region": "us-west-2",
+      "vpcCount": 1,
+      "vpcs": [
+        {
+          "subnetCount": 1,
+          "interfaceCount": 2,
+          "flowLogCount": 0,
+          "flowLogs": [],
+          "directResolverQueryLogAssociationCount": 0,
+          "directResolverQueryLogStatuses": [],
+          "profileAssociationReadError": false,
+          "profileAssociations": [],
+          "amazonProvidedDnsInDhcp": true,
+          "customDhcpResolverCount": 0,
+          "dnsSupportEnabled": true
+        }
+      ]
+    },
+    "zurich": {
+      "region": "eu-central-2",
+      "vpcCount": 1,
+      "vpcs": [
+        {
+          "subnetCount": 1,
+          "interfaceCount": 2,
+          "flowLogCount": 0,
+          "flowLogs": [],
+          "directResolverQueryLogAssociationCount": 0,
+          "directResolverQueryLogStatuses": [],
+          "profileAssociationReadError": false,
+          "profileAssociations": [],
+          "amazonProvidedDnsInDhcp": true,
+          "customDhcpResolverCount": 0,
+          "dnsSupportEnabled": true
+        }
+      ]
+    },
+    "cape-town": {
+      "region": "af-south-1",
+      "vpcCount": 0,
+      "vpcs": []
+    },
+    "nva": {
+      "region": "us-east-1",
+      "vpcCount": 1,
+      "vpcs": [
+        {
+          "subnetCount": 1,
+          "interfaceCount": 2,
+          "flowLogCount": 0,
+          "flowLogs": [],
+          "directResolverQueryLogAssociationCount": 0,
+          "directResolverQueryLogStatuses": [],
+          "profileAssociationReadError": false,
+          "profileAssociations": [],
+          "amazonProvidedDnsInDhcp": true,
+          "customDhcpResolverCount": 0,
+          "dnsSupportEnabled": true
+        }
+      ]
+    }
+  }
+}

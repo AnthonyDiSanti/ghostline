@@ -2,9 +2,16 @@
 
 Selected Miami primary target `oregon`; profile `personal`; account `757999402784`; region `us-west-2`, AZ `us-west-2a`. Endpoint stack `GhostlineOregon`, first host stack `GhostlineOregon-Host-a`, resource prefix `ghostline-oregon`. Uses the common [gateway recipe](ecs.md).
 
+
+## Credential delivery adopted — November 18, 2026 (New York)
+
+Current qualified release is `sha256:5e2731f3523b75340b39df164f714f1260dd2301c3aa293fb18ccf74ca741257` on slot B host `i-0f93572210ad24c2e`, ENI `eni-0acb5ffdb3df354a8`, official ECS-3 ARM64 Bottlerocket 1.66.0. Native ECS deployment is SUCCESSFUL, rollout complete with zero health failures, one running gateway host and two encrypted attached disks. Original Xray/AWG endpoint allocations and all nine parameter metadata records are unchanged. Standard blue-green source-host/disk/network/temporary-address cleanup is complete; original active automation is restored with no trial/lifecycle/local-operation receipt.
+
+The shared initializer retrieves Xray/AWG/DERP identities directly into RAM through exact shared task-role permissions and private stdin rendering. Native scans find zero tested protocol/task-credential matches across complete/stable Docker metadata, ECS checkpoint, containerd metadata and ECS-log stores. All four engine namespaces block credentials, initializer authority is withdrawn, and fixed missing-credential failure cleanup passes. Full security/configuration, both real encrypted VPN clients, public pinned DERP/STUN and exact-host GuardDuty HEALTHY v1.17.3 pass. Diagnostic/admin disabled and control non-superpowered are verified. Existing identities/profiles need no changes; no rotation or shared protection-policy change occurred. [Fleet proof and limitations](../.context/scratch/2026-11-17-zero-logs-release/fleet-adoption.md).
+
 ## DERP/STUN migration accepted — November 17, 2026 (New York)
 
-Current slot A host is `i-0f03f5dd29ff20e8d`, ENI `eni-0fad34db1f29ef4cf`, official ECS-3 ARM64 Bottlerocket 1.66.0 AMI `ami-014019f8497d4b260`; gateway revision 2 runs qualified schema-v5 release `sha256:89ebce02a6f9ca9791fbba9213149573fc0766b9808ea70bef7affef97f052f2`. Native ECS completed SUCCESSFUL at `2026-11-18T00:02:29.563Z` with zero recorded health failures. Standard blue-green handoff, bake and source cleanup returned to one host and the two original EIPs: Xray `32.188.31.172`, AWG `54.190.232.225`.
+At DERP acceptance, slot A host was `i-0f03f5dd29ff20e8d`, ENI `eni-0fad34db1f29ef4cf`, official ECS-3 ARM64 Bottlerocket 1.66.0 AMI `ami-014019f8497d4b260`; gateway revision 2 runs qualified schema-v5 release `sha256:89ebce02a6f9ca9791fbba9213149573fc0766b9808ea70bef7affef97f052f2`. Native ECS completed SUCCESSFUL at `2026-11-18T00:02:29.563Z` with zero recorded health failures. Standard blue-green handoff, bake and source cleanup returned to one host and the two original EIPs: Xray `32.188.31.172`, AWG `54.190.232.225`.
 
 DERP TCP 443 and STUN UDP 3478 reuse the AWG address with admission restricted to the approved AWS probe exits. Native private-RAM/confinement verification and fresh exact-host GuardDuty HEALTHY v1.17.3 pass. Both disposable encrypted VPN clients pass HTTPS through the original EIPs; pinned public TLS, two-client relay and STUN pass through NVA, and non-admitted relay/STUN/internal-port access is denied. All nine parameter metadata records, EIP allocations and protection settings are preserved. The controller is restored active with no operation/trial remaining.
 
@@ -68,3 +75,10 @@ Anthony asks to add the standard Oregon subscription. Scoped reconciliation veri
 ## Confirmation renewal — November 15
 
 The owner requested new confirmation emails after the prior requests timed out. Fresh readback found no email subscriber on this region's current alert topic. Scoped reconciliation verified the unchanged deployed subscription identity and saved contact, requested a fresh confirmation and verified exactly one pending email subscription. The owner subsequently confirmed the renewed message. Independent November 15 SNS readback verifies exactly one confirmed email subscriber and zero pending subscriptions, matching all five maintained regions. No application-alert delivery test or VPN/template change occurred. Metadata-only receipts are ignored `.local/alert-repair-2026-11-15/{plan,result,confirmed}.json`.
+
+
+## Quiet logging release — November 17, 2026
+
+Native ECS blue-green completed on slot `b`, host `i-071674c209c803d52`, ENI `eni-0214c8d6256aa7d46`, AMI `ami-014019f8497d4b260`, actual Bottlerocket `1.66.0`, boot `9b5e72b7-cc47-481a-99b4-5adf26fa45f9`. The source host is terminated and exactly one owned host runs. Both encrypted protocol HTTPS checks, full runtime/security verification and bounded count-only log checks pass. Diagnostic/admin lockdown is restored; GuardDuty remains HEALTHY v1.17.3. Original endpoint allocation/IP fingerprints and all credential/contact parameter versions/timestamps are preserved. No new physical-device acceptance is claimed.
+
+Release `sha256:a9ee9cfbc8a10b008e5e456d15f7713289def2184bd71e77de77f68c00d04cd7`, promotion `c660910d-017e-4dc6-83a3-be5b1eb84ca4`. [Cross-region evidence](../.context/scratch/2026-11-17-zero-logs-release/README.md). Known application access/query output is suppressed; two initializer bundle values remain in persistent Docker metadata.

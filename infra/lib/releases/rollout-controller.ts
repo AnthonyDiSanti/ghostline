@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { advanceRollout, type Generation, type Rollout, type RolloutPorts } from './blue-green.js';
 import type { Registry } from './registry.js';
-import { readiness } from './gate.js';
+import { regionalReadiness } from './gate.js';
 import { observedArtifacts, releaseArtifacts, type Release } from './model.js';
 import { componentMatches } from './runtime-identity.js';
 import type { DeploymentHook } from './deployment-hook.js';
@@ -11,6 +11,7 @@ export interface BlueGreenPorts extends RolloutPorts {
   dnsRequired: boolean;
   derpRequired?: boolean;
   template: string;
+  trialScope?: { account: string; region: string; endpoint: string };
   record<T>(id: string): Promise<T | undefined>;
   put(id: string, value: unknown): Promise<void>;
   replace<T extends { version: number }>(id: string, next: T, previous?: T): Promise<boolean>;
@@ -23,6 +24,10 @@ export function generationMatchesIntent(source: Generation, intent: Release): bo
   const actual = observedArtifacts(source.images), expected = releaseArtifacts(intent);
   return !!actual && actual.length === expected.length
     && expected.every(name => componentMatches(intent.images[name]!, source.images[name]));
+}
+export function generationMatchesContract(source: Generation, intent: Release, template: string): boolean {
+  // Image equality alone cannot prove that a staged OS or host recipe is the installed baseline.
+  return source.os === intent.os.targetVersion && source.template === template && generationMatchesIntent(source, intent);
 }
 export async function reconcileRollout(ports: BlueGreenPorts, action?: 'retry' | 'cleanup-failed' | 'prepare', hook?: DeploymentHook): Promise<ControllerResult> {
   let current = await ports.record<Rollout>('rollout/current');
@@ -38,7 +43,7 @@ export async function reconcileRollout(ports: BlueGreenPorts, action?: 'retry' |
     // Cleanup is not authorization to silently retry the same failed intent on the next hourly wakeup.
     await ports.progress(false); return { status: 'retry-required' };
   }
-  const ready = await readiness(ports.registry, ports.dnsRequired, ports.derpRequired);
+  const ready = await regionalReadiness(ports);
   if (!ready.ready || !ready.current?.release.os.targetVersion) {
     await ports.alert(`incomplete/${ready.current?.digest ?? 'missing'}`, `Intentional rollout waits for a complete qualified release: ${ready.reason ?? 'missing target OS'}`);
     await ports.progress(false); return { status: 'waiting-for-release' };
@@ -56,8 +61,7 @@ export async function reconcileRollout(ports: BlueGreenPorts, action?: 'retry' |
   }
   await ports.put('generation/pending', { since: 0 });
   const intent = ready.current.release;
-  if (action !== 'prepare' && source.os === intent.os.targetVersion && source.template === ports.template
-    && generationMatchesIntent(source, intent)) {
+  if (action !== 'prepare' && generationMatchesContract(source, intent, ports.template)) {
     await ports.progress(false); return { status: 'already-running' };
   }
   const time = ports.now();

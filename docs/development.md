@@ -1,6 +1,6 @@
 # Development
 
-Use Node 24 and the strict TypeScript package under `infra/`, including its reusable notifications package. Select a named deployment explicitly; never infer a target from the ambient AWS region. `AGENTS.local.md`, when present, contains machine-only execution overrides.
+Use Node 24 and the strict TypeScript package under `infra/`, including its reusable notifications package. Install native `jq`: Xray verification and image tests run the same checked-in logging-policy filter as the initializer, with input/output captured and parser details withheld. Select a named deployment explicitly; never infer a target from the ambient AWS region. `AGENTS.local.md`, when present, contains machine-only execution overrides.
 
 ## Code map
 
@@ -14,7 +14,7 @@ Use Node 24 and the strict TypeScript package under `infra/`, including its reus
 | `infra/lib/ecs-memory.ts`, `infra/lib/bottlerocket-os.ts` | Memory budget and AWS host-image checks |
 | `infra/lib/ecs-release.ts`, `infra/lib/ecs-images.ts` | Seven ARM64 image artifacts, content identities and publication |
 | `infra/lib/derp-*.ts`, `infra/scripts/derp.ts` | DERP identity provisioning, local/public protocol proofs and image checks |
-| `infra/lib/releases/trial-exclusions.ts`, `infra/scripts/trial.ts` | Shared regional admission and bounded production-canary coordination |
+| `infra/lib/releases/trial-exclusions.ts`, `infra/scripts/trial.ts` | Shared regional admission, independent native candidates and captured baseline return |
 | `infra/lib/stable-images.ts`, `infra/lib/upstream-download.ts`, `infra/image-inputs.json` | Stable resolution, scoped authenticated metadata reads and recorded verified build inputs |
 | `infra/lib/region-initialization*.ts`, `infra/scripts/init-region.ts` | Reviewed fresh-region identity/contact initialization and recoverable private staging |
 | `infra/lib/logged-nodejs-function.ts` | Local Node.js Lambda/log-group construction with explicit caller policy |
@@ -49,7 +49,8 @@ Shell/Python program bodies live in `.sh`/`.py` files under `runtime/` or `infra
 | `npm run test:ecs-images` | Check seven ARM64 artifacts, platform boundaries, real encrypted tunnels and DERP/STUN with synthetic credentials |
 | `npm run derp <target> provision` / `status` | Explicit no-overwrite DERP identity import/public pin status against the retained AWG IP |
 | `npm run derp <target> test -- --via <maintained-target>` | Probe pinned public relay/STUN through an admitted, different AWS AWG endpoint |
-| `npm run trial <target> begin` / `deploy` / `status` / `finish` | Coordinate a bounded manual-mode production canary and shared regional exclusion |
+| `npm run trial <target> stage <qualified.json>` / `begin [digest]` / `deploy` / `return` / `status` / `finish` | Test immutable native candidates or the production canary with regional exclusion; candidates restore the captured baseline/mode |
+| `npm run test:ram-runtime -- --output /absolute/path/to/count-only.json` | Explicit local Option A integration proof: synthetic secrets, Docker/containerd RAM stores, restart and persistence controls; requires pinned fixture images and privileged ARM64 Docker nesting |
 | `npm run platform <target> status` | Observe actual boot, OS and component identities |
 | `npm run platform <target> qualify <qualified-file>` | Close central native qualification after the documented experiment; verify runtime and record exact platform/OS compatibility |
 | `npm run deployments` | List maintained targets; allocate nothing |

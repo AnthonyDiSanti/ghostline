@@ -19,6 +19,17 @@ export function deploymentChanges(before: InfrastructureTemplate, after: Infrast
     && isDeepStrictEqual(before.Parameters, after.Parameters) ? 'none' : 'infrastructure';
 }
 
+async function wakeController(wake: () => Promise<void>, wait: (ms: number) => Promise<void>): Promise<void> {
+  // The serialized controller may still be completing our native hook. Retry only rejected wakes, never the deployment.
+  for (let attempt = 0; ; attempt++) {
+    try { await wake(); return; }
+    catch (error) {
+      if ((error as { name?: string } | null)?.name !== 'TooManyRequestsException' || attempt >= 6) throw error;
+      await wait(Math.min(1000 * 2 ** attempt, 10_000));
+    }
+  }
+}
+
 export async function deployWithGreen(gate: BlueGreenPorts, control: LifecycleControl, changes: 'task' | 'infrastructure' | 'none',
   deploy: () => Promise<void>, wake: () => Promise<void>, wait: (ms: number) => Promise<void> = ms => new Promise(resolve => setTimeout(resolve, ms))): Promise<void> {
   // A prepared host precedes any CDK change that can make ECS invoke a synchronous deployment hook.
@@ -33,7 +44,7 @@ export async function deployWithGreen(gate: BlueGreenPorts, control: LifecycleCo
     const current = await gate.record<Rollout>('rollout/current');
     if (current?.phase === 'force') { prepared = current; break; }
     if (current?.phase === 'held') {
-      await control.handoff(); await wake();
+      await control.handoff(); await wakeController(wake, wait);
       throw new Error('Green preparation is held for diagnosis; no shared-stack deployment was requested.');
     }
     if (current && current.phase !== 'complete') await advanceRollout(gate, current);
@@ -51,7 +62,7 @@ export async function deployWithGreen(gate: BlueGreenPorts, control: LifecycleCo
     await deploy();
     await control.handoff();
   }
-  await wake();
+  await wakeController(wake, wait);
   for (let attempt = 0; attempt < 540; attempt++) {
     const current = await gate.record<Rollout>('rollout/current');
     if (current?.id !== prepared.id) throw new Error('Regional rollout identity changed while the CLI observed completion.');

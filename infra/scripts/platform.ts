@@ -6,7 +6,7 @@ import { withLifecycle } from '../lib/lifecycle-operator.js';
 import { operatorGate, command, verifyAccount, root } from '../lib/releases/operator.js';
 import { assertCurrentBuildQualification, nativeQualificationPath, qualifyNativePlatform } from '../lib/platform-qualification.js';
 import { configuredArtifacts } from '../lib/image-artifacts.js';
-import { qualificationObservation } from '../lib/releases/generation-proof.js';
+import { nativeQualificationObservation } from '../lib/native-qualification-observation.js';
 
 assertBenchmarkExclusion();
 const [target, action, path, ...extra] = process.argv.slice(2);
@@ -31,7 +31,7 @@ verifyAccount();
     }
     if (!generation) throw new Error('Fresh generation observation remains pending.');
     if (action === 'status') { console.log(JSON.stringify(generation, null, 2)); return; }
-    const actual = qualificationObservation(generation);
+    const actual = await nativeQualificationObservation(gate.registry, generation);
     const qualified = JSON.parse(readFileSync(resolve(path!), 'utf8'));
     assertCurrentBuildQualification(qualified, configuredArtifacts(config));
     // This command closes central native qualification after the documented isolated lifecycle experiment, never a regional delivery gate.

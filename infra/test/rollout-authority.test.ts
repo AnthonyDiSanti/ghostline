@@ -60,3 +60,23 @@ it('limits slot provisioning to the regional subnet/security group and two execu
   expect(statements.find(s => [s.Action].flat().includes('ec2:DeleteLaunchTemplate')).Condition.StringEquals['aws:ResourceTag/GhostlineHostStack']).toHaveLength(2);
   expect(statements.find(s => [s.Action].flat().includes('ssm:GetParameters')).Resource).toContain('parameter/aws/service/bottlerocket/');
 });
+
+it('admits only the three captured regional host templates alongside the native candidate templates', () => {
+  // Baseline return authority is an exact temporary union, never an arbitrary CloudFormation/S3 prefix.
+  const config = { ...getDeployment('stockholm-ecs'), account: '000000000000' };
+  const stack = new Stack(new App(), 'TrialAuthority', { env: { account: config.account, region: config.region },
+    synthesizer: new CliCredentialsStackSynthesizer({ fileAssetsBucketName: 'test-assets' }) });
+  const handler = new Function(stack, 'Controller', { runtime: Runtime.NODEJS_24_X, handler: 'index.handler', code: Code.fromInline('exports.handler=async()=>{};') });
+  const url = (letter: string) => `https://ghostline-release-assets-${config.account}-${config.region}.s3.${config.region}.amazonaws.com/${letter.repeat(64)}.json`;
+  const captured = { a: url('a'), b: url('b'), addresses: url('c') };
+  rolloutInfrastructure(stack, handler, config, true, undefined, captured);
+  const resources = Object.values(Template.fromStack(stack).toJSON().Resources) as any[];
+  const statements = resources.filter(r => r.Type === 'AWS::IAM::Policy').flatMap(r => r.Properties.PolicyDocument.Statement);
+  const write = statements.find(s => [s.Action].flat().includes('cloudformation:UpdateStack'));
+  expect(write.Condition.StringEquals['cloudformation:TemplateUrl']).toHaveLength(6);
+  expect(write.Condition.StringEquals['cloudformation:TemplateUrl']).toEqual(expect.arrayContaining(Object.values(captured)));
+  const read = statements.find(s => s.Action === 's3:GetObject' && Array.isArray(s.Resource));
+  expect(read.Resource).toHaveLength(3);
+  for (const value of Object.values(captured)) expect(JSON.stringify(read.Resource)).toContain(`:s3:::ghostline-release-assets-${config.account}-${config.region}/${new URL(value).pathname.slice(1)}`);
+  expect(JSON.stringify(read.Resource)).not.toContain('*');
+});

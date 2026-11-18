@@ -1,0 +1,9 @@
+{
+  "at": "2026-11-18T03:47:44.600Z",
+  "candidate": "sha256:1159081eba26cd751927a4415485fb347fb63007591f93d046f2be2c0000eda2",
+  "instance": "i-03d38af4098463c6e",
+  "boot": "871b1bc4-5ecb-4b5f-83f5-b1b3b3740f45",
+  "encryptedProtocolsPassed": 2,
+  "identitiesPreserved": true,
+  "temporaryExportsRemoved": true
+}

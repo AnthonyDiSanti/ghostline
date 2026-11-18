@@ -1,0 +1,54 @@
+{
+  "before": "2026-11-18T02:01:46.921Z",
+  "after": "2026-11-18T04:20:12.701Z",
+  "parametersUnchanged": 45,
+  "endpointIdentitiesUnchanged": 10,
+  "regions": {
+    "stockholm-ecs": {
+      "parametersUnchanged": 9,
+      "endpointAllocationsAndIpsUnchanged": true,
+      "productionSelectorUnchanged": true,
+      "automationUnchanged": true,
+      "gatewaySecurityGroupUnchanged": true,
+      "otherGatewayInstancesUnchanged": false,
+      "hostCount": 1
+    },
+    "oregon": {
+      "parametersUnchanged": 9,
+      "endpointAllocationsAndIpsUnchanged": true,
+      "productionSelectorUnchanged": true,
+      "automationUnchanged": true,
+      "gatewaySecurityGroupUnchanged": true,
+      "otherGatewayInstancesUnchanged": true,
+      "hostCount": 1
+    },
+    "zurich": {
+      "parametersUnchanged": 9,
+      "endpointAllocationsAndIpsUnchanged": true,
+      "productionSelectorUnchanged": true,
+      "automationUnchanged": true,
+      "gatewaySecurityGroupUnchanged": true,
+      "otherGatewayInstancesUnchanged": true,
+      "hostCount": 1
+    },
+    "cape-town": {
+      "parametersUnchanged": 9,
+      "endpointAllocationsAndIpsUnchanged": true,
+      "productionSelectorUnchanged": true,
+      "automationUnchanged": true,
+      "gatewaySecurityGroupUnchanged": true,
+      "otherGatewayInstancesUnchanged": true,
+      "hostCount": 0
+    },
+    "nva": {
+      "parametersUnchanged": 9,
+      "endpointAllocationsAndIpsUnchanged": true,
+      "productionSelectorUnchanged": true,
+      "automationUnchanged": true,
+      "gatewaySecurityGroupUnchanged": true,
+      "otherGatewayInstancesUnchanged": true,
+      "hostCount": 1
+    }
+  },
+  "otherSystemNote": "A separate HeadscaleState NVA address created by primary-worktree work is excluded from gateway retirement checks and untouched."
+}

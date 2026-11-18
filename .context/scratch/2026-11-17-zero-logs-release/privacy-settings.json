@@ -1,0 +1,290 @@
+{
+  "observedAtUtc": "2026-11-17T22:29:24.031351+00:00",
+  "readOnly": true,
+  "regions": {
+    "oregon": {
+      "region": "us-west-2",
+      "detectorStatus": "ENABLED",
+      "features": {
+        "CLOUD_TRAIL": {
+          "status": "ENABLED"
+        },
+        "DNS_LOGS": {
+          "status": "ENABLED"
+        },
+        "FLOW_LOGS": {
+          "status": "ENABLED"
+        },
+        "S3_DATA_EVENTS": {
+          "status": "ENABLED"
+        },
+        "EKS_AUDIT_LOGS": {
+          "status": "ENABLED"
+        },
+        "EBS_MALWARE_PROTECTION": {
+          "status": "ENABLED"
+        },
+        "RDS_LOGIN_EVENTS": {
+          "status": "ENABLED",
+          "options": {
+            "RDS_DATA_RISK": "ENABLED"
+          }
+        },
+        "AI_PROTECTION": {
+          "status": "DISABLED"
+        },
+        "AI_ANALYST": {
+          "status": "DISABLED"
+        },
+        "EKS_RUNTIME_MONITORING": {
+          "status": "DISABLED",
+          "options": {
+            "EKS_ADDON_MANAGEMENT": "DISABLED"
+          }
+        },
+        "LAMBDA_NETWORK_LOGS": {
+          "status": "ENABLED"
+        },
+        "RUNTIME_MONITORING": {
+          "status": "ENABLED",
+          "options": {
+            "EKS_ADDON_MANAGEMENT": "DISABLED",
+            "ECS_FARGATE_AGENT_MANAGEMENT": "DISABLED",
+            "EC2_AGENT_MANAGEMENT": "DISABLED"
+          }
+        }
+      },
+      "scanResourceCriteria": {
+        "Include": {},
+        "Exclude": {}
+      },
+      "snapshotPreservation": "NO_RETENTION"
+    },
+    "nva": {
+      "region": "us-east-1",
+      "detectorStatus": "ENABLED",
+      "features": {
+        "CLOUD_TRAIL": {
+          "status": "ENABLED"
+        },
+        "DNS_LOGS": {
+          "status": "ENABLED"
+        },
+        "FLOW_LOGS": {
+          "status": "ENABLED"
+        },
+        "S3_DATA_EVENTS": {
+          "status": "ENABLED"
+        },
+        "EKS_AUDIT_LOGS": {
+          "status": "ENABLED"
+        },
+        "EBS_MALWARE_PROTECTION": {
+          "status": "ENABLED"
+        },
+        "RDS_LOGIN_EVENTS": {
+          "status": "ENABLED",
+          "options": {
+            "RDS_DATA_RISK": "DISABLED"
+          }
+        },
+        "AI_PROTECTION": {
+          "status": "DISABLED"
+        },
+        "AI_ANALYST": {
+          "status": "DISABLED"
+        },
+        "EKS_RUNTIME_MONITORING": {
+          "status": "DISABLED",
+          "options": {
+            "EKS_ADDON_MANAGEMENT": "ENABLED"
+          }
+        },
+        "LAMBDA_NETWORK_LOGS": {
+          "status": "ENABLED"
+        },
+        "RUNTIME_MONITORING": {
+          "status": "ENABLED",
+          "options": {
+            "EKS_ADDON_MANAGEMENT": "ENABLED",
+            "ECS_FARGATE_AGENT_MANAGEMENT": "ENABLED",
+            "EC2_AGENT_MANAGEMENT": "ENABLED"
+          }
+        }
+      },
+      "scanResourceCriteria": {
+        "Include": {},
+        "Exclude": {}
+      },
+      "snapshotPreservation": "NO_RETENTION"
+    },
+    "stockholm-ecs": {
+      "region": "eu-north-1",
+      "detectorStatus": "ENABLED",
+      "features": {
+        "CLOUD_TRAIL": {
+          "status": "ENABLED"
+        },
+        "DNS_LOGS": {
+          "status": "ENABLED"
+        },
+        "FLOW_LOGS": {
+          "status": "ENABLED"
+        },
+        "S3_DATA_EVENTS": {
+          "status": "ENABLED"
+        },
+        "EKS_AUDIT_LOGS": {
+          "status": "ENABLED"
+        },
+        "EBS_MALWARE_PROTECTION": {
+          "status": "ENABLED"
+        },
+        "RDS_LOGIN_EVENTS": {
+          "status": "ENABLED",
+          "options": {
+            "RDS_DATA_RISK": "DISABLED"
+          }
+        },
+        "AI_PROTECTION": {
+          "status": "DISABLED"
+        },
+        "AI_ANALYST": {
+          "status": "DISABLED"
+        },
+        "EKS_RUNTIME_MONITORING": {
+          "status": "DISABLED",
+          "options": {
+            "EKS_ADDON_MANAGEMENT": "DISABLED"
+          }
+        },
+        "LAMBDA_NETWORK_LOGS": {
+          "status": "ENABLED"
+        },
+        "RUNTIME_MONITORING": {
+          "status": "ENABLED",
+          "options": {
+            "EKS_ADDON_MANAGEMENT": "DISABLED",
+            "ECS_FARGATE_AGENT_MANAGEMENT": "DISABLED",
+            "EC2_AGENT_MANAGEMENT": "DISABLED"
+          }
+        }
+      },
+      "scanResourceCriteria": {
+        "Include": {},
+        "Exclude": {}
+      },
+      "snapshotPreservation": "NO_RETENTION"
+    },
+    "zurich": {
+      "region": "eu-central-2",
+      "detectorStatus": "ENABLED",
+      "features": {
+        "CLOUD_TRAIL": {
+          "status": "ENABLED"
+        },
+        "DNS_LOGS": {
+          "status": "ENABLED"
+        },
+        "FLOW_LOGS": {
+          "status": "ENABLED"
+        },
+        "S3_DATA_EVENTS": {
+          "status": "ENABLED"
+        },
+        "EKS_AUDIT_LOGS": {
+          "status": "ENABLED"
+        },
+        "EBS_MALWARE_PROTECTION": {
+          "status": "ENABLED"
+        },
+        "RDS_LOGIN_EVENTS": {
+          "status": "ENABLED",
+          "options": {
+            "RDS_DATA_RISK": "DISABLED"
+          }
+        },
+        "AI_PROTECTION": {
+          "status": "DISABLED"
+        },
+        "EKS_RUNTIME_MONITORING": {
+          "status": "DISABLED",
+          "options": {
+            "EKS_ADDON_MANAGEMENT": "DISABLED"
+          }
+        },
+        "LAMBDA_NETWORK_LOGS": {
+          "status": "ENABLED"
+        },
+        "RUNTIME_MONITORING": {
+          "status": "ENABLED",
+          "options": {
+            "EKS_ADDON_MANAGEMENT": "DISABLED",
+            "ECS_FARGATE_AGENT_MANAGEMENT": "DISABLED",
+            "EC2_AGENT_MANAGEMENT": "DISABLED"
+          }
+        }
+      },
+      "scanResourceCriteria": {
+        "Include": {},
+        "Exclude": {}
+      },
+      "snapshotPreservation": "NO_RETENTION"
+    },
+    "cape-town": {
+      "region": "af-south-1",
+      "detectorStatus": "ENABLED",
+      "features": {
+        "CLOUD_TRAIL": {
+          "status": "ENABLED"
+        },
+        "DNS_LOGS": {
+          "status": "ENABLED"
+        },
+        "FLOW_LOGS": {
+          "status": "ENABLED"
+        },
+        "S3_DATA_EVENTS": {
+          "status": "ENABLED"
+        },
+        "EKS_AUDIT_LOGS": {
+          "status": "ENABLED"
+        },
+        "EBS_MALWARE_PROTECTION": {
+          "status": "ENABLED"
+        },
+        "RDS_LOGIN_EVENTS": {
+          "status": "ENABLED",
+          "options": {
+            "RDS_DATA_RISK": "DISABLED"
+          }
+        },
+        "AI_PROTECTION": {
+          "status": "DISABLED"
+        },
+        "EKS_RUNTIME_MONITORING": {
+          "status": "DISABLED",
+          "options": {
+            "EKS_ADDON_MANAGEMENT": "DISABLED"
+          }
+        },
+        "LAMBDA_NETWORK_LOGS": {
+          "status": "ENABLED"
+        },
+        "RUNTIME_MONITORING": {
+          "status": "ENABLED",
+          "options": {
+            "EKS_ADDON_MANAGEMENT": "DISABLED",
+            "ECS_FARGATE_AGENT_MANAGEMENT": "DISABLED",
+            "EC2_AGENT_MANAGEMENT": "DISABLED"
+          }
+        }
+      },
+      "scanResourceCriteria": {
+        "Include": {},
+        "Exclude": {}
+      },
+      "snapshotPreservation": "NO_RETENTION"
+    }
+  }
+}

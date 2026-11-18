@@ -1,0 +1,350 @@
+{
+  "hostChecks": {
+    "observedAtUtc": "2026-11-16T15:38:27.741337+00:00",
+    "hosts": [
+      {
+        "target": "oregon",
+        "region": "us-west-2",
+        "evidence": {
+          "containerLogSamples": [
+            {
+              "container": "xray",
+              "logDriver": "json-file",
+              "sample": {
+                "lineCount": 200,
+                "byteCount": 16977,
+                "publicIpLineCount": 200,
+                "nonGlobalIpLineCount": 0,
+                "xrayAccessRecordCount": 200,
+                "dnsErrorRecordCount": 0,
+                "dnsQuestionRecordCount": 0,
+                "credentialPatternLineCount": 0
+              },
+              "secretEnvironmentCount": 0,
+              "persistedSecretEnvironmentCount": 0,
+              "metadataFilesystem": "xfs"
+            },
+            {
+              "container": "awg",
+              "logDriver": "json-file",
+              "sample": {
+                "lineCount": 9,
+                "byteCount": 867,
+                "publicIpLineCount": 0,
+                "nonGlobalIpLineCount": 0,
+                "xrayAccessRecordCount": 0,
+                "dnsErrorRecordCount": 0,
+                "dnsQuestionRecordCount": 0,
+                "credentialPatternLineCount": 0
+              },
+              "secretEnvironmentCount": 0,
+              "persistedSecretEnvironmentCount": 0,
+              "metadataFilesystem": "xfs"
+            },
+            {
+              "container": "dns-policy",
+              "logDriver": "json-file",
+              "sample": {
+                "lineCount": 32,
+                "byteCount": 2763,
+                "publicIpLineCount": 0,
+                "nonGlobalIpLineCount": 0,
+                "xrayAccessRecordCount": 0,
+                "dnsErrorRecordCount": 28,
+                "dnsQuestionRecordCount": 28,
+                "credentialPatternLineCount": 0
+              },
+              "secretEnvironmentCount": 0,
+              "persistedSecretEnvironmentCount": 0,
+              "metadataFilesystem": "xfs"
+            },
+            {
+              "container": "gateway-config",
+              "logDriver": "json-file",
+              "sample": {
+                "lineCount": 0,
+                "byteCount": 0,
+                "publicIpLineCount": 0,
+                "nonGlobalIpLineCount": 0,
+                "xrayAccessRecordCount": 0,
+                "dnsErrorRecordCount": 0,
+                "dnsQuestionRecordCount": 0,
+                "credentialPatternLineCount": 0
+              },
+              "secretEnvironmentCount": 2,
+              "persistedSecretEnvironmentCount": 2,
+              "metadataFilesystem": "xfs"
+            },
+            {
+              "container": "network",
+              "logDriver": "json-file",
+              "sample": {
+                "lineCount": 3,
+                "byteCount": 152,
+                "publicIpLineCount": 0,
+                "nonGlobalIpLineCount": 0,
+                "xrayAccessRecordCount": 0,
+                "dnsErrorRecordCount": 0,
+                "dnsQuestionRecordCount": 0,
+                "credentialPatternLineCount": 0
+              },
+              "secretEnvironmentCount": 0,
+              "persistedSecretEnvironmentCount": 0,
+              "metadataFilesystem": "xfs"
+            }
+          ],
+          "guarddutyAgentDiagnosticSample": {
+            "lineCount": 25,
+            "byteCount": 18912,
+            "publicIpLineCount": 0,
+            "nonGlobalIpLineCount": 0,
+            "xrayAccessRecordCount": 0,
+            "dnsErrorRecordCount": 0,
+            "dnsQuestionRecordCount": 0,
+            "credentialPatternLineCount": 0
+          },
+          "scope": "Latest 200 retained lines per selected container/agent unit; no raw output returned"
+        },
+        "administrativeLockdownRestored": true
+      },
+      {
+        "target": "stockholm-ecs",
+        "region": "eu-north-1",
+        "evidence": {
+          "containerLogSamples": [
+            {
+              "container": "xray",
+              "logDriver": "json-file",
+              "sample": {
+                "lineCount": 200,
+                "byteCount": 17129,
+                "publicIpLineCount": 200,
+                "nonGlobalIpLineCount": 0,
+                "xrayAccessRecordCount": 200,
+                "dnsErrorRecordCount": 0,
+                "dnsQuestionRecordCount": 0,
+                "credentialPatternLineCount": 0
+              },
+              "secretEnvironmentCount": 0,
+              "persistedSecretEnvironmentCount": 0,
+              "metadataFilesystem": "xfs"
+            },
+            {
+              "container": "awg",
+              "logDriver": "json-file",
+              "sample": {
+                "lineCount": 9,
+                "byteCount": 867,
+                "publicIpLineCount": 0,
+                "nonGlobalIpLineCount": 0,
+                "xrayAccessRecordCount": 0,
+                "dnsErrorRecordCount": 0,
+                "dnsQuestionRecordCount": 0,
+                "credentialPatternLineCount": 0
+              },
+              "secretEnvironmentCount": 0,
+              "persistedSecretEnvironmentCount": 0,
+              "metadataFilesystem": "xfs"
+            },
+            {
+              "container": "dns-policy",
+              "logDriver": "json-file",
+              "sample": {
+                "lineCount": 31,
+                "byteCount": 2689,
+                "publicIpLineCount": 0,
+                "nonGlobalIpLineCount": 0,
+                "xrayAccessRecordCount": 0,
+                "dnsErrorRecordCount": 27,
+                "dnsQuestionRecordCount": 26,
+                "credentialPatternLineCount": 0
+              },
+              "secretEnvironmentCount": 0,
+              "persistedSecretEnvironmentCount": 0,
+              "metadataFilesystem": "xfs"
+            },
+            {
+              "container": "gateway-config",
+              "logDriver": "json-file",
+              "sample": {
+                "lineCount": 0,
+                "byteCount": 0,
+                "publicIpLineCount": 0,
+                "nonGlobalIpLineCount": 0,
+                "xrayAccessRecordCount": 0,
+                "dnsErrorRecordCount": 0,
+                "dnsQuestionRecordCount": 0,
+                "credentialPatternLineCount": 0
+              },
+              "secretEnvironmentCount": 2,
+              "persistedSecretEnvironmentCount": 2,
+              "metadataFilesystem": "xfs"
+            },
+            {
+              "container": "network",
+              "logDriver": "json-file",
+              "sample": {
+                "lineCount": 3,
+                "byteCount": 152,
+                "publicIpLineCount": 0,
+                "nonGlobalIpLineCount": 0,
+                "xrayAccessRecordCount": 0,
+                "dnsErrorRecordCount": 0,
+                "dnsQuestionRecordCount": 0,
+                "credentialPatternLineCount": 0
+              },
+              "secretEnvironmentCount": 0,
+              "persistedSecretEnvironmentCount": 0,
+              "metadataFilesystem": "xfs"
+            }
+          ],
+          "guarddutyAgentDiagnosticSample": {
+            "lineCount": 25,
+            "byteCount": 18915,
+            "publicIpLineCount": 0,
+            "nonGlobalIpLineCount": 0,
+            "xrayAccessRecordCount": 0,
+            "dnsErrorRecordCount": 0,
+            "dnsQuestionRecordCount": 0,
+            "credentialPatternLineCount": 0
+          },
+          "scope": "Latest 200 retained lines per selected container/agent unit; no raw output returned"
+        },
+        "administrativeLockdownRestored": true
+      }
+    ]
+  },
+  "securityChecks": {
+    "observedAtUtc": "2026-11-16T15:29:05.608377+00:00",
+    "scope": "Ghostline findings, retained scan metadata matched to documented/current hosts, and visible scan snapshots; raw values withheld",
+    "knownDocumentedHostCount": 29,
+    "regions": [
+      {
+        "region": "af-south-1",
+        "findings": {
+          "listedCount": 0,
+          "ghostlineCount": 0,
+          "records": []
+        },
+        "malwareScans": {
+          "matchedKnownProjectHosts": 0,
+          "scans": []
+        },
+        "snapshotPreservation": "NO_RETENTION",
+        "visibleProjectScanSnapshots": 0,
+        "runningHostCount": 0
+      },
+      {
+        "region": "eu-central-2",
+        "findings": {
+          "listedCount": 0,
+          "ghostlineCount": 0,
+          "records": []
+        },
+        "malwareScans": {
+          "matchedKnownProjectHosts": 0,
+          "scans": []
+        },
+        "snapshotPreservation": "NO_RETENTION",
+        "visibleProjectScanSnapshots": 0,
+        "runningHostCount": 1
+      },
+      {
+        "region": "eu-north-1",
+        "findings": {
+          "listedCount": 3,
+          "ghostlineCount": 3,
+          "records": [
+            {
+              "type": "UnauthorizedAccess:EC2/TorClient",
+              "severity": 8.0,
+              "createdAt": "2026-10-05T23:55:33.968Z",
+              "updatedAt": "2026-10-05T23:59:46.238Z",
+              "runtimeDetailsPresent": false,
+              "dnsActionPresent": false,
+              "remoteIpDetailsPresent": true,
+              "domainFieldPresent": false,
+              "commandLineFieldPresent": false
+            },
+            {
+              "type": "UnauthorizedAccess:Runtime/TorClient",
+              "severity": 5.0,
+              "createdAt": "2026-10-05T23:57:35.280Z",
+              "updatedAt": "2026-10-06T00:00:37.527Z",
+              "runtimeDetailsPresent": true,
+              "dnsActionPresent": false,
+              "remoteIpDetailsPresent": true,
+              "domainFieldPresent": false,
+              "commandLineFieldPresent": false
+            },
+            {
+              "type": "DefenseEvasion:EC2/UnusualDoHActivity",
+              "severity": 5.0,
+              "createdAt": "2026-10-05T22:44:59.410Z",
+              "updatedAt": "2026-10-05T22:44:59.411Z",
+              "runtimeDetailsPresent": false,
+              "dnsActionPresent": false,
+              "remoteIpDetailsPresent": true,
+              "domainFieldPresent": false,
+              "commandLineFieldPresent": false
+            }
+          ]
+        },
+        "malwareScans": {
+          "matchedKnownProjectHosts": 1,
+          "scans": [
+            {
+              "status": "COMPLETED",
+              "type": "GUARDDUTY_INITIATED",
+              "startTime": "2026-10-05T19:56:00-04:00",
+              "endTime": "2026-10-05T20:20:01-04:00",
+              "result": "CLEAN",
+              "volumeCount": 2,
+              "snapshotReferencesPresent": true
+            }
+          ]
+        },
+        "snapshotPreservation": "NO_RETENTION",
+        "visibleProjectScanSnapshots": 0,
+        "runningHostCount": 1
+      },
+      {
+        "region": "us-east-1",
+        "findings": {
+          "listedCount": 0,
+          "ghostlineCount": 0,
+          "records": []
+        },
+        "malwareScans": {
+          "matchedKnownProjectHosts": 0,
+          "scans": []
+        },
+        "snapshotPreservation": "NO_RETENTION",
+        "visibleProjectScanSnapshots": 0,
+        "runningHostCount": 1
+      },
+      {
+        "region": "us-west-2",
+        "findings": {
+          "listedCount": 0,
+          "ghostlineCount": 0,
+          "records": []
+        },
+        "malwareScans": {
+          "matchedKnownProjectHosts": 0,
+          "scans": []
+        },
+        "snapshotPreservation": "NO_RETENTION",
+        "visibleProjectScanSnapshots": 0,
+        "runningHostCount": 1
+      }
+    ]
+  },
+  "limits": [
+    "Retained samples are bounded to 200 lines per selected container/unit, not a complete history.",
+    "IP detector counts IPv4 only; zero pattern counts do not establish absence of sensitive content.",
+    "GuardDuty agent journal is operational diagnostics, not the raw runtime telemetry feed.",
+    "Scan metadata proves a historical scan and snapshot references, not historical secret contents.",
+    "No raw lines, IPs, questions, credential values or reusable credential hashes were exported."
+  ]
+}

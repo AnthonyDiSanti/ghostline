@@ -92,8 +92,11 @@ def qualify(config):
         peers = discovery.discover(config, command)
         # A cold host can qualify permissions before its gateway is allowed to start.
         expected = {'xray', 'awg', 'dns-policy'} if config.get('dnsRequired') else {'xray', 'awg'}
-        # During the DNS health gate, the verified resolver is the only eligible peer.
-        if peers and set(peers) not in (expected, {'dns-policy'} if config.get('dnsRequired') else expected):
+        # The pending-task initializer can retrieve only after DNS passes its health gate.
+        eligible = [expected, expected | {'gateway-config'}]
+        if config.get('dnsRequired'):
+            eligible.extend([{'dns-policy'}, {'dns-policy', 'gateway-config'}])
+        if peers and set(peers) not in eligible:
             raise RuntimeError('Qualification found an incomplete gateway')
         print(json.dumps({'qualified': True, 'engines': sorted(peers)}), flush=True)
     finally:

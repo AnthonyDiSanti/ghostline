@@ -23,7 +23,8 @@ export async function testDerpImage(initializerImage?: string): Promise<string> 
   function execute(args: string[], required = true, secret?: string | Record<string, string>) {
     // Synthetic private keys may cross stdin/environment only in captured child processes, never assertions/logs.
     const result = spawnSync('docker', args, { encoding: 'utf8', timeout: 240_000, maxBuffer: 16 * 1024 * 1024,
-      env: secret === undefined ? process.env : { ...process.env, ...(typeof secret === 'string' ? { GHOSTLINE_CONFIG: secret } : secret) } });
+      input: secret === undefined ? undefined : typeof secret === 'string' ? secret : JSON.stringify({
+        xray: secret.GHOSTLINE_XRAY_BUNDLE, awg: secret.GHOSTLINE_AWG_BUNDLE, derp: secret.GHOSTLINE_DERP_BUNDLE }) });
     if (required && (result.error || result.status !== 0)) throw new Error(`DERP Docker ${args[0]} failed; details withheld.`);
     return result;
   }
@@ -45,9 +46,8 @@ export async function testDerpImage(initializerImage?: string): Promise<string> 
     const sharedIdentity = generateDerpIdentity('192.0.2.10');
     const secrets = { GHOSTLINE_XRAY_BUNDLE: JSON.stringify(generateXrayProfiles('192.0.2.10').bundle),
       GHOSTLINE_AWG_BUNDLE: generateAwgProfiles('192.0.2.10').serverConfig, GHOSTLINE_DERP_BUNDLE: sharedIdentity };
-    const initialize = (values: Record<string, string>) => execute(['run', '--rm', ...common, '--network', 'none',
-      ...Object.keys(secrets).flatMap(name => ['--env', name]), '--env', 'GHOSTLINE_DERP_REQUIRED=true',
-      '-v', `${sharedVolume}:/config`, initializer], false, values);
+    const initialize = (values: Record<string, string>) => execute(['run', '--rm', '--interactive', ...common, '--network', 'none',
+      '-v', `${sharedVolume}:/config`, '--entrypoint', '/usr/local/bin/ghostline-gateway-config', initializer], false, values);
     for (let repeat = 0; repeat < 2; repeat++) {
       assert.equal(initialize(secrets).status, 0, 'Whole initializer renders all three protocol identities repeatedly');
       assert.equal(JSON.parse(sharedProbe('evidence')).pin, derpPublicIdentity(sharedIdentity).pin);
@@ -61,7 +61,7 @@ export async function testDerpImage(initializerImage?: string): Promise<string> 
     const identity = generateDerpIdentity('192.0.2.10');
     assert.ok(Buffer.byteLength(identity) <= 4096, 'DERP envelope fits standard SecureString');
     // Rendering must receive only the selected bundle; keep it out of the reusable command wrapper's parent environment.
-    const rendered = execute(['run', '--rm', ...common, '--network', 'none', '--env', 'GHOSTLINE_CONFIG',
+    const rendered = execute(['run', '--rm', '--interactive', ...common, '--network', 'none',
       '-v', `${configVolume}:/config`, '--entrypoint', '/usr/local/bin/derp-tools', imageId, 'render', '--directory', '/config'], false, identity);
     assert.equal(rendered.status, 0, `DERP identity renders into private RAM: ${rendered.stderr.trim()}`);
     const metadata = JSON.parse(docker(['run', '--rm', ...common, '--network', 'none', '-v', `${configVolume}:/config:ro`,

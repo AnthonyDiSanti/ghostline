@@ -64,7 +64,7 @@ it('renders an isolated six-image native candidate through the common endpoint a
   for (const name of ['xray', 'awg', 'gateway-config', 'dns-policy'] as const) {
     expect(containers.find((item: any) => item.Name === name).Image).toBe(taskImages[name]);
   }
-  expect(containers.find((item: any) => item.Name === 'gateway-config').Secrets[0].ValueFrom)
+  expect(containers.find((item: any) => item.Name === 'gateway-config').Environment.find((item: any) => item.Name === 'GHOSTLINE_PARAMETERS').Value)
     .toContain('parameter/ghostline/trial/dns-native/server/xray');
   const slot = JSON.parse(hostTemplates(trial, true, platformImages).a).Resources;
   expect(slot.NetworkTask.Properties.ContainerDefinitions[0].Image).toBe(images['network-daemon']);

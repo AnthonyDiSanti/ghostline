@@ -31,13 +31,13 @@ it('routes only the approved AWG-address relay/STUN tuples and denies arbitrary 
   expect(result.rules).toContain('-i ens5 -o docker0 -s 198.51.100.42/32 -d 172.17.0.5/32 -p tcp --dport 8443 -m conntrack --ctorigdst 10.79.0.10 --ctorigdstport 443 -j ACCEPT');
 });
 
-it('adds one isolated non-root essential container and exact initializer-only secret permission', () => {
+it('adds one isolated non-root container and references all three server parameters without plaintext injection', () => {
   const { stack } = buildApp(config, { service: true, runtime: true });
   const template = Template.fromStack(stack);
   template.resourceCountIs('AWS::EC2::EIP', 2);
   const resources = template.toJSON().Resources as Record<string, any>;
   const task = resources.GatewayTask.Properties;
-  expect(task.TaskRoleArn).toBeUndefined();
+  expect(task.TaskRoleArn).toBeDefined();
   const derp = task.ContainerDefinitions.find((container: any) => container.Name === 'derp');
   expect(derp).toMatchObject({ Essential: true, User: '65532:65532', ReadonlyRootFilesystem: true, Memory: 128,
     EntryPoint: ['/usr/local/bin/derp-tools', 'serve'], LinuxParameters: { Capabilities: { Drop: ['ALL'] } },
@@ -45,8 +45,9 @@ it('adds one isolated non-root essential container and exact initializer-only se
   expect(derp.Secrets).toBeUndefined(); expect(derp.Environment).toBeUndefined();
   expect(derp.PortMappings).toEqual([{ ContainerPort: 8443, HostPort: 18443, Protocol: 'tcp' }, { ContainerPort: 3478, HostPort: 3478, Protocol: 'udp' }]);
   const initializer = task.ContainerDefinitions.find((container: any) => container.Name === 'gateway-config');
-  expect(initializer.Secrets.map((secret: any) => secret.Name)).toEqual(['GHOSTLINE_XRAY_BUNDLE', 'GHOSTLINE_AWG_BUNDLE', 'GHOSTLINE_DERP_BUNDLE']);
-  expect(initializer.Environment).toEqual([{ Name: 'GHOSTLINE_DERP_REQUIRED', Value: 'true' }]);
+  expect(initializer.Secrets).toBeUndefined();
+  expect(Object.keys(JSON.parse(initializer.Environment[0].Value))).toEqual(['xray', 'awg', 'derp']);
+  expect(initializer.Environment.map((item: any) => item.Name)).toEqual(['GHOSTLINE_PARAMETERS']);
   const security = resources.SecurityGroup.Properties;
   expect(security.SecurityGroupIngress).toContainEqual({ IpProtocol: 'udp', FromPort: 3478, ToPort: 3478, CidrIp: '198.51.100.42/32' });
   const platform = gatewayPlatform(config, false);

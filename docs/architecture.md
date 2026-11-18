@@ -12,7 +12,7 @@ One ECS service manages one task containing separate `xray` and `awg` engines, a
 
 Where regional runtime telemetry is supported, the stack also owns a private GuardDuty telemetry endpoint and security group, ordered before host creation and after host deletion. Its additional interface carries telemetry. An imperative deployment step creates the account/region detector with AWS defaults plus supported Runtime Monitoring, or enables only missing available requirements on an existing detector. It preserves unrelated settings and never disables or deletes regional security. Host inclusion tags enroll our hosts with AWS-managed agents where runtime transport is supported. Confirmed service/capability gaps are accepted and reported; live discovery controls the deployment shape. [GuardDuty](guardduty.md) defines scope, data collection and deployment verification; [lifecycle](deployment-lifecycle.md#guardduty-telemetry-lifecycle) records the endpoint comparison and conditional adoption requirement.
 
-There is no SSH provisioning, Compose deployment mode, NAT gateway, load balancer, autoscaler or cross-task initialization controller. SSM provides host administration. AWS management credentials remain with the operator; protocol containers receive no task role.
+There is no SSH provisioning, Compose deployment mode, NAT gateway, load balancer, autoscaler or cross-task initialization controller. SSM provides host administration. Operator management credentials remain outside the workloads. The new direct-to-RAM initializer uses a narrow shared task role; normal engine/DNS credential-service access is blocked. This is network confinement rather than separate IAM identities. Read launch records for adoption status.
 
 ## Resource and billing identity
 

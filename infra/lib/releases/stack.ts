@@ -57,7 +57,8 @@ export class ImageDistribution extends Construct {
 export class RegionalReleaseStack extends Stack {
   readonly repositories: Record<RepositoryArtifact, ecr.IRepository>;
   constructor(scope: Construct, id: string, props: StackProps & { deployment?: DeploymentConfig; guardDuty?: boolean;
-    automation: ReleaseAutomationMode; tags: Record<string, string>; candidatePlatformImages?: PlatformImageInputs }) {
+    automation: ReleaseAutomationMode; tags: Record<string, string>; candidatePlatformImages?: PlatformImageInputs;
+    capturedHostTemplates?: Record<'a' | 'b' | 'addresses', string> }) {
     super(scope, id, { ...props, synthesizer: props.deployment ? new CliCredentialsStackSynthesizer({
       fileAssetsBucketName: assetBucketName(props.env!.account!, props.env!.region!),
     }) : new LegacyStackSynthesizer() });
@@ -96,7 +97,7 @@ export class RegionalReleaseStack extends Stack {
         OBSERVER_DOCUMENT: observer.ref, PROGRESS_RULE: progressRuleName,
         LIFECYCLE_SCHEMA: '1', AUTOMATION: props.automation === 'active' ? 'enabled' : 'disabled',
         OPERATOR_ONLY: props.automation === 'manual' ? 'enabled' : 'disabled' } } });
-    const rollout = rolloutInfrastructure(this, handler, config, props.guardDuty, props.candidatePlatformImages);
+    const rollout = rolloutInfrastructure(this, handler, config, props.guardDuty, props.candidatePlatformImages, props.capturedHostTemplates);
     handler.addEnvironment('SLOT_TEMPLATES', rollout.templates);
     handler.addEnvironment('SLOT_ROLE', rollout.role);
     handler.addEnvironment('OWNER_TAGS', rollout.tags);

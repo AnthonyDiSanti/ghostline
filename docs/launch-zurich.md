@@ -2,9 +2,16 @@
 
 Active fresh-install testing target `zurich`, account `757999402784`, profile `personal`, region `eu-central-2`, AZ `eu-central-2a`. Endpoint stack `GhostlineZurich`, resource prefix `ghostline-zurich`; use the common [ECS gateway recipe](ecs.md). Oregon remains primary, Stockholm remains active for testing and Cape Town remains parked.
 
+
+## Credential delivery adopted — November 18, 2026 (New York)
+
+Current qualified release is `sha256:5e2731f3523b75340b39df164f714f1260dd2301c3aa293fb18ccf74ca741257` on slot B host `i-0957beb757175e493`, ENI `eni-04e5d3dcd10707d05`, official ECS-3 ARM64 Bottlerocket 1.66.0. Native ECS deployment is SUCCESSFUL, rollout complete with zero health failures, one running gateway host and two encrypted attached disks. Original Xray/AWG endpoint allocations and all nine parameter metadata records are unchanged. Standard blue-green source-host/disk/network/temporary-address cleanup is complete; original active automation is restored with no trial/lifecycle/local-operation receipt.
+
+The shared initializer retrieves Xray/AWG/DERP identities directly into RAM through exact shared task-role permissions and private stdin rendering. Native scans find zero tested protocol/task-credential matches across complete/stable Docker metadata, ECS checkpoint, containerd metadata and ECS-log stores. All four engine namespaces block credentials, initializer authority is withdrawn, and fixed missing-credential failure cleanup passes. Full security/configuration, both real encrypted VPN clients, public pinned DERP/STUN and exact-host GuardDuty HEALTHY v1.17.3 pass. Diagnostic/admin disabled and control non-superpowered are verified. Existing identities/profiles need no changes; no rotation or shared protection-policy change occurred. [Fleet proof and limitations](../.context/scratch/2026-11-17-zero-logs-release/fleet-adoption.md).
+
 ## DERP/STUN migration accepted — November 17, 2026 (New York)
 
-Current slot A host is `i-0c0e8edd4a979dad1`, ENI `eni-03b751d51ea180c9a`, official ECS-3 ARM64 Bottlerocket 1.66.0 AMI `ami-07ad8e7f604a7db4b`; gateway revision 2 runs qualified schema-v5 release `sha256:89ebce02a6f9ca9791fbba9213149573fc0766b9808ea70bef7affef97f052f2`. Native ECS completed SUCCESSFUL at `2026-11-18T00:02:35.244Z` with zero recorded health failures. Standard blue-green handoff, bake and source cleanup returned to one host and the two original EIPs: Xray `51.96.162.8`, AWG `16.18.122.26`.
+At DERP acceptance, slot A host was `i-0c0e8edd4a979dad1`, ENI `eni-03b751d51ea180c9a`, official ECS-3 ARM64 Bottlerocket 1.66.0 AMI `ami-07ad8e7f604a7db4b`; gateway revision 2 runs qualified schema-v5 release `sha256:89ebce02a6f9ca9791fbba9213149573fc0766b9808ea70bef7affef97f052f2`. Native ECS completed SUCCESSFUL at `2026-11-18T00:02:35.244Z` with zero recorded health failures. Standard blue-green handoff, bake and source cleanup returned to one host and the two original EIPs: Xray `51.96.162.8`, AWG `16.18.122.26`.
 
 DERP TCP 443 and STUN UDP 3478 reuse the AWG address with admission restricted to the approved AWS probe exits. Native private-RAM/confinement verification and fresh exact-host GuardDuty HEALTHY v1.17.3 pass. Both disposable encrypted VPN clients pass HTTPS through the original EIPs; pinned public TLS, two-client relay and STUN pass through Oregon, and non-admitted relay/STUN/internal-port access is denied. All nine parameter metadata records, EIP allocations and protection settings are preserved. The controller is restored active with no operation/trial remaining.
 
@@ -40,3 +47,10 @@ The targeted configuration/lifecycle/activation gate passed 25 tests. Full Node 
 All three upstream watches were refreshed at closeout: Amnezia #2933, core-kit #1059/PR #1063 and Bottlerocket #4954 remain open, #1063 unmerged at `6a4c053`, and #4954 without comments. Latest releases remain Amnezia 5.1.0.6 and Bottlerocket v1.68.1; no new native-client repair, official bootstrap replay/recovery fix or IPv6 bridge support was qualified. Native-device practical use, destination access, matched speed, fresh device leak and sleep/wake results remain separate acceptance.
 
 Ignored evidence: `.local/zurich-fresh-2026-11-07/{activate.log,endpoint-diff.log,deploy.log,client-test.log,security-verify.log,release-final.json,continuity.json,regional-final.json,final-test.log}`, the template hashes and original regional inventory checkpoints; `.local/region-purge/eu-central-2.json` is the pre-provisioning empty purge plan. Standard verification/coverage records are under `.local/deployments/zurich/ecs/`. Protected provisioning and exports are credential copies; no payload belongs in this document.
+
+
+## Quiet logging release — November 17, 2026
+
+Native ECS blue-green completed on slot `b`, host `i-0b19382d505f4b325`, ENI `eni-04f1fe61ba317fcac`, AMI `ami-07ad8e7f604a7db4b`, actual Bottlerocket `1.66.0`, boot `cd00f8de-b65f-4304-8d66-7461cbc9f2a4`. The source host is terminated and exactly one owned host runs. Both encrypted protocol HTTPS checks, full runtime/security verification and bounded count-only log checks pass. Diagnostic/admin lockdown is restored; GuardDuty remains HEALTHY v1.17.3. Original endpoint allocation/IP fingerprints and all credential/contact parameter versions/timestamps are preserved. No new physical-device acceptance is claimed.
+
+Release `sha256:a9ee9cfbc8a10b008e5e456d15f7713289def2184bd71e77de77f68c00d04cd7`, promotion `c660910d-017e-4dc6-83a3-be5b1eb84ca4`. [Cross-region evidence](../.context/scratch/2026-11-17-zero-logs-release/README.md). Known application access/query output is suppressed; two initializer bundle values remain in persistent Docker metadata.

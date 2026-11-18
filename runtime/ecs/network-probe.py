@@ -19,6 +19,14 @@ if response.status != 200:
 public_ip = str(ipaddress.IPv4Address(response.read(128).decode().strip()))
 connection.close()
 try:
+    # A task-role locator exists in every container; prove even the endpoint's TCP handshake is dropped.
+    with socket.create_connection(('169.254.170.2', 80), timeout=2):
+        pass
+except socket.timeout:
+    pass
+else:
+    raise RuntimeError('Container can reach task credentials')
+try:
     metadata = socket.create_connection(('169.254.169.254', 80), timeout=2)
 # AL2023's Python 3.9 has a distinct socket.timeout class; newer Python aliases TimeoutError.
 except (socket.timeout, ConnectionRefusedError):
@@ -26,4 +34,4 @@ except (socket.timeout, ConnectionRefusedError):
 else:
     metadata.close()
     raise RuntimeError('Container can reach instance metadata')
-print(json.dumps({'publicIp': public_ip, 'metadataBlocked': True}))
+print(json.dumps({'publicIp': public_ip, 'metadataBlocked': True, 'taskCredentialsBlocked': True}))

@@ -340,8 +340,11 @@ func run() error {
 	case "provision":
 		return provision(*directory, *ip, time.Now())
 	case "render":
-		data := []byte(os.Getenv("GHOSTLINE_CONFIG"))
-		os.Unsetenv("GHOSTLINE_CONFIG")
+		// A bounded private pipe avoids secret-bearing process environments and creation records.
+		data, err := io.ReadAll(io.LimitReader(os.Stdin, 4097))
+		if err != nil || len(data) > 4096 {
+			return errors.New("invalid renderer input")
+		}
 		return render(*directory, data)
 	default:
 		return errors.New("unknown command")

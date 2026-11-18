@@ -1,0 +1,68 @@
+{
+  "at": "2026-11-18T04:24:25.689Z",
+  "regions": {
+    "stockholm-ecs": {
+      "trialAbsent": true,
+      "operationAbsent": true,
+      "localReceiptAbsent": true,
+      "rollout": "complete",
+      "lifecycle": "active",
+      "healthFailures": 0,
+      "endpointCount": 2,
+      "otherSystemAddressesExcluded": 0,
+      "hostCount": 1,
+      "encryptedAttachedDisks": 2,
+      "instance": "i-025cdcfa1041e5d7b"
+    },
+    "oregon": {
+      "trialAbsent": true,
+      "operationAbsent": true,
+      "localReceiptAbsent": true,
+      "rollout": "complete",
+      "lifecycle": "active",
+      "healthFailures": 0,
+      "endpointCount": 2,
+      "otherSystemAddressesExcluded": 0,
+      "hostCount": 1,
+      "encryptedAttachedDisks": 2,
+      "instance": "i-0f03f5dd29ff20e8d"
+    },
+    "zurich": {
+      "trialAbsent": true,
+      "operationAbsent": true,
+      "localReceiptAbsent": true,
+      "rollout": "complete",
+      "lifecycle": "active",
+      "healthFailures": 0,
+      "endpointCount": 2,
+      "otherSystemAddressesExcluded": 0,
+      "hostCount": 1,
+      "encryptedAttachedDisks": 2,
+      "instance": "i-0c0e8edd4a979dad1"
+    },
+    "cape-town": {
+      "trialAbsent": true,
+      "operationAbsent": true,
+      "localReceiptAbsent": true,
+      "lifecycle": "parked",
+      "healthFailures": 0,
+      "endpointCount": 2,
+      "otherSystemAddressesExcluded": 0,
+      "hostCount": 0,
+      "encryptedAttachedDisks": 0
+    },
+    "nva": {
+      "trialAbsent": true,
+      "operationAbsent": true,
+      "localReceiptAbsent": true,
+      "rollout": "complete",
+      "lifecycle": "active",
+      "healthFailures": 0,
+      "endpointCount": 2,
+      "otherSystemAddressesExcluded": 1,
+      "hostCount": 1,
+      "encryptedAttachedDisks": 2,
+      "instance": "i-05773fa514d0e5141"
+    }
+  }
+}

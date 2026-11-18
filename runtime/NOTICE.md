@@ -20,8 +20,14 @@ follow those terms. See upstream
   `/usr/share/licenses/`. The Alpine 3.24.1 runtime uses Ghostline's network
   startup and pinned direct packages, without a third-party supervisor.
 - Shared initializer: Alpine 3.24.1, jq 1.8.2-r0 and Ghostline's renderers.
-  The DERP multi-target recipe supplies its static certificate renderer. It writes
-  protocol-private RAM files; engines mount their own files read-only.
+  The DERP multi-target recipe supplies its static certificate renderer and the direct-to-RAM
+  initializer. The latter compiles the official AWS SDK for Go v2 core v1.46.0,
+  credentials v1.20.3, SSM v1.77.0 and Smithy v1.28.1 already pinned by the
+  selected Tailscale source module/go.sum. AWS SDK and Smithy use Apache 2.0;
+  their exact compiled-module notices and the Go runtime license are included
+  under `/usr/share/licenses/ghostline-secrets/`. Source terms: [AWS SDK](https://raw.githubusercontent.com/aws/aws-sdk-go-v2/v1.46.0/LICENSE.txt),
+  [Smithy](https://raw.githubusercontent.com/aws/smithy-go/v1.28.1/LICENSE).
+  Protocol renderers receive private stdin pipes; engines mount their own RAM files read-only.
 - DERP/STUN: unmodified `tailscale.com/cmd/derper` from the stable source commit
   recorded in [image inputs](../infra/image-inputs.json), built with that source's
   exact pinned Tailscale Go toolchain. The minimal `scratch` runtime includes CA

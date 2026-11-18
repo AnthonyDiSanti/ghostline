@@ -2,15 +2,30 @@
 
 Active testing target `stockholm-ecs`; profile `personal`; account `757999402784`; region `eu-north-1`, AZ `eu-north-1a`. [Oregon](launch-oregon.md) remains primary; Cape Town remains parked. Endpoint stack `GhostlineEcsTrial`, release repositories `GhostlineRelease`, resource prefix `ghostline-ecs-stockholm`. These are stable cloud identities for the common [gateway recipe](ecs.md).
 
-The November 17 DERP/STUN migration runs qualified schema-v5 release `sha256:89ebce02a6f9ca9791fbba9213149573fc0766b9808ea70bef7affef97f052f2` on slot A host `i-067dbe46fe520168f`, ENI `eni-015766838454c7e58`, official ECS-3 ARM64 Bottlerocket `1.66.0-1ad6b4a4`. The `t4g.small` retains encrypted 2 GiB OS/30 GiB data disks and both original public endpoints. Historical launch/unpark evidence follows below.
+Current release is the November 18 direct-to-RAM credential release `sha256:5e2731f3523b75340b39df164f714f1260dd2301c3aa293fb18ccf74ca741257` on slot B host `i-0b7c601a8107dce14`, ENI `eni-08813676ed5864734`, official ECS-3 ARM64 Bottlerocket `1.66.0-1ad6b4a4`. The `t4g.small` retains encrypted 2 GiB OS/30 GiB data disks and both original public endpoints. Historical launch/trial evidence follows below.
 
-| Protocol | Retained EIP | Allocation | Slot A private address |
+| Protocol | Retained EIP | Allocation | Current slot B private address |
 | --- | --- | --- | --- |
-| Xray | `51.20.163.146` | `eipalloc-079db1eebf4b5cc78` | `10.79.0.11` |
-| AWG | `16.16.73.146` | `eipalloc-07627e295d844e8de` | `10.79.0.10` |
+| Xray | `51.20.163.146` | `eipalloc-079db1eebf4b5cc78` | `10.79.0.21` |
+| AWG | `16.16.73.146` | `eipalloc-07627e295d844e8de` | `10.79.0.20` |
 | DERP / STUN | Same AWG EIP, TCP 443 / UDP 3478 | Same AWG allocation | `10.79.0.10` |
 
 Original client identities and existing profiles remain valid after the unpark. Anthony accepted both iOS ARM64 protocols on September 15; the November 7 checks below use disposable real clients and do not establish new native-device acceptance. Mac REALITY uses OneXraySE, AWG uses Amnezia. Repeated sleep/wake remains separate in [client stability](mac-client-stability.md).
+
+
+## Credential delivery adopted — November 18, 2026 (New York)
+
+Current qualified release is `sha256:5e2731f3523b75340b39df164f714f1260dd2301c3aa293fb18ccf74ca741257` on slot B host `i-0b7c601a8107dce14`, ENI `eni-08813676ed5864734`, official ECS-3 ARM64 Bottlerocket 1.66.0. Native ECS deployment is SUCCESSFUL, rollout complete with zero health failures, one running gateway host and two encrypted attached disks. Original Xray/AWG endpoint allocations and all nine parameter metadata records are unchanged. Standard blue-green source-host/disk/network/temporary-address cleanup is complete; original active automation is restored with no trial/lifecycle/local-operation receipt.
+
+The shared initializer retrieves Xray/AWG/DERP identities directly into RAM through exact shared task-role permissions and private stdin rendering. Native scans find zero tested protocol/task-credential matches across complete/stable Docker metadata, ECS checkpoint, containerd metadata and ECS-log stores. All four engine namespaces block credentials, initializer authority is withdrawn, and fixed missing-credential failure cleanup passes. Full security/configuration, both real encrypted VPN clients, public pinned DERP/STUN and exact-host GuardDuty HEALTHY v1.17.3 pass. Diagnostic/admin disabled and control non-superpowered are verified. Existing identities/profiles need no changes; no rotation or shared protection-policy change occurred. [Fleet proof and limitations](../.context/scratch/2026-11-17-zero-logs-release/fleet-adoption.md).
+
+## Credential native trial and captured return — November 17, 2026
+
+Independent candidate `1159081e` qualifies the owner-accepted direct-to-RAM initializer fallback on official ECS-3 ARM64 Bottlerocket 1.66.0. Supported bootstrap/ephemeral mounts cannot cover the confirmed secret-bearing ECS checkpoint, so option A is not selected for deployment. Cold startup, ordinary task replacement and one explicit reboot pass; nine protocol values plus three current temporary task credentials have zero matches across complete/stable scans of Docker metadata, ECS checkpoint, containerd metadata and ECS logs. All four engine namespaces block the credential endpoint, initializer access is withdrawn after exit, and fixed failure cleanup passes. Full security, both encrypted protocols, pinned DERP/STUN and exact-host GuardDuty HEALTHY v1.17.3 pass. Central native platform qualification is recorded. [Evidence and limits](../.context/scratch/2026-11-17-zero-logs-release/native-credential-trial.md).
+
+Captured return restores baseline release `89ebce02` through native blue-green, SUCCESSFUL/UPDATE_COMPLETE with zero health failures. Replacement host/ENI are recorded above. Repeated baseline security/configuration, both encrypted clients and pinned DERP/STUN pass; diagnostics/admin disabled and control non-superpowered are verified. Trial host/disks/network/temporary addresses are retired. Finish restores the exact original release-support template and active automation, then clears the regional exclusion. All 45 parameter metadata records, ten gateway endpoint identities, five production selectors/gateway security groups and other gateway hosts match the pre-trial snapshot; Cape Town stays parked. Concurrent primary-worktree Headscale infrastructure is excluded and untouched.
+
+At this experiment's closeout the SDK fix was qualified and baseline return restored its known injected-secret persistence. The later November 18 fleet adoption above supersedes that operating state. No rotation, shared monitoring-policy change, public administrative opening or native-app acceptance is claimed. The first failed candidate was explicitly rolled back and cleaned before this successful trial; see the linked report rather than treating it as automatic rollback evidence. Final local gate passes 520 tests/85 files and all seven ARM64 image checks.
 
 ## DERP/STUN canary accepted — November 17, 2026
 
@@ -168,3 +183,10 @@ ECS reports 1,180 MiB schedulable memory after the 666 MiB reserve and 54 MiB re
 ## Architecture cleanup regression — 2026-09-18
 
 Removal of obsolete recipes leaves Stockholm’s active/parked synthesized templates (including user-data bytes) and all three release identities exactly equal to a pre-cleanup baseline. No Stockholm cloud deployment was required. Both real encrypted protocol probes pass from the direct local connection. Initial probes while OneXraySE was connected failed for both regions; disconnecting the enclosing native tunnel restored direct-path success. Run disposable tests without nesting a native VPN.
+
+
+## Quiet logging release — November 17, 2026
+
+Native ECS blue-green completed on slot `b`, host `i-03dbda16cac462d4d`, ENI `eni-025ad7cb17cc7578e`, AMI `ami-0c0df096a3b9de91b`, actual Bottlerocket `1.66.0`, boot `cf9e0ea6-a19e-48c0-bf82-1f345221c73a`. The source host is terminated and exactly one owned host runs. Both encrypted protocol HTTPS checks, full runtime/security verification and bounded count-only log checks pass. Diagnostic/admin lockdown is restored; GuardDuty remains HEALTHY v1.17.3. Original endpoint allocation/IP fingerprints and all credential/contact parameter versions/timestamps are preserved. No new physical-device acceptance is claimed.
+
+Release `sha256:a9ee9cfbc8a10b008e5e456d15f7713289def2184bd71e77de77f68c00d04cd7`, promotion `c660910d-017e-4dc6-83a3-be5b1eb84ca4`. [Cross-region evidence](../.context/scratch/2026-11-17-zero-logs-release/README.md). Known application access/query output is suppressed; two initializer bundle values remain in persistent Docker metadata.

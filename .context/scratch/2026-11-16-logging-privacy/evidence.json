@@ -1,0 +1,2367 @@
+{
+  "schemaVersion": 1,
+  "auditDate": "2026-11-16",
+  "sourceCommit": "c837f15d8863b727a5eb95412cbc7840e1a2ca83",
+  "inventoryStartedAtUtc": "2026-11-16T12:58:43.449876+00:00",
+  "inventoryCompletedAtUtc": "2026-11-16T12:59:47.296975+00:00",
+  "regionsAttempted": 34,
+  "regionsWithLogNetworkMetadata": 33,
+  "unverifiedRegions": [
+    "me-south-1"
+  ],
+  "scope": "Read-only; selected live configuration and metadata; fixed 25-object CloudTrail content sample; no host execution, traffic captures, raw event retention or cloud changes",
+  "regionalInventory": [
+    {
+      "region": "af-south-1",
+      "logGroups": [
+        {
+          "logGroupName": "GhostlineRelease-EmailLogs8FF0C9F6-DmPS0iJuKA5a",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1789960400162,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-EmailProviderLogs78952A18-lXI4VURgMHre",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1789960400006,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-HookLogs289E65C6-ZKKmPpnB5T6f",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790588417482,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-Logs6819BB44-BjymIKViPGnC",
+          "retentionInDays": 7,
+          "storedBytes": 95506,
+          "creationTime": 1789960399988,
+          "logGroupClass": "STANDARD"
+        }
+      ],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": [],
+      "xrayLoggingPolicy": {
+        "parameterVersion": 1,
+        "logObjectPresent": true,
+        "log": {
+          "loglevel": "error",
+          "access": "absent",
+          "error": "absent"
+        },
+        "statsConfigured": false,
+        "apiConfigured": false,
+        "realityShow": [
+          false
+        ]
+      },
+      "maintainedDeployment": {
+        "instances": [],
+        "volumes": [],
+        "taggedSnapshotCount": 0,
+        "clusters": [],
+        "sessionManagerPreferences": {
+          "auditError": "InvalidDocument"
+        },
+        "tables": [
+          {
+            "name": "ghostline-prod-release-attempts",
+            "itemCountApproximate": 15,
+            "ttl": {
+              "TimeToLiveStatus": "DISABLED"
+            },
+            "continuousBackups": {
+              "ContinuousBackupsStatus": "ENABLED",
+              "PointInTimeRecoveryDescription": {
+                "PointInTimeRecoveryStatus": "DISABLED"
+              }
+            }
+          }
+        ],
+        "logSubscriptions": [
+          {
+            "group": "GhostlineRelease-EmailLogs8FF0C9F6-DmPS0iJuKA5a",
+            "filters": []
+          },
+          {
+            "group": "GhostlineRelease-EmailProviderLogs78952A18-lXI4VURgMHre",
+            "filters": []
+          },
+          {
+            "group": "GhostlineRelease-HookLogs289E65C6-ZKKmPpnB5T6f",
+            "filters": []
+          },
+          {
+            "group": "GhostlineRelease-Logs6819BB44-BjymIKViPGnC",
+            "filters": []
+          }
+        ],
+        "accountLogSubscriptionPolicyCount": 0,
+        "lambdaTracingModes": [
+          "PassThrough"
+        ],
+        "guardduty": [
+          {
+            "status": "ENABLED",
+            "enabledFeatures": [
+              "CLOUD_TRAIL",
+              "DNS_LOGS",
+              "EBS_MALWARE_PROTECTION",
+              "EKS_AUDIT_LOGS",
+              "FLOW_LOGS",
+              "LAMBDA_NETWORK_LOGS",
+              "RDS_LOGIN_EVENTS",
+              "RUNTIME_MONITORING",
+              "S3_DATA_EVENTS"
+            ],
+            "publishingDestinations": [],
+            "runtimeEc2AgentManagement": "DISABLED"
+          }
+        ],
+        "targetedFollowup": {
+          "region": "af-south-1",
+          "ec2Monitoring": [],
+          "guarddutyCoverage": [],
+          "guarddutyFilterCount": 0,
+          "guarddutyAdministratorConfigured": false,
+          "malwareScanSettings": {
+            "ScanResourceCriteria": {
+              "Include": {},
+              "Exclude": {}
+            },
+            "EbsSnapshotPreservation": "NO_RETENTION"
+          },
+          "runCommandSummary": {
+            "count": 0,
+            "cloudWatchOutputEnabledCount": 0,
+            "s3OutputConfiguredCount": 0,
+            "documentNames": []
+          },
+          "sessionHistorySummary": {
+            "count": 0,
+            "s3OutputConfiguredCount": 0,
+            "cloudWatchOutputConfiguredCount": 0
+          },
+          "eventBridgeArchives": [],
+          "guarddutyEventBridgeRules": [],
+          "queues": [
+            {
+              "name": "GhostlineRelease-FailedEventsA83487DA-HxNcxbF7mo42",
+              "MessageRetentionPeriod": "1209600",
+              "ApproximateNumberOfMessages": "0",
+              "ApproximateNumberOfMessagesNotVisible": "0",
+              "SqsManagedSseEnabled": "true"
+            }
+          ],
+          "snsTopicLogging": [
+            {
+              "deliveryLoggingAttributeNames": [],
+              "archivePolicyConfigured": false
+            }
+          ],
+          "securityHubEnabled": {
+            "auditError": "InvalidAccessException"
+          },
+          "detectiveGraphCount": 0,
+          "runningImageSelection": []
+        }
+      }
+    },
+    {
+      "region": "ap-east-1",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "ap-east-2",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "ap-northeast-1",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "ap-northeast-2",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "ap-northeast-3",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "ap-south-1",
+      "logGroups": [
+        {
+          "logGroupName": "GhostlineBenchmark-mumbai-lifecycle-probe-Logs6819BB44-eyEqyM0AqVEq",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790511330183,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineBenchmark-nearby-round-two-main-probe-Logs6819BB44-ltaaqovNbzgO",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790515523138,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineBenchmark-openness-mumbai-probe-Logs6819BB44-bBRcFvpfpgo9",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790508832195,
+          "logGroupClass": "STANDARD"
+        }
+      ],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "ap-south-2",
+      "logGroups": [
+        {
+          "logGroupName": "GhostlineBenchmark-nearby-round-two-main-probe-Logs6819BB44-21yjOeP76w21",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790515718361,
+          "logGroupClass": "STANDARD"
+        }
+      ],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "ap-southeast-1",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "ap-southeast-2",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "ap-southeast-3",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "ap-southeast-4",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "ap-southeast-5",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "ap-southeast-6",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "ap-southeast-7",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "ca-central-1",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "ca-west-1",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "eu-central-1",
+      "logGroups": [
+        {
+          "logGroupName": "GhostlineBenchmark-frankfurt-lifecycle-probe-Logs6819BB44-auAxN7hkRk5j",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790511691435,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineBenchmark-frankfurt-recheck-probe-Logs6819BB44-5IqvZykjT83o",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790511984189,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineBenchmark-nearby-round-two-main-probe-Logs6819BB44-dZfXi2O7QsyG",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790522142131,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineBenchmark-stockholm-frankfurt-v2-probe-Logs6819BB44-uBQuD3TlChdC",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790526550188,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-EmailLogs8FF0C9F6-Huu6074ZMg3A",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790512484708,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-EmailLogs8FF0C9F6-JDEUeupuLssa",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790526722504,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-EmailLogs8FF0C9F6-dJ8Km9986tJe",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790522314550,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-EmailProviderLogs78952A18-72DPCoqtspXY",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790526722490,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-EmailProviderLogs78952A18-bYK5bzoAvl7f",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790512484744,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-EmailProviderLogs78952A18-tkwmCqrd2y1i",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790522314474,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-Logs6819BB44-NKCSU4DdRzxU",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790512484551,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-Logs6819BB44-RevHiK6bOsfX",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790526722445,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-Logs6819BB44-d8O7Dh0dSorg",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790522314501,
+          "logGroupClass": "STANDARD"
+        }
+      ],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "eu-central-2",
+      "logGroups": [
+        {
+          "logGroupName": "GhostlineRelease-EmailLogs8FF0C9F6-TbTz6859ydiv",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1794062466665,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-EmailProviderLogs78952A18-TYkXrmvuNStK",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1794062466533,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-HookLogs289E65C6-VG6fjq9jlOS9",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1794062466563,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-Logs6819BB44-4PREwanlZOkR",
+          "retentionInDays": 7,
+          "storedBytes": 104750,
+          "creationTime": 1794062466529,
+          "logGroupClass": "STANDARD"
+        }
+      ],
+      "ownedVpcCount": 1,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": [],
+      "xrayLoggingPolicy": {
+        "parameterVersion": 1,
+        "logObjectPresent": true,
+        "log": {
+          "loglevel": "error",
+          "access": "absent",
+          "error": "absent"
+        },
+        "statsConfigured": false,
+        "apiConfigured": false,
+        "realityShow": [
+          false
+        ]
+      },
+      "maintainedDeployment": {
+        "instances": [
+          {
+            "state": "running",
+            "instanceType": "t4g.small",
+            "hibernationConfigured": false,
+            "deleteOnTermination": [
+              true,
+              true
+            ]
+          }
+        ],
+        "volumes": [
+          {
+            "Encrypted": true,
+            "Size": 2,
+            "VolumeType": "gp3",
+            "State": "in-use"
+          },
+          {
+            "Encrypted": true,
+            "Size": 30,
+            "VolumeType": "gp3",
+            "State": "in-use"
+          }
+        ],
+        "taggedSnapshotCount": 0,
+        "clusters": [
+          {
+            "name": "ghostline-zurich",
+            "settings": [
+              {
+                "settings": [
+                  {
+                    "name": "containerInsights",
+                    "value": "disabled"
+                  }
+                ]
+              }
+            ],
+            "services": [
+              {
+                "name": "ghostline-zurich-gateway",
+                "desiredCount": 1,
+                "runningCount": 1,
+                "enableExecuteCommand": false,
+                "definition": "ghostline-zurich-gateway",
+                "revision": 1,
+                "containers": [
+                  {
+                    "name": "xray",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 0,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": false
+                  },
+                  {
+                    "name": "gateway-config",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 2,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": false
+                  },
+                  {
+                    "name": "dns-policy",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 0,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": true
+                  },
+                  {
+                    "name": "awg",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 0,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": false
+                  }
+                ]
+              },
+              {
+                "name": "ghostline-zurich-network",
+                "desiredCount": 1,
+                "runningCount": 1,
+                "enableExecuteCommand": false,
+                "definition": "ghostline-zurich-network",
+                "revision": 1,
+                "containers": [
+                  {
+                    "name": "network",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 0,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": true
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "sessionManagerPreferences": {
+          "auditError": "InvalidDocument"
+        },
+        "tables": [
+          {
+            "name": "ghostline-prod-release-attempts",
+            "itemCountApproximate": 5,
+            "ttl": {
+              "TimeToLiveStatus": "DISABLED"
+            },
+            "continuousBackups": {
+              "ContinuousBackupsStatus": "ENABLED",
+              "PointInTimeRecoveryDescription": {
+                "PointInTimeRecoveryStatus": "DISABLED"
+              }
+            }
+          }
+        ],
+        "logSubscriptions": [
+          {
+            "group": "GhostlineRelease-EmailLogs8FF0C9F6-TbTz6859ydiv",
+            "filters": []
+          },
+          {
+            "group": "GhostlineRelease-EmailProviderLogs78952A18-TYkXrmvuNStK",
+            "filters": []
+          },
+          {
+            "group": "GhostlineRelease-HookLogs289E65C6-VG6fjq9jlOS9",
+            "filters": []
+          },
+          {
+            "group": "GhostlineRelease-Logs6819BB44-4PREwanlZOkR",
+            "filters": []
+          }
+        ],
+        "accountLogSubscriptionPolicyCount": 0,
+        "lambdaTracingModes": [
+          "PassThrough"
+        ],
+        "guardduty": [
+          {
+            "status": "ENABLED",
+            "enabledFeatures": [
+              "CLOUD_TRAIL",
+              "DNS_LOGS",
+              "EBS_MALWARE_PROTECTION",
+              "EKS_AUDIT_LOGS",
+              "FLOW_LOGS",
+              "LAMBDA_NETWORK_LOGS",
+              "RDS_LOGIN_EVENTS",
+              "RUNTIME_MONITORING",
+              "S3_DATA_EVENTS"
+            ],
+            "publishingDestinations": [],
+            "runtimeEc2AgentManagement": "DISABLED"
+          }
+        ],
+        "targetedFollowup": {
+          "region": "eu-central-2",
+          "ec2Monitoring": [
+            {
+              "Monitoring": {
+                "State": "disabled"
+              },
+              "HibernationOptions": {
+                "Configured": false
+              }
+            }
+          ],
+          "guarddutyCoverage": [
+            {
+              "status": "HEALTHY",
+              "agentVersion": "v1.17.3"
+            }
+          ],
+          "guarddutyFilterCount": 0,
+          "guarddutyAdministratorConfigured": false,
+          "malwareScanSettings": {
+            "ScanResourceCriteria": {
+              "Include": {},
+              "Exclude": {}
+            },
+            "EbsSnapshotPreservation": "NO_RETENTION"
+          },
+          "runCommandSummary": {
+            "count": 233,
+            "cloudWatchOutputEnabledCount": 0,
+            "s3OutputConfiguredCount": 0,
+            "documentNames": [
+              "AWS-RunShellScript",
+              "AmazonGuardDuty-ConfigureRuntimeMonitoringSsmPlugin",
+              "GhostlineObserveHost"
+            ]
+          },
+          "sessionHistorySummary": {
+            "count": 0,
+            "s3OutputConfiguredCount": 0,
+            "cloudWatchOutputConfiguredCount": 0
+          },
+          "eventBridgeArchives": [],
+          "guarddutyEventBridgeRules": [],
+          "queues": [
+            {
+              "name": "GhostlineRelease-FailedEventsA83487DA-GtNumxppJazd",
+              "MessageRetentionPeriod": "1209600",
+              "ApproximateNumberOfMessages": "0",
+              "ApproximateNumberOfMessagesNotVisible": "0",
+              "SqsManagedSseEnabled": "true"
+            }
+          ],
+          "snsTopicLogging": [
+            {
+              "deliveryLoggingAttributeNames": [],
+              "archivePolicyConfigured": false
+            }
+          ],
+          "securityHubEnabled": {
+            "auditError": "InvalidAccessException"
+          },
+          "detectiveGraphCount": {
+            "auditError": "CLIOrConnectionError"
+          },
+          "runningImageSelection": [
+            {
+              "container": "xray",
+              "matchesRecordedOfficialDigest": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "region": "eu-north-1",
+      "logGroups": [
+        {
+          "logGroupName": "GhostlineRelease-EmailLogs8FF0C9F6-pk6ZH2lhVSH4",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1789960100053,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-EmailProviderLogs78952A18-iT309CLrbU2j",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1789960099920,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-HookLogs289E65C6-KKaMMMPGvJH3",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790588177744,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-Logs6819BB44-BswRRgEh1Il5",
+          "retentionInDays": 7,
+          "storedBytes": 102216,
+          "creationTime": 1789960099871,
+          "logGroupClass": "STANDARD"
+        }
+      ],
+      "ownedVpcCount": 1,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": [],
+      "xrayLoggingPolicy": {
+        "parameterVersion": 1,
+        "logObjectPresent": true,
+        "log": {
+          "loglevel": "error",
+          "access": "absent",
+          "error": "absent"
+        },
+        "statsConfigured": false,
+        "apiConfigured": false,
+        "realityShow": [
+          false
+        ]
+      },
+      "maintainedDeployment": {
+        "instances": [
+          {
+            "state": "running",
+            "instanceType": "t4g.small",
+            "hibernationConfigured": false,
+            "deleteOnTermination": [
+              true,
+              true
+            ]
+          }
+        ],
+        "volumes": [
+          {
+            "Encrypted": true,
+            "Size": 2,
+            "VolumeType": "gp3",
+            "State": "in-use"
+          },
+          {
+            "Encrypted": true,
+            "Size": 30,
+            "VolumeType": "gp3",
+            "State": "in-use"
+          }
+        ],
+        "taggedSnapshotCount": 0,
+        "clusters": [
+          {
+            "name": "ghostline-ecs-stockholm",
+            "settings": [
+              {
+                "settings": [
+                  {
+                    "name": "containerInsights",
+                    "value": "disabled"
+                  }
+                ]
+              }
+            ],
+            "services": [
+              {
+                "name": "ghostline-ecs-stockholm-gateway",
+                "desiredCount": 1,
+                "runningCount": 1,
+                "enableExecuteCommand": false,
+                "definition": "ghostline-ecs-stockholm-gateway",
+                "revision": 11,
+                "containers": [
+                  {
+                    "name": "dns-policy",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 0,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": true
+                  },
+                  {
+                    "name": "xray",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 0,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": false
+                  },
+                  {
+                    "name": "awg",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 0,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": false
+                  },
+                  {
+                    "name": "gateway-config",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 2,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": false
+                  }
+                ]
+              },
+              {
+                "name": "ghostline-ecs-stockholm-network",
+                "desiredCount": 1,
+                "runningCount": 1,
+                "enableExecuteCommand": false,
+                "definition": "ghostline-ecs-stockholm-network",
+                "revision": 6,
+                "containers": [
+                  {
+                    "name": "network",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 0,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": true
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "sessionManagerPreferences": {
+          "auditError": "InvalidDocument"
+        },
+        "tables": [
+          {
+            "name": "ghostline-prod-release-attempts",
+            "itemCountApproximate": 26,
+            "ttl": {
+              "TimeToLiveStatus": "DISABLED"
+            },
+            "continuousBackups": {
+              "ContinuousBackupsStatus": "ENABLED",
+              "PointInTimeRecoveryDescription": {
+                "PointInTimeRecoveryStatus": "DISABLED"
+              }
+            }
+          }
+        ],
+        "logSubscriptions": [
+          {
+            "group": "GhostlineRelease-EmailLogs8FF0C9F6-pk6ZH2lhVSH4",
+            "filters": []
+          },
+          {
+            "group": "GhostlineRelease-EmailProviderLogs78952A18-iT309CLrbU2j",
+            "filters": []
+          },
+          {
+            "group": "GhostlineRelease-HookLogs289E65C6-KKaMMMPGvJH3",
+            "filters": []
+          },
+          {
+            "group": "GhostlineRelease-Logs6819BB44-BswRRgEh1Il5",
+            "filters": []
+          }
+        ],
+        "accountLogSubscriptionPolicyCount": 0,
+        "lambdaTracingModes": [
+          "PassThrough"
+        ],
+        "guardduty": [
+          {
+            "status": "ENABLED",
+            "enabledFeatures": [
+              "CLOUD_TRAIL",
+              "DNS_LOGS",
+              "EBS_MALWARE_PROTECTION",
+              "EKS_AUDIT_LOGS",
+              "FLOW_LOGS",
+              "LAMBDA_NETWORK_LOGS",
+              "RDS_LOGIN_EVENTS",
+              "RUNTIME_MONITORING",
+              "S3_DATA_EVENTS"
+            ],
+            "publishingDestinations": [],
+            "runtimeEc2AgentManagement": "DISABLED"
+          }
+        ],
+        "targetedFollowup": {
+          "region": "eu-north-1",
+          "ec2Monitoring": [
+            {
+              "Monitoring": {
+                "State": "disabled"
+              },
+              "HibernationOptions": {
+                "Configured": false
+              }
+            }
+          ],
+          "guarddutyCoverage": [
+            {
+              "status": "HEALTHY",
+              "agentVersion": "v1.17.3"
+            }
+          ],
+          "guarddutyFilterCount": 0,
+          "guarddutyAdministratorConfigured": false,
+          "malwareScanSettings": {
+            "ScanResourceCriteria": {
+              "Include": {},
+              "Exclude": {}
+            },
+            "EbsSnapshotPreservation": "NO_RETENTION"
+          },
+          "runCommandSummary": {
+            "count": 236,
+            "cloudWatchOutputEnabledCount": 0,
+            "s3OutputConfiguredCount": 0,
+            "documentNames": [
+              "AWS-RunShellScript",
+              "AmazonGuardDuty-ConfigureRuntimeMonitoringSsmPlugin",
+              "GhostlineObserveHost"
+            ],
+            "pages": 25
+          },
+          "sessionHistorySummary": {
+            "count": 0,
+            "s3OutputConfiguredCount": 0,
+            "cloudWatchOutputConfiguredCount": 0
+          },
+          "eventBridgeArchives": [],
+          "guarddutyEventBridgeRules": [],
+          "queues": [
+            {
+              "name": "GhostlineRelease-FailedEventsA83487DA-FLz14lgvlZ52",
+              "MessageRetentionPeriod": "1209600",
+              "ApproximateNumberOfMessages": "0",
+              "ApproximateNumberOfMessagesNotVisible": "0",
+              "SqsManagedSseEnabled": "true"
+            }
+          ],
+          "snsTopicLogging": [
+            {
+              "deliveryLoggingAttributeNames": [],
+              "archivePolicyConfigured": false
+            }
+          ],
+          "securityHubEnabled": {
+            "auditError": "InvalidAccessException"
+          },
+          "detectiveGraphCount": 0,
+          "runningImageSelection": [
+            {
+              "container": "xray",
+              "matchesRecordedOfficialDigest": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "region": "eu-south-1",
+      "logGroups": [
+        {
+          "logGroupName": "GhostlineBenchmark-nearby-round-two-main-probe-Logs6819BB44-ytVMklDpTqkb",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790515912669,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-EmailLogs8FF0C9F6-xUeZ5pNJh3iW",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790516442954,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-EmailProviderLogs78952A18-t2P7fciyrNdE",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790516442928,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-Logs6819BB44-3W1YkUjf55xq",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1790516442899,
+          "logGroupClass": "STANDARD"
+        }
+      ],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "eu-south-2",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "eu-west-1",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "eu-west-2",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "eu-west-3",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "il-central-1",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "me-central-1",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "me-south-1",
+      "logGroups": {
+        "auditError": "CLIOrConnectionError"
+      },
+      "ownedVpcCount": {
+        "auditError": "CLIOrConnectionError"
+      },
+      "ownedFlowLogs": {
+        "auditError": "CLIOrConnectionError"
+      },
+      "ownedResolverQueryLogAssociations": {
+        "auditError": "CLIOrConnectionError"
+      },
+      "ownedTrafficMirrorSessions": {
+        "auditError": "CLIOrConnectionError"
+      }
+    },
+    {
+      "region": "mx-central-1",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "sa-east-1",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "us-east-1",
+      "logGroups": [
+        {
+          "logGroupName": "GhostlineRelease-EmailLogs8FF0C9F6-svCxlUDgEn82",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1794147553441,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-EmailProviderLogs78952A18-ZlOfdSJ9hmLG",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1794147553527,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-HookLogs289E65C6-cOKHLDFJ4de5",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1794147553635,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-Logs6819BB44-at5spcqfTLgs",
+          "retentionInDays": 7,
+          "storedBytes": 103937,
+          "creationTime": 1794147553704,
+          "logGroupClass": "STANDARD"
+        }
+      ],
+      "ownedVpcCount": 1,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": [],
+      "xrayLoggingPolicy": {
+        "parameterVersion": 1,
+        "logObjectPresent": true,
+        "log": {
+          "loglevel": "error",
+          "access": "absent",
+          "error": "absent"
+        },
+        "statsConfigured": false,
+        "apiConfigured": false,
+        "realityShow": [
+          false
+        ]
+      },
+      "maintainedDeployment": {
+        "instances": [
+          {
+            "state": "running",
+            "instanceType": "t4g.small",
+            "hibernationConfigured": false,
+            "deleteOnTermination": [
+              true,
+              true
+            ]
+          }
+        ],
+        "volumes": [
+          {
+            "Encrypted": true,
+            "Size": 30,
+            "VolumeType": "gp3",
+            "State": "in-use"
+          },
+          {
+            "Encrypted": true,
+            "Size": 2,
+            "VolumeType": "gp3",
+            "State": "in-use"
+          }
+        ],
+        "taggedSnapshotCount": 0,
+        "clusters": [
+          {
+            "name": "ghostline-nva",
+            "settings": [
+              {
+                "settings": [
+                  {
+                    "name": "containerInsights",
+                    "value": "disabled"
+                  }
+                ]
+              }
+            ],
+            "services": [
+              {
+                "name": "ghostline-nva-network",
+                "desiredCount": 1,
+                "runningCount": 1,
+                "enableExecuteCommand": false,
+                "definition": "ghostline-nva-network",
+                "revision": 1,
+                "containers": [
+                  {
+                    "name": "network",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 0,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": true
+                  }
+                ]
+              },
+              {
+                "name": "ghostline-nva-gateway",
+                "desiredCount": 1,
+                "runningCount": 1,
+                "enableExecuteCommand": false,
+                "definition": "ghostline-nva-gateway",
+                "revision": 1,
+                "containers": [
+                  {
+                    "name": "gateway-config",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 2,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": false
+                  },
+                  {
+                    "name": "awg",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 0,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": false
+                  },
+                  {
+                    "name": "xray",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 0,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": false
+                  },
+                  {
+                    "name": "dns-policy",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 0,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": true
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "sessionManagerPreferences": {
+          "auditError": "InvalidDocument"
+        },
+        "tables": [
+          {
+            "name": "ghostline-prod-release-attempts",
+            "itemCountApproximate": 5,
+            "ttl": {
+              "TimeToLiveStatus": "DISABLED"
+            },
+            "continuousBackups": {
+              "ContinuousBackupsStatus": "ENABLED",
+              "PointInTimeRecoveryDescription": {
+                "PointInTimeRecoveryStatus": "DISABLED"
+              }
+            }
+          }
+        ],
+        "logSubscriptions": [
+          {
+            "group": "GhostlineRelease-EmailLogs8FF0C9F6-svCxlUDgEn82",
+            "filters": []
+          },
+          {
+            "group": "GhostlineRelease-EmailProviderLogs78952A18-ZlOfdSJ9hmLG",
+            "filters": []
+          },
+          {
+            "group": "GhostlineRelease-HookLogs289E65C6-cOKHLDFJ4de5",
+            "filters": []
+          },
+          {
+            "group": "GhostlineRelease-Logs6819BB44-at5spcqfTLgs",
+            "filters": []
+          }
+        ],
+        "accountLogSubscriptionPolicyCount": 0,
+        "lambdaTracingModes": [
+          "PassThrough"
+        ],
+        "guardduty": [
+          {
+            "status": "ENABLED",
+            "enabledFeatures": [
+              "CLOUD_TRAIL",
+              "DNS_LOGS",
+              "EBS_MALWARE_PROTECTION",
+              "EKS_AUDIT_LOGS",
+              "FLOW_LOGS",
+              "LAMBDA_NETWORK_LOGS",
+              "RDS_LOGIN_EVENTS",
+              "RUNTIME_MONITORING",
+              "S3_DATA_EVENTS"
+            ],
+            "publishingDestinations": [],
+            "runtimeEc2AgentManagement": "ENABLED"
+          }
+        ],
+        "targetedFollowup": {
+          "region": "us-east-1",
+          "ec2Monitoring": [
+            {
+              "Monitoring": {
+                "State": "disabled"
+              },
+              "HibernationOptions": {
+                "Configured": false
+              }
+            }
+          ],
+          "guarddutyCoverage": [
+            {
+              "status": "HEALTHY",
+              "agentVersion": "v1.17.3"
+            }
+          ],
+          "guarddutyFilterCount": 0,
+          "guarddutyAdministratorConfigured": false,
+          "malwareScanSettings": {
+            "ScanResourceCriteria": {
+              "Include": {},
+              "Exclude": {}
+            },
+            "EbsSnapshotPreservation": "NO_RETENTION"
+          },
+          "runCommandSummary": {
+            "count": 209,
+            "cloudWatchOutputEnabledCount": 0,
+            "s3OutputConfiguredCount": 0,
+            "documentNames": [
+              "AWS-RunShellScript",
+              "AmazonGuardDuty-ConfigureRuntimeMonitoringSsmPlugin",
+              "GhostlineObserveHost"
+            ]
+          },
+          "sessionHistorySummary": {
+            "count": 0,
+            "s3OutputConfiguredCount": 0,
+            "cloudWatchOutputConfiguredCount": 0
+          },
+          "eventBridgeArchives": [],
+          "guarddutyEventBridgeRules": [],
+          "queues": [
+            {
+              "name": "GhostlineRelease-FailedEventsA83487DA-ScDSK4ag0Pkh",
+              "MessageRetentionPeriod": "1209600",
+              "ApproximateNumberOfMessages": "0",
+              "ApproximateNumberOfMessagesNotVisible": "0",
+              "SqsManagedSseEnabled": "true"
+            }
+          ],
+          "snsTopicLogging": [
+            {
+              "deliveryLoggingAttributeNames": [],
+              "archivePolicyConfigured": false
+            }
+          ],
+          "securityHubEnabled": {
+            "auditError": "InvalidAccessException"
+          },
+          "detectiveGraphCount": 0,
+          "runningImageSelection": [
+            {
+              "container": "xray",
+              "matchesRecordedOfficialDigest": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "region": "us-east-2",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "us-west-1",
+      "logGroups": [],
+      "ownedVpcCount": 0,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": []
+    },
+    {
+      "region": "us-west-2",
+      "logGroups": [
+        {
+          "logGroupName": "GhostlineRelease-EmailLogs8FF0C9F6-fK09Eul2IFLJ",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1793924244446,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-EmailProviderLogs78952A18-D13wjKYshmNn",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1793924244445,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-HookLogs289E65C6-BenZeGS1Y7YE",
+          "retentionInDays": 7,
+          "storedBytes": 0,
+          "creationTime": 1793924244472,
+          "logGroupClass": "STANDARD"
+        },
+        {
+          "logGroupName": "GhostlineRelease-Logs6819BB44-OdRiyE341Vt9",
+          "retentionInDays": 7,
+          "storedBytes": 103064,
+          "creationTime": 1793924244412,
+          "logGroupClass": "STANDARD"
+        }
+      ],
+      "ownedVpcCount": 1,
+      "ownedFlowLogs": [],
+      "ownedResolverQueryLogAssociations": [],
+      "ownedTrafficMirrorSessions": [],
+      "xrayLoggingPolicy": {
+        "parameterVersion": 1,
+        "logObjectPresent": true,
+        "log": {
+          "loglevel": "error",
+          "access": "absent",
+          "error": "absent"
+        },
+        "statsConfigured": false,
+        "apiConfigured": false,
+        "realityShow": [
+          false
+        ]
+      },
+      "maintainedDeployment": {
+        "instances": [
+          {
+            "state": "running",
+            "instanceType": "t4g.small",
+            "hibernationConfigured": false,
+            "deleteOnTermination": [
+              true,
+              true
+            ]
+          }
+        ],
+        "volumes": [
+          {
+            "Encrypted": true,
+            "Size": 2,
+            "VolumeType": "gp3",
+            "State": "in-use"
+          },
+          {
+            "Encrypted": true,
+            "Size": 30,
+            "VolumeType": "gp3",
+            "State": "in-use"
+          }
+        ],
+        "taggedSnapshotCount": 0,
+        "clusters": [
+          {
+            "name": "ghostline-oregon",
+            "settings": [
+              {
+                "settings": [
+                  {
+                    "name": "containerInsights",
+                    "value": "disabled"
+                  }
+                ]
+              }
+            ],
+            "services": [
+              {
+                "name": "ghostline-oregon-gateway",
+                "desiredCount": 1,
+                "runningCount": 1,
+                "enableExecuteCommand": false,
+                "definition": "ghostline-oregon-gateway",
+                "revision": 1,
+                "containers": [
+                  {
+                    "name": "xray",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 0,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": false
+                  },
+                  {
+                    "name": "gateway-config",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 2,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": false
+                  },
+                  {
+                    "name": "awg",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 0,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": false
+                  },
+                  {
+                    "name": "dns-policy",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 0,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": true
+                  }
+                ]
+              },
+              {
+                "name": "ghostline-oregon-network",
+                "desiredCount": 1,
+                "runningCount": 1,
+                "enableExecuteCommand": false,
+                "definition": "ghostline-oregon-network",
+                "revision": 1,
+                "containers": [
+                  {
+                    "name": "network",
+                    "logConfiguration": {
+                      "logDriver": "json-file",
+                      "options": {
+                        "max-size": "1m",
+                        "max-file": "1"
+                      },
+                      "secretOptions": []
+                    },
+                    "secretReferenceCount": 0,
+                    "secretEnvironmentNamesInTaskDefinition": [],
+                    "healthCheckOutputCapture": true
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "sessionManagerPreferences": {
+          "auditError": "InvalidDocument"
+        },
+        "tables": [
+          {
+            "name": "ghostline-prod-release-attempts",
+            "itemCountApproximate": 5,
+            "ttl": {
+              "TimeToLiveStatus": "DISABLED"
+            },
+            "continuousBackups": {
+              "ContinuousBackupsStatus": "ENABLED",
+              "PointInTimeRecoveryDescription": {
+                "PointInTimeRecoveryStatus": "DISABLED"
+              }
+            }
+          }
+        ],
+        "logSubscriptions": [
+          {
+            "group": "GhostlineRelease-EmailLogs8FF0C9F6-fK09Eul2IFLJ",
+            "filters": []
+          },
+          {
+            "group": "GhostlineRelease-EmailProviderLogs78952A18-D13wjKYshmNn",
+            "filters": []
+          },
+          {
+            "group": "GhostlineRelease-HookLogs289E65C6-BenZeGS1Y7YE",
+            "filters": []
+          },
+          {
+            "group": "GhostlineRelease-Logs6819BB44-OdRiyE341Vt9",
+            "filters": []
+          }
+        ],
+        "accountLogSubscriptionPolicyCount": 0,
+        "lambdaTracingModes": [
+          "PassThrough"
+        ],
+        "guardduty": [
+          {
+            "status": "ENABLED",
+            "enabledFeatures": [
+              "CLOUD_TRAIL",
+              "DNS_LOGS",
+              "EBS_MALWARE_PROTECTION",
+              "EKS_AUDIT_LOGS",
+              "FLOW_LOGS",
+              "LAMBDA_NETWORK_LOGS",
+              "RDS_LOGIN_EVENTS",
+              "RUNTIME_MONITORING",
+              "S3_DATA_EVENTS"
+            ],
+            "publishingDestinations": [],
+            "runtimeEc2AgentManagement": "DISABLED"
+          }
+        ],
+        "targetedFollowup": {
+          "region": "us-west-2",
+          "ec2Monitoring": [
+            {
+              "Monitoring": {
+                "State": "disabled"
+              },
+              "HibernationOptions": {
+                "Configured": false
+              }
+            }
+          ],
+          "guarddutyCoverage": [
+            {
+              "status": "HEALTHY",
+              "agentVersion": "v1.17.3"
+            }
+          ],
+          "guarddutyFilterCount": 0,
+          "guarddutyAdministratorConfigured": false,
+          "malwareScanSettings": {
+            "ScanResourceCriteria": {
+              "Include": {},
+              "Exclude": {}
+            },
+            "EbsSnapshotPreservation": "NO_RETENTION"
+          },
+          "runCommandSummary": {
+            "count": 272,
+            "cloudWatchOutputEnabledCount": 0,
+            "s3OutputConfiguredCount": 0,
+            "documentNames": [
+              "AWS-RunShellScript",
+              "GhostlineObserveHost"
+            ]
+          },
+          "sessionHistorySummary": {
+            "count": 0,
+            "s3OutputConfiguredCount": 0,
+            "cloudWatchOutputConfiguredCount": 0
+          },
+          "eventBridgeArchives": [],
+          "guarddutyEventBridgeRules": [],
+          "queues": [
+            {
+              "name": "GhostlineRelease-FailedEventsA83487DA-6PzcYMxzcTrG",
+              "MessageRetentionPeriod": "1209600",
+              "ApproximateNumberOfMessages": "2",
+              "ApproximateNumberOfMessagesNotVisible": "0",
+              "SqsManagedSseEnabled": "true"
+            }
+          ],
+          "snsTopicLogging": [
+            {
+              "deliveryLoggingAttributeNames": [],
+              "archivePolicyConfigured": false
+            }
+          ],
+          "securityHubEnabled": {
+            "auditError": "InvalidAccessException"
+          },
+          "detectiveGraphCount": 0,
+          "runningImageSelection": [
+            {
+              "container": "xray",
+              "matchesRecordedOfficialDigest": true
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "cloudtrail": [
+    {
+      "trail": {
+        "Name": "account-management-audit",
+        "HomeRegion": "us-east-1",
+        "IsMultiRegionTrail": true,
+        "IncludeGlobalServiceEvents": true,
+        "LogFileValidationEnabled": true,
+        "IsOrganizationTrail": false
+      },
+      "status": {
+        "IsLogging": true,
+        "LatestDeliveryTime": "2026-11-16T07:59:17.300000-05:00"
+      },
+      "selectors": {
+        "EventSelectors": [
+          {
+            "ReadWriteType": "All",
+            "IncludeManagementEvents": true,
+            "DataResources": [],
+            "ExcludeManagementEventSources": []
+          }
+        ]
+      },
+      "s3Lifecycle": {
+        "TransitionDefaultMinimumObjectSize": "all_storage_classes_128K",
+        "Rules": [
+          {
+            "Expiration": {
+              "Days": 7
+            },
+            "ID": "AuditExpiry",
+            "Filter": {
+              "Prefix": ""
+            },
+            "Status": "Enabled",
+            "AbortIncompleteMultipartUpload": {
+              "DaysAfterInitiation": 1
+            }
+          }
+        ]
+      },
+      "s3Versioning": {},
+      "s3Replication": {
+        "auditError": "ReplicationConfigurationNotFoundError"
+      }
+    },
+    {
+      "eventDataStores": []
+    }
+  ],
+  "sharedBucket": {
+    "serverAccessLogging": {},
+    "lifecycle": {
+      "TransitionDefaultMinimumObjectSize": "all_storage_classes_128K",
+      "Rules": [
+        {
+          "Expiration": {
+            "Days": 7
+          },
+          "ID": "AuditExpiry",
+          "Filter": {
+            "Prefix": ""
+          },
+          "Status": "Enabled",
+          "AbortIncompleteMultipartUpload": {
+            "DaysAfterInitiation": 1
+          }
+        }
+      ]
+    },
+    "versioning": {},
+    "replication": {
+      "auditError": "ReplicationConfigurationNotFoundError"
+    },
+    "objectCount": 20287,
+    "totalObjectBytes": 55419080,
+    "logObjectCount": 13522,
+    "logObjectBytes": 49610155
+  },
+  "sharedContentSample": {
+    "startedAtUtc": "2026-11-16T13:10:49.211390+00:00",
+    "scope": "Fixed sample of at most 25 objects: five latest CloudTrail objects per maintained region; request/response fields scanned in memory only",
+    "objectsSelected": 25,
+    "compressedBytesSelected": 146437,
+    "objectsScanned": 25,
+    "recordsScanned": 444,
+    "errors": {},
+    "finishedAtUtc": "2026-11-16T13:10:54.465644+00:00",
+    "earliestEventTime": "2026-11-16T11:04:00Z",
+    "latestEventTime": "2026-11-16T13:06:09Z",
+    "findingCounts": {
+      "AWS-access-key-id": 20,
+      "secret-named-field": 20
+    },
+    "emailSubscriptionEvents": [],
+    "topEventTypes": [
+      {
+        "eventSource": "ssm.amazonaws.com",
+        "eventName": "ListCommands",
+        "count": 69
+      },
+      {
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "GetBucketAcl",
+        "count": 29
+      },
+      {
+        "eventSource": "kms.amazonaws.com",
+        "eventName": "Decrypt",
+        "count": 24
+      },
+      {
+        "eventSource": "sts.amazonaws.com",
+        "eventName": "AssumeRole",
+        "count": 20
+      },
+      {
+        "eventSource": "logs.amazonaws.com",
+        "eventName": "DescribeSubscriptionFilters",
+        "count": 16
+      },
+      {
+        "eventSource": "ssm.amazonaws.com",
+        "eventName": "UpdateInstanceInformation",
+        "count": 15
+      },
+      {
+        "eventSource": "ec2.amazonaws.com",
+        "eventName": "DescribeInstances",
+        "count": 14
+      },
+      {
+        "eventSource": "ecs.amazonaws.com",
+        "eventName": "ListTasks",
+        "count": 12
+      },
+      {
+        "eventSource": "ecr.amazonaws.com",
+        "eventName": "BatchGetImage",
+        "count": 12
+      },
+      {
+        "eventSource": "elasticloadbalancing.amazonaws.com",
+        "eventName": "DescribeTargetHealth",
+        "count": 12
+      },
+      {
+        "eventSource": "guardduty.amazonaws.com",
+        "eventName": "ListCoverage",
+        "count": 10
+      },
+      {
+        "eventSource": "ecs.amazonaws.com",
+        "eventName": "ListClusters",
+        "count": 9
+      },
+      {
+        "eventSource": "guardduty.amazonaws.com",
+        "eventName": "ListDetectors",
+        "count": 9
+      },
+      {
+        "eventSource": "ecs.amazonaws.com",
+        "eventName": "DescribeTasks",
+        "count": 8
+      },
+      {
+        "eventSource": "backup.amazonaws.com",
+        "eventName": "ListRecoveryPointsByBackupVault",
+        "count": 6
+      },
+      {
+        "eventSource": "ecs.amazonaws.com",
+        "eventName": "DescribeTaskDefinition",
+        "count": 6
+      },
+      {
+        "eventSource": "logs.amazonaws.com",
+        "eventName": "CreateLogStream",
+        "count": 5
+      },
+      {
+        "eventSource": "ec2.amazonaws.com",
+        "eventName": "DescribeAddresses",
+        "count": 5
+      },
+      {
+        "eventSource": "ssm.amazonaws.com",
+        "eventName": "GetParameter",
+        "count": 5
+      },
+      {
+        "eventSource": "guardduty.amazonaws.com",
+        "eventName": "ListFilters",
+        "count": 5
+      },
+      {
+        "eventSource": "ssm.amazonaws.com",
+        "eventName": "DescribeSessions",
+        "count": 5
+      },
+      {
+        "eventSource": "securityhub.amazonaws.com",
+        "eventName": "DescribeHub",
+        "count": 5
+      },
+      {
+        "eventSource": "guardduty.amazonaws.com",
+        "eventName": "GetMalwareScanSettings",
+        "count": 5
+      },
+      {
+        "eventSource": "guardduty.amazonaws.com",
+        "eventName": "GetAdministratorAccount",
+        "count": 5
+      },
+      {
+        "eventSource": "events.amazonaws.com",
+        "eventName": "ListArchives",
+        "count": 5
+      },
+      {
+        "eventSource": "sns.amazonaws.com",
+        "eventName": "GetTopicAttributes",
+        "count": 5
+      },
+      {
+        "eventSource": "events.amazonaws.com",
+        "eventName": "ListRules",
+        "count": 5
+      },
+      {
+        "eventSource": "sns.amazonaws.com",
+        "eventName": "ListTopics",
+        "count": 5
+      },
+      {
+        "eventSource": "servicequotas.amazonaws.com",
+        "eventName": "GetServiceQuota",
+        "count": 4
+      },
+      {
+        "eventSource": "ec2.amazonaws.com",
+        "eventName": "DescribeVpcs",
+        "count": 4
+      }
+    ],
+    "eventsByRegion": {
+      "af-south-1": 60,
+      "eu-central-2": 129,
+      "eu-north-1": 109,
+      "us-east-1": 74,
+      "us-west-2": 72
+    },
+    "classification": {
+      "AssumeRoleSensitiveCredentialFragmentEvents": 20,
+      "ghostlineAttributed": 12,
+      "otherOrUnclassified": 8,
+      "completeAwsCredentialSetDetected": false,
+      "note": "Access-key identifiers and session tokens are documented STS logging behavior; no secretAccessKey payload detected. Pattern-based sample does not establish absence elsewhere."
+    }
+  },
+  "ghostlineBuckets": [
+    {
+      "nameClass": "ghostline-assets-or-benchmark",
+      "region": "af-south-1",
+      "serverAccessLogging": {},
+      "lifecycle": {
+        "auditError": "NoSuchLifecycleConfiguration"
+      },
+      "versioning": {},
+      "replication": {
+        "auditError": "ReplicationConfigurationNotFoundError"
+      }
+    },
+    {
+      "nameClass": "ghostline-assets-or-benchmark",
+      "region": "eu-central-2",
+      "serverAccessLogging": {},
+      "lifecycle": {
+        "auditError": "NoSuchLifecycleConfiguration"
+      },
+      "versioning": {},
+      "replication": {
+        "auditError": "ReplicationConfigurationNotFoundError"
+      }
+    },
+    {
+      "nameClass": "ghostline-assets-or-benchmark",
+      "region": "eu-north-1",
+      "serverAccessLogging": {},
+      "lifecycle": {
+        "auditError": "NoSuchLifecycleConfiguration"
+      },
+      "versioning": {},
+      "replication": {
+        "auditError": "ReplicationConfigurationNotFoundError"
+      }
+    },
+    {
+      "nameClass": "ghostline-assets-or-benchmark",
+      "region": "us-east-1",
+      "serverAccessLogging": {},
+      "lifecycle": {
+        "auditError": "NoSuchLifecycleConfiguration"
+      },
+      "versioning": {},
+      "replication": {
+        "auditError": "ReplicationConfigurationNotFoundError"
+      }
+    },
+    {
+      "nameClass": "ghostline-assets-or-benchmark",
+      "region": "us-west-2",
+      "serverAccessLogging": {},
+      "lifecycle": {
+        "auditError": "NoSuchLifecycleConfiguration"
+      },
+      "versioning": {},
+      "replication": {
+        "auditError": "ReplicationConfigurationNotFoundError"
+      }
+    },
+    {
+      "nameClass": "ghostline-audit",
+      "region": "af-south-1",
+      "serverAccessLogging": {},
+      "lifecycle": {
+        "TransitionDefaultMinimumObjectSize": "all_storage_classes_128K",
+        "Rules": [
+          {
+            "Expiration": {
+              "Days": 7
+            },
+            "ID": "MzU0ZWYwNTktZjAwMy00MGFiLThhYmQtZWMzMDRkYWQyZjNh",
+            "Filter": {
+              "Prefix": ""
+            },
+            "Status": "Enabled"
+          }
+        ]
+      },
+      "versioning": {},
+      "replication": {
+        "auditError": "ReplicationConfigurationNotFoundError"
+      }
+    },
+    {
+      "nameClass": "ghostline-audit",
+      "region": "eu-north-1",
+      "serverAccessLogging": {},
+      "lifecycle": {
+        "TransitionDefaultMinimumObjectSize": "all_storage_classes_128K",
+        "Rules": [
+          {
+            "Expiration": {
+              "Days": 7
+            },
+            "ID": "ZTNlMjQ3OTEtNWE3NS00MjU2LThjZmUtNjJjNjJmYWZmM2Mw",
+            "Filter": {
+              "Prefix": ""
+            },
+            "Status": "Enabled"
+          }
+        ]
+      },
+      "versioning": {},
+      "replication": {
+        "auditError": "ReplicationConfigurationNotFoundError"
+      }
+    }
+  ],
+  "localArtifactMetadata": [
+    {
+      "directory": "recovery",
+      "fileCount": 292,
+      "extensions": {
+        "(no extension)": 1,
+        ".backup": 2,
+        ".json": 58,
+        ".vpn": 84,
+        ".png": 82,
+        ".conf": 58,
+        ".txt": 7
+      },
+      "credentialExtensionFilesWithGroupOrOtherPermissions": 0
+    },
+    {
+      "directory": "deployments",
+      "fileCount": 382,
+      "extensions": {
+        ".json": 322,
+        ".out": 36,
+        "(no extension)": 8,
+        ".tar": 4,
+        ".sh": 7,
+        ".zip": 3,
+        ".conf": 1,
+        ".instance": 1
+      },
+      "credentialExtensionFilesWithGroupOrOtherPermissions": 0
+    },
+    {
+      "directory": "benchmarks",
+      "fileCount": 271,
+      "extensions": {
+        ".json": 130,
+        ".py": 5,
+        ".mts": 3,
+        ".ts": 1,
+        ".js": 28,
+        ".md": 6,
+        ".out": 12,
+        ".br": 76,
+        ".zip": 10
+      },
+      "credentialExtensionFilesWithGroupOrOtherPermissions": 0
+    },
+    {
+      "directory": "diagnostics",
+      "fileCount": 529,
+      "extensions": {
+        ".json": 227,
+        ".py": 54,
+        ".log": 179,
+        ".ts": 11,
+        ".mts": 13,
+        ".sqlite": 1,
+        ".txt": 3,
+        ".pyc": 7,
+        ".plist": 4,
+        ".dgst": 1,
+        ".zip": 2,
+        ".ips": 8,
+        ".diag": 3,
+        ".panic": 3,
+        ".ndjson": 2,
+        ".sh": 6,
+        "(no extension)": 2,
+        ".out": 1,
+        ".gz": 2
+      },
+      "credentialExtensionFilesWithGroupOrOtherPermissions": 0
+    },
+    {
+      "directory": "region-init",
+      "fileCount": 6,
+      "extensions": {
+        ".json": 6
+      },
+      "credentialExtensionFilesWithGroupOrOtherPermissions": 0
+    },
+    {
+      "directory": "region-purge",
+      "fileCount": 4,
+      "extensions": {
+        ".json": 4
+      },
+      "credentialExtensionFilesWithGroupOrOtherPermissions": 0
+    },
+    {
+      "directory": "account-security",
+      "fileCount": 1,
+      "extensions": {
+        ".json": 1
+      },
+      "credentialExtensionFilesWithGroupOrOtherPermissions": 0
+    },
+    {
+      "directory": "releases",
+      "fileCount": 446,
+      "extensions": {
+        ".json": 194,
+        ".out": 9,
+        ".js": 114,
+        ".zip": 77,
+        ".mts": 18,
+        ".log": 34
+      },
+      "credentialExtensionFilesWithGroupOrOtherPermissions": 0
+    }
+  ],
+  "approvalBoundary": "Owner explicitly approved shared-bucket metadata and content. Automatic review rejected the full 13522-object content scan; approved fixed 25-object alternative completed.",
+  "limitations": [
+    "Current parameter policy is not a reread of rendered host configuration.",
+    "No raw Docker, journal, CloudWatch, SSM output or queue bodies inspected.",
+    "Name/tag ownership filtering does not comprehensively cover untagged resources.",
+    "Security Hub InvalidAccessException is unverified integration status; Zurich Detective unavailable.",
+    "CloudTrail content sample is recent and includes audit activity; arbitrary encodings and older secrets are not excluded."
+  ],
+  "historicalResidue": [
+    {
+      "region": "ap-south-1",
+      "namedFunctions": [],
+      "namedTables": [],
+      "queues": []
+    },
+    {
+      "region": "ap-south-2",
+      "namedFunctions": [],
+      "namedTables": [],
+      "queues": []
+    },
+    {
+      "region": "eu-central-1",
+      "namedFunctions": [],
+      "namedTables": [],
+      "queues": [
+        {
+          "name": "GhostlineRelease-FailedEventsA83487DA-1aD6fIPbFGH6",
+          "MessageRetentionPeriod": "1209600",
+          "ApproximateNumberOfMessages": "0"
+        },
+        {
+          "name": "GhostlineRelease-FailedEventsA83487DA-GAlvpNDuTWyL",
+          "MessageRetentionPeriod": "1209600",
+          "ApproximateNumberOfMessages": "0"
+        },
+        {
+          "name": "GhostlineRelease-FailedEventsA83487DA-rGMYBwr2pIUH",
+          "MessageRetentionPeriod": "1209600",
+          "ApproximateNumberOfMessages": "0"
+        }
+      ]
+    },
+    {
+      "region": "eu-south-1",
+      "namedFunctions": [],
+      "namedTables": [],
+      "queues": [
+        {
+          "name": "GhostlineRelease-FailedEventsA83487DA-qKFlgXnczrA0",
+          "MessageRetentionPeriod": "1209600",
+          "ApproximateNumberOfMessages": "0"
+        }
+      ]
+    }
+  ]
+}

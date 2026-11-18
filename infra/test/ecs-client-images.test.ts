@@ -37,6 +37,15 @@ it('rejects a task without an explicit ARM64 runtime platform', () => {
   expect(() => deployedClientImages(f.config, f.outputs, f.aws)).toThrow('architecture');
 });
 
+it('accepts exact owned candidate pins while executing the actual ARM64 child observed by ECS', () => {
+  const f = fixture();
+  for (const container of f.tasks.gateway.containerDefinitions) container.image = f.image(container.name).replace(':keep-production', `@sha256:${'a'.repeat(64)}`);
+  const selected = deployedClientImages(f.config, f.outputs, f.aws);
+  expect(Object.values(selected).every(value => value.endsWith(`@sha256:${'b'.repeat(64)}`))).toBe(true);
+  f.tasks.gateway.containerDefinitions[0]!.image = f.image('xray').replace(':keep-production', '@sha256:invalid');
+  expect(() => deployedClientImages(f.config, f.outputs, f.aws)).toThrow('owned resolved');
+});
+
 it('refuses missing, stopped or transitioning services before starting any client', () => {
   // A service transition could make the selected task definition differ from the actual serving image.
   for (const mode of ['missing', 'failure', 'stopped', 'pending', 'transition', 'wrong-service']) {

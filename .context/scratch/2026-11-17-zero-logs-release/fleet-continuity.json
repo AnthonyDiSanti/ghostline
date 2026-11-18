@@ -1,0 +1,15 @@
+{
+  "before": "2026-11-18T04:42:51.122Z",
+  "after": "2026-11-18T05:49:36.261Z",
+  "parametersUnchanged": 45,
+  "endpointAllocationAndIpPairsUnchanged": 10,
+  "gatewaySecurityGroupsUnchanged": 5,
+  "originalAutomationModesRestored": 5,
+  "guardDutyEbsCloudTrailRegionsUnchanged": 5,
+  "productionSelectorsReady": 5,
+  "release": "sha256:5e2731f3523b75340b39df164f714f1260dd2301c3aa293fb18ccf74ca741257",
+  "activeHosts": 4,
+  "parkedCapeTownHosts": 0,
+  "allOperationsAndTrialsCleared": true,
+  "acceptedBootsPreserved": true
+}

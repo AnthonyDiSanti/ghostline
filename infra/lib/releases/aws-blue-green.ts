@@ -8,7 +8,7 @@ import { HostProbe } from './host-probe.js';
 import { readServiceTasks } from './ecs-observation.js';
 import { bootstrapReady, daemonReady, failedRuntimeEvidence, gatewayReady, observedRelease } from './generation-proof.js';
 import { readNativeDeployment } from './native-deployment.js';
-import { readiness } from './gate.js';
+import { regionalReadiness } from './gate.js';
 import { observedArtifacts } from './model.js';
 import type { Registry } from './registry.js';
 import type { Generation, Rollout, RolloutEffect, RolloutObservation, RolloutPorts } from './blue-green.js';
@@ -37,6 +37,7 @@ export class AwsBlueGreen extends ReleaseState implements RolloutPorts {
   }
   get dnsRequired() { return this.config.dnsRequired; }
   get derpRequired() { return this.config.derpRequired; }
+  get trialScope() { return { account: this.config.account, region: this.config.region, endpoint: this.config.endpoint }; }
   async save(next: Rollout, previous: Rollout): Promise<void> {
     if (!await this.replace('rollout/current', next, previous)) throw new Error('Concurrent rollout state change.');
   }
@@ -111,7 +112,7 @@ export class AwsBlueGreen extends ReleaseState implements RolloutPorts {
     const snapshot = await this.inventory(rollout);
     const green = snapshot.slots[rollout.green], blue = snapshot.slots[rollout.source.slot];
     const [ready, tasks, greenProbe, blueProbe, deployment] = await Promise.all([
-      readiness(this.registry, this.config.dnsRequired, this.config.derpRequired).catch(async () => {
+      regionalReadiness(this).catch(async () => {
         // A failed registry read denies forward promotion but cannot suppress independently verified return-to-blue safety work.
         await this.alert(`${rollout.id}/registry-observation`, 'Release metadata is unreadable; forward promotion is withheld. Existing runtime and rollback observations continue.');
         return { ready: false, current: undefined };
@@ -202,7 +203,7 @@ export class AwsBlueGreen extends ReleaseState implements RolloutPorts {
         }
         break;
       case 'force': {
-        const ready = await readiness(this.registry, this.config.dnsRequired, this.config.derpRequired);
+        const ready = await regionalReadiness(this);
         if (!ready.ready || ready.current?.digest !== rollout.release || this.candidate(green) !== 'eligible'
           || this.candidate(snapshot.slots[rollout.source.slot]) !== 'ineligible') throw new Error('Release/placement changed immediately before force deployment.');
         await this.clients.ecs.send(new UpdateServiceCommand({ cluster: this.config.cluster, service: this.config.service, forceNewDeployment: true })); break;

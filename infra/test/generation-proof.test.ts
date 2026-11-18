@@ -38,6 +38,18 @@ it('requires initializer success and both exact daemon-validated engines', () =>
   f.task.containers![0]!.exitCode = 0; f.host.network!.peers.awg!.id = 'old-container'; expect(f.ready()).toBe(false);
   f.host.network!.peers.awg!.id = 'awg-runtime'; f.host.network!.healthy = false; expect(f.ready()).toBe(false);
 });
+it('requires withdrawal of the initializer peer as well as its successful exit before promotion', () => {
+  // Parsing a valid initialization report must not make its temporary credential lease a steady state.
+  const f = fixture();
+  f.host.network!.peers['gateway-config'] = { id: 'initializer-runtime', ip: '172.17.0.6', task: 'task/green',
+    started: '2026-09-28T00:00:00Z', restarts: 0 };
+  expect(f.ready()).toBe(false);
+  delete f.host.network!.peers['gateway-config'];
+  f.task.containers![0]!.lastStatus = 'RUNNING';
+  expect(f.ready()).toBe(false);
+  f.task.containers![0]!.lastStatus = 'STOPPED';
+  expect(f.ready()).toBe(true);
+});
 it('rejects a healthy task belonging to the other native revision or host', () => {
   const f = fixture(); f.task.startedBy = 'ecs-svc/blue'; expect(f.ready()).toBe(false);
   f.task.startedBy = 'ecs-svc/green'; f.task.containerInstanceArn = 'host/blue'; expect(f.ready()).toBe(false);

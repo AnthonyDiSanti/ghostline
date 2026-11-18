@@ -28,7 +28,7 @@ export async function probeImageTunnel(protocol: Protocol, server: string, engin
       profile.inbounds = [{ listen: '0.0.0.0', port: 1080, protocol: 'socks', settings: { auth: 'noauth' } }];
       const bundle = JSON.stringify({ files: { 'server.json': Buffer.from(JSON.stringify(profile)).toString('base64') } });
       cleanupStorage = createTestRamStorage(volume, initializer, docker);
-      execute(['run', '--rm', ...common, '--network', 'none', '--user', '65532:65532', '--env', 'GHOSTLINE_CONFIG',
+      execute(['run', '--rm', '--interactive', ...common, '--network', 'none', '--user', '65532:65532',
         '-v', `${volume}:/config`, '--entrypoint', '/usr/local/bin/ghostline-config', initializer, 'xray'], true, bundle);
       docker(['run', '-d', '--name', client, ...common, '--user', '65532:65532', '-p', '127.0.0.1::1080',
         '-v', `${volume}:/usr/local/etc/xray:ro`, engine, 'run', '-config', '/usr/local/etc/xray/server.json']);

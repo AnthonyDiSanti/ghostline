@@ -34,7 +34,10 @@ export function deployedClientImages(config: DeploymentConfig, outputs: Record<s
     const candidates = task.containerDefinitions.filter((item: any) => item.name === artifact);
     const prefix = `${config.account}.dkr.ecr.${config.region}.amazonaws.com/ghostline/prod/${artifact}`;
     const container = detail.tasks[0].containers.find((c: any) => c.name === artifact);
-    if (candidates.length !== 1 || candidates[0]?.image !== `${prefix}:keep-production`
+    const selected = candidates[0]?.image;
+    const pinned = selected?.startsWith(`${prefix}@`) && /^sha256:[a-f0-9]{64}$/.test(selected.slice(prefix.length + 1));
+    // Native trials pin the owned root manifest; an index may execute a distinct ARM64 child reported by ECS.
+    if (candidates.length !== 1 || selected !== `${prefix}:keep-production` && !pinned
       || !/^sha256:[a-f0-9]{64}$/.test(container?.imageDigest ?? '')) throw new Error('Expected an owned resolved deployed image.');
     images[artifact] = `${prefix}@${container.imageDigest}`;
   }
@@ -48,9 +51,9 @@ export async function testEcsClients(config: DeploymentConfig, root: string, wor
     onUnavailable?: (protocol: Protocol) => void }, fixture?: { profiles: string; protocols: Protocol[] }) {
   const platform = imagePlatform;
   const temporary = mkdtempSync(resolve(work, 'clients-'));
-  function command(executable: string, args: string[], required = true): string {
+  function command(executable: string, args: string[], required = true, input?: string): string {
     // Real device keys are mounted read-only; never echo commands, logs or subprocess error output.
-    const result = spawnSync(executable, args, { encoding: 'utf8', timeout: 45_000 });
+    const result = spawnSync(executable, args, { input, encoding: 'utf8', timeout: 45_000 });
     if (required && (result.error || result.status !== 0)) throw new Error(`${executable} client check failed; output withheld.`);
     return result.status === 0 ? result.stdout.trim() : '';
   }
@@ -87,15 +90,14 @@ export async function testEcsClients(config: DeploymentConfig, root: string, wor
           if (benchmark && (profile.outbounds?.length !== 1 || profile.outbounds[0].protocol !== 'vless'
             || (profile.routing?.rules?.length ?? 0) !== 0 || profile.dns)) throw new Error('Benchmark Xray profile contains unsupported routing or DNS overrides.');
           profile.inbounds = [{ listen: '0.0.0.0', port: 1080, protocol: 'socks', settings: { auth: 'noauth' } }];
-          // Use the same secret-to-file adapter without changing private host-file ownership.
-          const bundle = { files: { 'server.json': Buffer.from(JSON.stringify(profile)).toString('base64') } };
-          const envFile = resolve(temporary, 'secret.env');
-          writeFileSync(envFile, `GHOSTLINE_CONFIG=${JSON.stringify(bundle)}\n`, { mode: 0o600 });
+          // A private stdin writer supports both baseline and candidate images without putting client keys in Docker metadata.
           const initializer = images['gateway-config'];
           cleanupStorage = createTestRamStorage(volume, initializer, args => command('docker', args), 'xray', labels);
-          command('docker', ['run', '--rm', ...labels, '--platform', platform, '--network', 'none', '--read-only', '--cap-drop', 'ALL',
+          command('docker', ['run', '--rm', '--interactive', ...labels, '--platform', platform, '--network', 'none', '--read-only', '--cap-drop', 'ALL',
             '--user', '65532:65532', '--security-opt', 'no-new-privileges:true', '--log-driver', 'none',
-            '--env-file', envFile, '-v', `${volume}:/config`, '--entrypoint', '/usr/local/bin/ghostline-config', initializer, 'xray']);
+            '-v', `${volume}:/config`, '-v', `${resolve(root, 'runtime/ecs/client-config.sh')}:/test/client-config.sh:ro`,
+            '-v', `${resolve(root, 'runtime/ecs/xray-log-policy.jq')}:/test/log-policy.jq:ro`,
+            '--entrypoint', '/bin/sh', initializer, '/test/client-config.sh'], true, JSON.stringify(profile));
           command('docker', [...args, '-v', `${volume}:/usr/local/etc/xray:ro`, '-p', '127.0.0.1::1080',
             image, 'run', '-config', '/usr/local/etc/xray/server.json']);
         } else {

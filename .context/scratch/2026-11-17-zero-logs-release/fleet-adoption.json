@@ -1,0 +1,738 @@
+{
+  "completedAtUtc": "2026-11-18T05:49:37.321Z",
+  "releaseDigest": "sha256:5e2731f3523b75340b39df164f714f1260dd2301c3aa293fb18ccf74ca741257",
+  "release": {
+    "schemaVersion": 5,
+    "promotionId": "e7e507a5-7bec-4703-bca4-7f5a21dae3a6",
+    "promotedAt": "2026-11-18T04:54:31.464Z",
+    "origin": "eu-north-1",
+    "platform": "linux/arm64",
+    "images": {
+      "xray": {
+        "repository": "ghostline/prod/xray",
+        "digest": "sha256:79f798b6a130132414c45773bc039e9e51b9694f2dd5ddf99083353ece168f48",
+        "runtimeDigest": "sha256:79f798b6a130132414c45773bc039e9e51b9694f2dd5ddf99083353ece168f48",
+        "buildTag": "sha-79f798b6a130132414c45773bc039e9e51b9694f2dd5ddf99083353ece168f48"
+      },
+      "awg": {
+        "repository": "ghostline/prod/awg",
+        "digest": "sha256:08c461ecf05dfac5309620187ae846016e835bb3b4919d498612448ca50b8293",
+        "runtimeDigest": "sha256:4dc4fbcaeafa08f7310dc44160ab2412c91fac435d21d4178adf42ab912ff910",
+        "buildTag": "sha-08c461ecf05dfac5309620187ae846016e835bb3b4919d498612448ca50b8293"
+      },
+      "gateway-config": {
+        "repository": "ghostline/prod/gateway-config",
+        "digest": "sha256:6e5222c5c2e332fb7cae04d8f1a5d225f8af23ac1030992415694fed2673127b",
+        "runtimeDigest": "sha256:d443765365b6afad031b95a096095f95c0188a97009c3411944ee38404493f8c",
+        "buildTag": "sha-6e5222c5c2e332fb7cae04d8f1a5d225f8af23ac1030992415694fed2673127b"
+      },
+      "bootstrap": {
+        "repository": "ghostline/prod/bootstrap",
+        "digest": "sha256:1116b063b6f33d938bd510a06f9fcbdf5d201308398ee6e534afcb5420fc4633",
+        "runtimeDigest": "sha256:747c24f33ef90cca7603b51559f9617df7b397211df2811c7f4e348e1be7ce60",
+        "buildTag": "sha-1116b063b6f33d938bd510a06f9fcbdf5d201308398ee6e534afcb5420fc4633"
+      },
+      "network-daemon": {
+        "repository": "ghostline/prod/network-daemon",
+        "digest": "sha256:424e95a8a0614c89aafa1adf1d8970d50b60d70b20e1369864aee754f480ee38",
+        "runtimeDigest": "sha256:3af0f085d573bda1cf736c86aa4dff0e3c61d84f1b7ae5427c804b9827886464",
+        "buildTag": "sha-424e95a8a0614c89aafa1adf1d8970d50b60d70b20e1369864aee754f480ee38"
+      },
+      "dns-policy": {
+        "repository": "ghostline/prod/dns-policy",
+        "digest": "sha256:134d14ca4e026473344f0af98699a98a3fa9a284ea79281982749ea34cdc3332",
+        "runtimeDigest": "sha256:f6d34bb9072b035be63595b1be5d4f8ffe586c2e35d8bfa49c8183a08fabcfe4",
+        "buildTag": "sha-134d14ca4e026473344f0af98699a98a3fa9a284ea79281982749ea34cdc3332"
+      },
+      "derp": {
+        "repository": "ghostline/prod/derp",
+        "digest": "sha256:8280ec6ec84d32927b2b443a60b3ba41c2ea22eb74466c97f4f2147962ce8f49",
+        "runtimeDigest": "sha256:4dbe275a55e28bbfa8347ac9332761edbcfb4451df9c4a3d332949fcedf6a957",
+        "buildTag": "sha-8280ec6ec84d32927b2b443a60b3ba41c2ea22eb74466c97f4f2147962ce8f49"
+      }
+    },
+    "os": {
+      "variant": "aws-ecs-3",
+      "architecture": "arm64",
+      "compatibleVersions": [
+        "1.66.0"
+      ],
+      "targetVersion": "1.66.0",
+      "knownLimitations": [
+        "https://github.com/bottlerocket-os/bottlerocket-core-kit/issues/1059"
+      ]
+    },
+    "history": [
+      "sha256:89ebce02a6f9ca9791fbba9213149573fc0766b9808ea70bef7affef97f052f2",
+      "sha256:a9ee9cfbc8a10b008e5e456d15f7713289def2184bd71e77de77f68c00d04cd7",
+      "sha256:0aca4d364d55bafd8ac093bc0169cbddceb9dc0f4d80c8f94a2778c903f37c9a"
+    ]
+  },
+  "scope": "Four active shared gateways, including Xray/AWG/CoreDNS/DERP; parked Cape Town selection updated; independent Headscale excluded",
+  "regions": {
+    "stockholm-ecs": {
+      "lifecycle": "active",
+      "hosts": 1,
+      "encryptedDisks": 2,
+      "endpointCount": 2,
+      "releaseReady": true,
+      "trialAbsent": true,
+      "operationAbsent": true,
+      "localReceiptAbsent": true,
+      "otherSystemAddressesExcluded": 0,
+      "generation": {
+        "slot": "b",
+        "stack": "arn:aws:cloudformation:eu-north-1:757999402784:stack/GhostlineEcsTrial-Host-b/9d930c10-e2af-11f1-aae4-06fff6ea2f67",
+        "instance": "i-0b7c601a8107dce14",
+        "interface": "eni-08813676ed5864734",
+        "boot": "e185885e-42b0-4dd6-9523-ad1a576189d0",
+        "revision": "arn:aws:ecs:eu-north-1:757999402784:service-revision/ghostline-ecs-stockholm/ghostline-ecs-stockholm-gateway/7247446266671150855",
+        "images": {
+          "xray": "sha256:79f798b6a130132414c45773bc039e9e51b9694f2dd5ddf99083353ece168f48",
+          "awg": "sha256:08c461ecf05dfac5309620187ae846016e835bb3b4919d498612448ca50b8293",
+          "gateway-config": "sha256:6e5222c5c2e332fb7cae04d8f1a5d225f8af23ac1030992415694fed2673127b",
+          "bootstrap": "sha256:1116b063b6f33d938bd510a06f9fcbdf5d201308398ee6e534afcb5420fc4633",
+          "network-daemon": "sha256:424e95a8a0614c89aafa1adf1d8970d50b60d70b20e1369864aee754f480ee38",
+          "dns-policy": "sha256:134d14ca4e026473344f0af98699a98a3fa9a284ea79281982749ea34cdc3332",
+          "derp": "sha256:8280ec6ec84d32927b2b443a60b3ba41c2ea22eb74466c97f4f2147962ce8f49"
+        },
+        "os": "1.66.0",
+        "template": "c1941886efd0ef90fefd4288b9515ac450992ad45fe1afd6301c5afdec61cc1b"
+      },
+      "nativeStatus": "SUCCESSFUL",
+      "nativeTarget": "arn:aws:ecs:eu-north-1:757999402784:service-revision/ghostline-ecs-stockholm/ghostline-ecs-stockholm-gateway/7247446266671150855",
+      "healthFailures": 0,
+      "acceptance": {
+        "instance": "i-0b7c601a8107dce14",
+        "boot": "e185885e-42b0-4dd6-9523-ad1a576189d0",
+        "encryptedProtocols": 2,
+        "guardDuty": "HEALTHY",
+        "agentVersion": "v1.17.3",
+        "persistenceStores": 4,
+        "protocolComparisonStrings": 9,
+        "temporaryCredentialComparisons": 3,
+        "persistentMatches": 0,
+        "credentialNamespacesBlocked": 4,
+        "administrativeLockdownVerified": true
+      },
+      "credentialIsolation": {
+        "credentialNamespacesBlocked": 4,
+        "initializerAccessWithdrawn": true,
+        "noInjectedBundles": true,
+        "initializerSucceeded": true,
+        "missingCredentialsRejected": true,
+        "failureOutputFixed": true,
+        "servingConfigurationUntouched": true
+      },
+      "sensitivePersistence": {
+        "initializers": 1,
+        "nonemptyBundles": {
+          "GHOSTLINE_XRAY_BUNDLE": false,
+          "GHOSTLINE_AWG_BUNDLE": false,
+          "GHOSTLINE_DERP_BUNDLE": false
+        },
+        "ramKeyComparisons": {
+          "xray": 3,
+          "derp": 3,
+          "awg": 3
+        },
+        "taskCredentialComparisons": {
+          "taskAccessKeyId": 1,
+          "taskSecretAccessKey": 1,
+          "taskToken": 1
+        },
+        "docker": {
+          "version": "29.0.4",
+          "driver": "overlayfs",
+          "dataRoot": "/var/lib/docker"
+        },
+        "footprintKiB": {
+          "docker": 262716,
+          "containerd": 354868,
+          "ecs": 172
+        },
+        "memoryKiB": {
+          "MemTotal": 1887048,
+          "MemAvailable": 1183916
+        },
+        "stores": {
+          "dockerMetadata": {
+            "filesScanned": 42,
+            "bytesScanned": 43457,
+            "unreadable": 0,
+            "unstable": 0,
+            "complete": true,
+            "matchedFiles": {
+              "xray": 0,
+              "derp": 0,
+              "awg": 0,
+              "taskAccessKeyId": 0,
+              "taskSecretAccessKey": 0,
+              "taskToken": 0
+            },
+            "exists": true
+          },
+          "ecsCheckpoint": {
+            "filesScanned": 1,
+            "bytesScanned": 262144,
+            "unreadable": 0,
+            "unstable": 0,
+            "complete": true,
+            "matchedFiles": {
+              "xray": 0,
+              "derp": 0,
+              "awg": 0,
+              "taskAccessKeyId": 0,
+              "taskSecretAccessKey": 0,
+              "taskToken": 0
+            },
+            "exists": true
+          },
+          "containerdMetadata": {
+            "filesScanned": 1,
+            "bytesScanned": 1048576,
+            "unreadable": 0,
+            "unstable": 0,
+            "complete": true,
+            "matchedFiles": {
+              "xray": 0,
+              "derp": 0,
+              "awg": 0,
+              "taskAccessKeyId": 0,
+              "taskSecretAccessKey": 0,
+              "taskToken": 0
+            },
+            "exists": true
+          },
+          "ecsLogs": {
+            "filesScanned": 2,
+            "bytesScanned": 92624,
+            "unreadable": 0,
+            "unstable": 0,
+            "complete": true,
+            "matchedFiles": {
+              "xray": 0,
+              "derp": 0,
+              "awg": 0,
+              "taskAccessKeyId": 0,
+              "taskSecretAccessKey": 0,
+              "taskToken": 0
+            },
+            "exists": true
+          }
+        }
+      },
+      "derpStunPassed": true
+    },
+    "oregon": {
+      "lifecycle": "active",
+      "hosts": 1,
+      "encryptedDisks": 2,
+      "endpointCount": 2,
+      "releaseReady": true,
+      "trialAbsent": true,
+      "operationAbsent": true,
+      "localReceiptAbsent": true,
+      "otherSystemAddressesExcluded": 0,
+      "generation": {
+        "slot": "b",
+        "stack": "arn:aws:cloudformation:us-west-2:757999402784:stack/GhostlineOregon-Host-b/99d87510-e2af-11f1-a2a8-02d574ccb33f",
+        "instance": "i-0f93572210ad24c2e",
+        "interface": "eni-0acb5ffdb3df354a8",
+        "boot": "e5e41c09-ee14-49a0-954a-01a2e5004ced",
+        "revision": "arn:aws:ecs:us-west-2:757999402784:service-revision/ghostline-oregon/ghostline-oregon-gateway/7708960527096263603",
+        "images": {
+          "xray": "sha256:79f798b6a130132414c45773bc039e9e51b9694f2dd5ddf99083353ece168f48",
+          "awg": "sha256:08c461ecf05dfac5309620187ae846016e835bb3b4919d498612448ca50b8293",
+          "gateway-config": "sha256:6e5222c5c2e332fb7cae04d8f1a5d225f8af23ac1030992415694fed2673127b",
+          "bootstrap": "sha256:1116b063b6f33d938bd510a06f9fcbdf5d201308398ee6e534afcb5420fc4633",
+          "network-daemon": "sha256:424e95a8a0614c89aafa1adf1d8970d50b60d70b20e1369864aee754f480ee38",
+          "dns-policy": "sha256:134d14ca4e026473344f0af98699a98a3fa9a284ea79281982749ea34cdc3332",
+          "derp": "sha256:8280ec6ec84d32927b2b443a60b3ba41c2ea22eb74466c97f4f2147962ce8f49"
+        },
+        "os": "1.66.0",
+        "template": "b0e2cd539978c96ca62131bcc1cb09e8c734151069b0bd3e01abf45ea17f9c84"
+      },
+      "nativeStatus": "SUCCESSFUL",
+      "nativeTarget": "arn:aws:ecs:us-west-2:757999402784:service-revision/ghostline-oregon/ghostline-oregon-gateway/7708960527096263603",
+      "healthFailures": 0,
+      "acceptance": {
+        "instance": "i-0f93572210ad24c2e",
+        "boot": "e5e41c09-ee14-49a0-954a-01a2e5004ced",
+        "encryptedProtocols": 2,
+        "guardDuty": "HEALTHY",
+        "agentVersion": "v1.17.3",
+        "persistenceStores": 4,
+        "protocolComparisonStrings": 9,
+        "temporaryCredentialComparisons": 3,
+        "persistentMatches": 0,
+        "credentialNamespacesBlocked": 4,
+        "administrativeLockdownVerified": true
+      },
+      "credentialIsolation": {
+        "credentialNamespacesBlocked": 4,
+        "initializerAccessWithdrawn": true,
+        "noInjectedBundles": true,
+        "initializerSucceeded": true,
+        "missingCredentialsRejected": true,
+        "failureOutputFixed": true,
+        "servingConfigurationUntouched": true
+      },
+      "sensitivePersistence": {
+        "initializers": 1,
+        "nonemptyBundles": {
+          "GHOSTLINE_XRAY_BUNDLE": false,
+          "GHOSTLINE_AWG_BUNDLE": false,
+          "GHOSTLINE_DERP_BUNDLE": false
+        },
+        "ramKeyComparisons": {
+          "xray": 3,
+          "derp": 3,
+          "awg": 3
+        },
+        "taskCredentialComparisons": {
+          "taskAccessKeyId": 1,
+          "taskSecretAccessKey": 1,
+          "taskToken": 1
+        },
+        "docker": {
+          "version": "29.0.4",
+          "driver": "overlayfs",
+          "dataRoot": "/var/lib/docker"
+        },
+        "footprintKiB": {
+          "docker": 262720,
+          "containerd": 354864,
+          "ecs": 168
+        },
+        "memoryKiB": {
+          "MemTotal": 1887048,
+          "MemAvailable": 1174400
+        },
+        "stores": {
+          "dockerMetadata": {
+            "filesScanned": 42,
+            "bytesScanned": 43237,
+            "unreadable": 0,
+            "unstable": 0,
+            "complete": true,
+            "matchedFiles": {
+              "xray": 0,
+              "derp": 0,
+              "awg": 0,
+              "taskAccessKeyId": 0,
+              "taskSecretAccessKey": 0,
+              "taskToken": 0
+            },
+            "exists": true
+          },
+          "ecsCheckpoint": {
+            "filesScanned": 1,
+            "bytesScanned": 262144,
+            "unreadable": 0,
+            "unstable": 0,
+            "complete": true,
+            "matchedFiles": {
+              "xray": 0,
+              "derp": 0,
+              "awg": 0,
+              "taskAccessKeyId": 0,
+              "taskSecretAccessKey": 0,
+              "taskToken": 0
+            },
+            "exists": true
+          },
+          "containerdMetadata": {
+            "filesScanned": 1,
+            "bytesScanned": 1048576,
+            "unreadable": 0,
+            "unstable": 0,
+            "complete": true,
+            "matchedFiles": {
+              "xray": 0,
+              "derp": 0,
+              "awg": 0,
+              "taskAccessKeyId": 0,
+              "taskSecretAccessKey": 0,
+              "taskToken": 0
+            },
+            "exists": true
+          },
+          "ecsLogs": {
+            "filesScanned": 2,
+            "bytesScanned": 94959,
+            "unreadable": 0,
+            "unstable": 0,
+            "complete": true,
+            "matchedFiles": {
+              "xray": 0,
+              "derp": 0,
+              "awg": 0,
+              "taskAccessKeyId": 0,
+              "taskSecretAccessKey": 0,
+              "taskToken": 0
+            },
+            "exists": true
+          }
+        }
+      },
+      "derpStunPassed": true
+    },
+    "zurich": {
+      "lifecycle": "active",
+      "hosts": 1,
+      "encryptedDisks": 2,
+      "endpointCount": 2,
+      "releaseReady": true,
+      "trialAbsent": true,
+      "operationAbsent": true,
+      "localReceiptAbsent": true,
+      "otherSystemAddressesExcluded": 0,
+      "generation": {
+        "slot": "b",
+        "stack": "arn:aws:cloudformation:eu-central-2:757999402784:stack/GhostlineZurich-Host-b/9ec23d40-e2af-11f1-a93b-0ea1bcaf6a0f",
+        "instance": "i-0957beb757175e493",
+        "interface": "eni-04e5d3dcd10707d05",
+        "boot": "1851058a-aa99-41a3-ab1f-4a46b4433c3f",
+        "revision": "arn:aws:ecs:eu-central-2:757999402784:service-revision/ghostline-zurich/ghostline-zurich-gateway/5079459716610993817",
+        "images": {
+          "xray": "sha256:79f798b6a130132414c45773bc039e9e51b9694f2dd5ddf99083353ece168f48",
+          "awg": "sha256:08c461ecf05dfac5309620187ae846016e835bb3b4919d498612448ca50b8293",
+          "gateway-config": "sha256:6e5222c5c2e332fb7cae04d8f1a5d225f8af23ac1030992415694fed2673127b",
+          "bootstrap": "sha256:1116b063b6f33d938bd510a06f9fcbdf5d201308398ee6e534afcb5420fc4633",
+          "network-daemon": "sha256:424e95a8a0614c89aafa1adf1d8970d50b60d70b20e1369864aee754f480ee38",
+          "dns-policy": "sha256:134d14ca4e026473344f0af98699a98a3fa9a284ea79281982749ea34cdc3332",
+          "derp": "sha256:8280ec6ec84d32927b2b443a60b3ba41c2ea22eb74466c97f4f2147962ce8f49"
+        },
+        "os": "1.66.0",
+        "template": "c03c1094722c97d6bbff61b00fd1e73b9c2bbd33462b3eff4847394dd50c774a"
+      },
+      "nativeStatus": "SUCCESSFUL",
+      "nativeTarget": "arn:aws:ecs:eu-central-2:757999402784:service-revision/ghostline-zurich/ghostline-zurich-gateway/5079459716610993817",
+      "healthFailures": 0,
+      "acceptance": {
+        "instance": "i-0957beb757175e493",
+        "boot": "1851058a-aa99-41a3-ab1f-4a46b4433c3f",
+        "encryptedProtocols": 2,
+        "guardDuty": "HEALTHY",
+        "agentVersion": "v1.17.3",
+        "persistenceStores": 4,
+        "protocolComparisonStrings": 9,
+        "temporaryCredentialComparisons": 3,
+        "persistentMatches": 0,
+        "credentialNamespacesBlocked": 4,
+        "administrativeLockdownVerified": true
+      },
+      "credentialIsolation": {
+        "credentialNamespacesBlocked": 4,
+        "initializerAccessWithdrawn": true,
+        "noInjectedBundles": true,
+        "initializerSucceeded": true,
+        "missingCredentialsRejected": true,
+        "failureOutputFixed": true,
+        "servingConfigurationUntouched": true
+      },
+      "sensitivePersistence": {
+        "initializers": 1,
+        "nonemptyBundles": {
+          "GHOSTLINE_XRAY_BUNDLE": false,
+          "GHOSTLINE_AWG_BUNDLE": false,
+          "GHOSTLINE_DERP_BUNDLE": false
+        },
+        "ramKeyComparisons": {
+          "xray": 3,
+          "derp": 3,
+          "awg": 3
+        },
+        "taskCredentialComparisons": {
+          "taskAccessKeyId": 1,
+          "taskSecretAccessKey": 1,
+          "taskToken": 1
+        },
+        "docker": {
+          "version": "29.0.4",
+          "driver": "overlayfs",
+          "dataRoot": "/var/lib/docker"
+        },
+        "footprintKiB": {
+          "docker": 262716,
+          "containerd": 354864,
+          "ecs": 172
+        },
+        "memoryKiB": {
+          "MemTotal": 1887048,
+          "MemAvailable": 1176124
+        },
+        "stores": {
+          "dockerMetadata": {
+            "filesScanned": 42,
+            "bytesScanned": 43593,
+            "unreadable": 0,
+            "unstable": 0,
+            "complete": true,
+            "matchedFiles": {
+              "xray": 0,
+              "derp": 0,
+              "awg": 0,
+              "taskAccessKeyId": 0,
+              "taskSecretAccessKey": 0,
+              "taskToken": 0
+            },
+            "exists": true
+          },
+          "ecsCheckpoint": {
+            "filesScanned": 1,
+            "bytesScanned": 262144,
+            "unreadable": 0,
+            "unstable": 0,
+            "complete": true,
+            "matchedFiles": {
+              "xray": 0,
+              "derp": 0,
+              "awg": 0,
+              "taskAccessKeyId": 0,
+              "taskSecretAccessKey": 0,
+              "taskToken": 0
+            },
+            "exists": true
+          },
+          "containerdMetadata": {
+            "filesScanned": 1,
+            "bytesScanned": 1048576,
+            "unreadable": 0,
+            "unstable": 0,
+            "complete": true,
+            "matchedFiles": {
+              "xray": 0,
+              "derp": 0,
+              "awg": 0,
+              "taskAccessKeyId": 0,
+              "taskSecretAccessKey": 0,
+              "taskToken": 0
+            },
+            "exists": true
+          },
+          "ecsLogs": {
+            "filesScanned": 2,
+            "bytesScanned": 92971,
+            "unreadable": 0,
+            "unstable": 0,
+            "complete": true,
+            "matchedFiles": {
+              "xray": 0,
+              "derp": 0,
+              "awg": 0,
+              "taskAccessKeyId": 0,
+              "taskSecretAccessKey": 0,
+              "taskToken": 0
+            },
+            "exists": true
+          }
+        }
+      },
+      "derpStunPassed": true
+    },
+    "cape-town": {
+      "lifecycle": "parked",
+      "hosts": 0,
+      "encryptedDisks": 0,
+      "endpointCount": 2,
+      "releaseReady": true,
+      "trialAbsent": true,
+      "operationAbsent": true,
+      "localReceiptAbsent": true,
+      "otherSystemAddressesExcluded": 0
+    },
+    "nva": {
+      "lifecycle": "active",
+      "hosts": 1,
+      "encryptedDisks": 2,
+      "endpointCount": 2,
+      "releaseReady": true,
+      "trialAbsent": true,
+      "operationAbsent": true,
+      "localReceiptAbsent": true,
+      "otherSystemAddressesExcluded": 1,
+      "generation": {
+        "slot": "b",
+        "stack": "arn:aws:cloudformation:us-east-1:757999402784:stack/GhostlineNva-Host-b/9349eba0-e2b1-11f1-8a85-0afff691e96b",
+        "instance": "i-035e59d348346a321",
+        "interface": "eni-057b9c16d43ff8f80",
+        "boot": "f33d0749-b2db-4a30-907f-c18d794c777b",
+        "revision": "arn:aws:ecs:us-east-1:757999402784:service-revision/ghostline-nva/ghostline-nva-gateway/7229302615375518567",
+        "images": {
+          "xray": "sha256:79f798b6a130132414c45773bc039e9e51b9694f2dd5ddf99083353ece168f48",
+          "awg": "sha256:08c461ecf05dfac5309620187ae846016e835bb3b4919d498612448ca50b8293",
+          "gateway-config": "sha256:6e5222c5c2e332fb7cae04d8f1a5d225f8af23ac1030992415694fed2673127b",
+          "bootstrap": "sha256:1116b063b6f33d938bd510a06f9fcbdf5d201308398ee6e534afcb5420fc4633",
+          "network-daemon": "sha256:424e95a8a0614c89aafa1adf1d8970d50b60d70b20e1369864aee754f480ee38",
+          "dns-policy": "sha256:134d14ca4e026473344f0af98699a98a3fa9a284ea79281982749ea34cdc3332",
+          "derp": "sha256:8280ec6ec84d32927b2b443a60b3ba41c2ea22eb74466c97f4f2147962ce8f49"
+        },
+        "os": "1.66.0",
+        "template": "dd8f423013c13164d67aaf650ac9b164ebccc5310806c6c76579c89258438ad1"
+      },
+      "nativeStatus": "SUCCESSFUL",
+      "nativeTarget": "arn:aws:ecs:us-east-1:757999402784:service-revision/ghostline-nva/ghostline-nva-gateway/7229302615375518567",
+      "healthFailures": 0,
+      "acceptance": {
+        "instance": "i-035e59d348346a321",
+        "boot": "f33d0749-b2db-4a30-907f-c18d794c777b",
+        "encryptedProtocols": 2,
+        "guardDuty": "HEALTHY",
+        "agentVersion": "v1.17.3",
+        "persistenceStores": 4,
+        "protocolComparisonStrings": 9,
+        "temporaryCredentialComparisons": 3,
+        "persistentMatches": 0,
+        "credentialNamespacesBlocked": 4,
+        "administrativeLockdownVerified": true
+      },
+      "credentialIsolation": {
+        "credentialNamespacesBlocked": 4,
+        "initializerAccessWithdrawn": true,
+        "noInjectedBundles": true,
+        "initializerSucceeded": true,
+        "missingCredentialsRejected": true,
+        "failureOutputFixed": true,
+        "servingConfigurationUntouched": true
+      },
+      "sensitivePersistence": {
+        "initializers": 1,
+        "nonemptyBundles": {
+          "GHOSTLINE_XRAY_BUNDLE": false,
+          "GHOSTLINE_AWG_BUNDLE": false,
+          "GHOSTLINE_DERP_BUNDLE": false
+        },
+        "ramKeyComparisons": {
+          "xray": 3,
+          "derp": 3,
+          "awg": 3
+        },
+        "taskCredentialComparisons": {
+          "taskAccessKeyId": 1,
+          "taskSecretAccessKey": 1,
+          "taskToken": 1
+        },
+        "docker": {
+          "version": "29.0.4",
+          "driver": "overlayfs",
+          "dataRoot": "/var/lib/docker"
+        },
+        "footprintKiB": {
+          "docker": 262716,
+          "containerd": 354860,
+          "ecs": 168
+        },
+        "memoryKiB": {
+          "MemTotal": 1887048,
+          "MemAvailable": 1181364
+        },
+        "stores": {
+          "dockerMetadata": {
+            "filesScanned": 42,
+            "bytesScanned": 43178,
+            "unreadable": 0,
+            "unstable": 0,
+            "complete": true,
+            "matchedFiles": {
+              "xray": 0,
+              "derp": 0,
+              "awg": 0,
+              "taskAccessKeyId": 0,
+              "taskSecretAccessKey": 0,
+              "taskToken": 0
+            },
+            "exists": true
+          },
+          "ecsCheckpoint": {
+            "filesScanned": 1,
+            "bytesScanned": 262144,
+            "unreadable": 0,
+            "unstable": 0,
+            "complete": true,
+            "matchedFiles": {
+              "xray": 0,
+              "derp": 0,
+              "awg": 0,
+              "taskAccessKeyId": 0,
+              "taskSecretAccessKey": 0,
+              "taskToken": 0
+            },
+            "exists": true
+          },
+          "containerdMetadata": {
+            "filesScanned": 1,
+            "bytesScanned": 1048576,
+            "unreadable": 0,
+            "unstable": 0,
+            "complete": true,
+            "matchedFiles": {
+              "xray": 0,
+              "derp": 0,
+              "awg": 0,
+              "taskAccessKeyId": 0,
+              "taskSecretAccessKey": 0,
+              "taskToken": 0
+            },
+            "exists": true
+          },
+          "ecsLogs": {
+            "filesScanned": 2,
+            "bytesScanned": 93398,
+            "unreadable": 0,
+            "unstable": 0,
+            "complete": true,
+            "matchedFiles": {
+              "xray": 0,
+              "derp": 0,
+              "awg": 0,
+              "taskAccessKeyId": 0,
+              "taskSecretAccessKey": 0,
+              "taskToken": 0
+            },
+            "exists": true
+          }
+        }
+      },
+      "derpStunPassed": true
+    }
+  },
+  "continuity": {
+    "before": "2026-11-18T04:42:51.122Z",
+    "after": "2026-11-18T05:49:36.261Z",
+    "parametersUnchanged": 45,
+    "endpointAllocationAndIpPairsUnchanged": 10,
+    "gatewaySecurityGroupsUnchanged": 5,
+    "originalAutomationModesRestored": 5,
+    "guardDutyEbsCloudTrailRegionsUnchanged": 5,
+    "productionSelectorsReady": 5,
+    "release": "sha256:5e2731f3523b75340b39df164f714f1260dd2301c3aa293fb18ccf74ca741257",
+    "activeHosts": 4,
+    "parkedCapeTownHosts": 0,
+    "allOperationsAndTrialsCleared": true,
+    "acceptedBootsPreserved": true
+  },
+  "sourceGate": {
+    "tests": 523,
+    "files": 85,
+    "typecheck": true,
+    "nativeAssetLinters": true,
+    "freshOfflineSynthesis": true,
+    "qualifiedArm64Images": 7,
+    "nativePlatformRuntimeBytesMatch": true
+  },
+  "nvaCliWake": {
+    "apiThrottled": true,
+    "lambdaThrottleCount": 3,
+    "nativeOwnershipPreserved": true,
+    "secondDeploymentIssued": false,
+    "nativeAndIndependentAcceptancePassed": true,
+    "boundedRetryFixLocallyVerified": true
+  },
+  "credentialsRotated": false,
+  "historicalCopiesErased": false,
+  "runtimeMonitoringOptOutApplied": false,
+  "administrativeLockdownVerified": true,
+  "temporaryClientArtifactsRemoved": true
+}

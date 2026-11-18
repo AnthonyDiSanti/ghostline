@@ -20,6 +20,8 @@ The September 22 migration is verified. Anthony approved NVA/seven-day retention
 
 Implementation: `infra/lib/cloudtrail/{coverage,baseline,operator}.ts`; regressions: `infra/test/cloudtrail.test.ts`. [DescribeTrails](https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_DescribeTrails.html), [GetTrailStatus](https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_GetTrailStatus.html), [source-scoped S3 policy](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-s3-bucket-policy-for-cloudtrail.html).
 
+The [November 16 privacy audit](logging-privacy-audit.md#f07--cloudtrail-and-ssm-preserve-administrative-identity-and-activity) rechecks shared-bucket configuration and samples 444 records without retaining raw payloads. It distinguishes seven-day S3 expiry, independent 90-day Event History and documented STS session-token/access-key-identifier fields; those fragments omit the secret access key. The sample does not establish that the full bucket is free of application secrets.
+
 Live S3 readback includes `BlockedEncryptionTypes={EncryptionType:[SSE-C]}` on new buckets. Preserve that control rather than interpreting the extra field as an encryption mismatch or rewriting it away. [AWS default SSE-C policy](https://docs.aws.amazon.com/AmazonS3/latest/userguide/default-s3-c-encryption-setting-faq.html). The regression uses this actual response shape.
 
 ### Event consumer safety

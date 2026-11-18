@@ -70,12 +70,12 @@ it('owns GuardDuty transport for the full host lifetime with private, account-sc
   }
 });
 
-it('runs one bridge task with isolated engines, one secret recipient and shared memory', () => {
+it('runs one bridge task with a RAM-only initializer handoff and exact shared task authority', () => {
   template.resourceCountIs('AWS::ECS::Service', 1);
   template.resourceCountIs('AWS::ECS::TaskDefinition', 1);
   const task = resources.GatewayTask.Properties;
   expect(task).toMatchObject({ NetworkMode: 'bridge', Memory: '1126' });
-  expect(task.TaskRoleArn).toBeUndefined();
+  expect(task.TaskRoleArn).toEqual({ 'Fn::GetAtt': [Object.keys(resources).find(key => key.startsWith('GatewayTaskRole') && resources[key].Type === 'AWS::IAM::Role'), 'Arn'] });
   expect(task.PidMode).toBeUndefined();
   expect(task.ContainerDefinitions).toHaveLength(4);
   for (const container of task.ContainerDefinitions) {
@@ -83,12 +83,14 @@ it('runs one bridge task with isolated engines, one secret recipient and shared 
     expect(JSON.stringify(container.Image)).toContain(':keep-production');
   }
   const initializer = task.ContainerDefinitions.find((c: any) => c.Name === 'gateway-config');
-  expect(initializer).toMatchObject({ Essential: false, DisableNetworking: true, User: '65532:65532',
+  expect(initializer).toMatchObject({ Essential: false, User: '65532:65532',
     ReadonlyRootFilesystem: true, Memory: 64, LinuxParameters: { Capabilities: { Drop: ['ALL'] } },
     MountPoints: [{ SourceVolume: 'gateway-config', ContainerPath: '/config', ReadOnly: false }] });
   expect(initializer.RestartPolicy).toBeUndefined();
-  expect(initializer.Secrets).toEqual(['xray', 'awg'].map(protocol => ({ Name: `GHOSTLINE_${protocol.toUpperCase()}_BUNDLE`,
-    ValueFrom: `arn:aws:ssm:eu-north-1:000000000000:parameter/ghostline/prod/server/${protocol}` })));
+  expect(initializer.Secrets).toBeUndefined();
+  expect(initializer.DisableNetworking).toBeUndefined();
+  expect(Object.values(JSON.parse(initializer.Environment[0].Value))).toEqual(['xray', 'awg'].map(protocol =>
+    `arn:aws:ssm:eu-north-1:000000000000:parameter/ghostline/prod/server/${protocol}`));
   for (const protocol of ['xray', 'awg']) {
     const engine = task.ContainerDefinitions.find((c: any) => c.Name === protocol);
     expect(engine).toMatchObject({ Essential: true, ReadonlyRootFilesystem: true,
@@ -107,7 +109,13 @@ it('runs one bridge task with isolated engines, one secret recipient and shared 
     DesiredCount: { 'Fn::If': ['InitialGateway', 0, { Ref: 'AWS::NoValue' }] },
     DeploymentConfiguration: { Strategy: 'BLUE_GREEN', MinimumHealthyPercent: 100, MaximumPercent: 200, BakeTimeInMinutes: 5 } });
   expect(resources.GatewayService.DependsOn).toContain(Object.keys(resources).find(key => key.startsWith('GatewayExecutionRoleDefaultPolicy')));
-  const statements = Object.entries(resources).filter(([id, r]) => id.startsWith('GatewayExecutionRoleDefaultPolicy') && r.Type === 'AWS::IAM::Policy').flatMap(([, r]) => r.Properties.PolicyDocument.Statement);
+  expect(resources.GatewayService.DependsOn).toContain(Object.keys(resources).find(key => key.startsWith('GatewayTaskRoleDefaultPolicy')));
+  const executionStatements = Object.entries(resources).filter(([id, r]) => id.startsWith('GatewayExecutionRoleDefaultPolicy') && r.Type === 'AWS::IAM::Policy').flatMap(([, r]) => r.Properties.PolicyDocument.Statement);
+  expect(executionStatements.filter(s => [].concat(s.Action).some((a: string) => a.startsWith('ssm:')))).toEqual([]);
+  const statements = Object.entries(resources).filter(([id, r]) => id.startsWith('GatewayTaskRoleDefaultPolicy') && r.Type === 'AWS::IAM::Policy').flatMap(([, r]) => r.Properties.PolicyDocument.Statement);
+  const trust = Object.entries(resources).find(([id, r]) => id.startsWith('GatewayTaskRole') && r.Type === 'AWS::IAM::Role')![1].Properties.AssumeRolePolicyDocument.Statement;
+  expect(trust).toEqual([{ Effect: 'Allow', Principal: { Service: 'ecs-tasks.amazonaws.com' }, Action: 'sts:AssumeRole',
+    Condition: { StringEquals: { 'aws:SourceAccount': config.account }, ArnLike: { 'aws:SourceArn': `arn:aws:ecs:${config.region}:${config.account}:*` } } }]);
   const reads = statements.filter(s => [].concat(s.Action).some((a: string) => a.startsWith('ssm:GetParameter')));
   expect(reads).toHaveLength(1);
   expect(reads[0].Resource).toEqual(['awg', 'xray'].map(protocol => `arn:aws:ssm:eu-north-1:000000000000:parameter/ghostline/prod/server/${protocol}`));
@@ -126,7 +134,7 @@ it('keeps a DNS-enabled gateway in the same essential task and host lease domain
   const task = dnsResources.GatewayTask.Properties;
   const containers = task.ContainerDefinitions;
   expect(task.NetworkMode).toBe('bridge');
-  expect(task.TaskRoleArn).toBeUndefined();
+  expect(task.TaskRoleArn).toBeDefined();
   expect(task.Memory).toBe(resources.GatewayTask.Properties.Memory);
   expect(containers.map((container: any) => container.Name).sort()).toEqual(['awg', 'dns-policy', 'gateway-config', 'xray']);
   const dns = containers.find((container: any) => container.Name === 'dns-policy');
@@ -149,17 +157,18 @@ it('keeps a DNS-enabled gateway in the same essential task and host lease domain
   expect(JSON.stringify(dnsResources.SecurityGroup.Properties.SecurityGroupIngress)).not.toContain('55353');
 });
 
-it('uses the selected credential namespace only for the initializer and its execution role', () => {
+it('limits initializer retrieval to exact server ARNs in the selected task namespace', () => {
   // Private trial identities must survive a park/unpark without reading the maintained production namespace.
   const trial = { ...config, dnsRequired: true, parameterPrefix: '/ghostline/trial/dns-native' };
   const trialResources = Template.fromStack(buildApp(trial, { service: true, runtime: true }).stack).toJSON().Resources as Record<string, any>;
-  const secrets = trialResources.GatewayTask.Properties.ContainerDefinitions.find((container: any) =>
-    container.Name === 'gateway-config').Secrets;
+  const initializer = trialResources.GatewayTask.Properties.ContainerDefinitions.find((container: any) =>
+    container.Name === 'gateway-config');
   const expected = ['xray', 'awg'].map(protocol =>
     `arn:aws:ssm:eu-north-1:000000000000:parameter/ghostline/trial/dns-native/server/${protocol}`);
-  expect(secrets.map((secret: any) => secret.ValueFrom)).toEqual(expected);
+  expect(initializer.Secrets).toBeUndefined();
+  expect(Object.values(JSON.parse(initializer.Environment[0].Value))).toEqual(expected);
   const policies = Object.entries(trialResources).filter(([id, resource]) =>
-    id.startsWith('GatewayExecutionRoleDefaultPolicy') && (resource as any).Type === 'AWS::IAM::Policy');
+    id.startsWith('GatewayTaskRoleDefaultPolicy') && (resource as any).Type === 'AWS::IAM::Policy');
   expect(policies).toHaveLength(1);
   const reads = (policies[0]![1] as any).Properties.PolicyDocument.Statement.filter((statement: any) =>
     (Array.isArray(statement.Action) ? statement.Action : [statement.Action]).includes('ssm:GetParameters'));

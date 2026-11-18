@@ -3,13 +3,8 @@ set -eu
 umask 077
 complete=false
 
-# Retain the pair only in shell memory; each child receives its selected bundle, never its sibling's.
-# Unset scratch names first so an inherited export attribute cannot propagate them to subprocesses.
-unset xray_bundle awg_bundle derp_bundle
-xray_bundle=${GHOSTLINE_XRAY_BUNDLE:-}
-awg_bundle=${GHOSTLINE_AWG_BUNDLE:-}
-derp_bundle=${GHOSTLINE_DERP_BUNDLE:-}
-unset GHOSTLINE_XRAY_BUNDLE GHOSTLINE_AWG_BUNDLE GHOSTLINE_DERP_BUNDLE GHOSTLINE_CONFIG
+# The SDK loader supplies a private stdin pipe; values never become container-creation environment or argv.
+unset bundles xray_bundle awg_bundle derp_bundle
 
 cleanup() {
   # No engine can start on failure; discard both protocols if either renderer failed.
@@ -23,22 +18,23 @@ trap cleanup EXIT
 prepare() {
   [ "$(stat -f -c %T /config)" = tmpfs ] || return 1
   [ "$(stat -c %u:%g:%a /config)" = '65532:65532:700' ] || return 1
+  bundles=$(cat) || return 1
+  printf '%s' "$bundles" | jq -e '(.xray | type == "string" and length > 0) and (.awg | type == "string" and length > 0)' > /dev/null || return 1
   # Preserve directory inodes: Docker may have bound these children into waiting engines already.
   [ -d /config/xray ] && [ -d /config/awg ] || return 1
   rm -f /config/xray/server.json /config/awg/awg0.conf || return 1
-  GHOSTLINE_CONFIG="$xray_bundle" /usr/local/bin/ghostline-config xray /config/xray || return 1
-  unset xray_bundle
-  GHOSTLINE_CONFIG="$awg_bundle" /usr/local/bin/ghostline-config awg /config/awg || return 1
-  unset awg_bundle
-  if [ "${GHOSTLINE_DERP_REQUIRED:-false}" = true ]; then
+  # jq's raw join output preserves trailing newlines; shell command substitution would silently trim AWG bytes.
+  printf '%s' "$bundles" | jq -jr '.xray' | /usr/local/bin/ghostline-config xray /config/xray || return 1
+  printf '%s' "$bundles" | jq -jr '.awg' | /usr/local/bin/ghostline-config awg /config/awg || return 1
+  if [ -d /config/derp ]; then
     # A partial/missing identity must fail the whole initializer before any engine becomes eligible.
-    [ -n "$derp_bundle" ] && [ -d /config/derp ] || return 1
+    printf '%s' "$bundles" | jq -e '.derp | type == "string" and length > 0' > /dev/null || return 1
     rm -f /config/derp/*.crt /config/derp/*.key /config/derp/derper.json /config/derp/public.json || return 1
-    GHOSTLINE_CONFIG="$derp_bundle" /usr/local/bin/derp-tools render --directory /config/derp || return 1
-  elif [ -n "$derp_bundle" ]; then
+    printf '%s' "$bundles" | jq -jr '.derp' | /usr/local/bin/derp-tools render --directory /config/derp || return 1
+  elif printf '%s' "$bundles" | jq -e '.derp | type == "string" and length > 0' > /dev/null; then
     return 1
   fi
-  unset derp_bundle
+  unset bundles
 }
 
 if ! prepare 2>/dev/null; then

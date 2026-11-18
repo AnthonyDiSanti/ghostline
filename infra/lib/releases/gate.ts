@@ -2,6 +2,16 @@ import { releaseArtifacts, releaseRepository, production, releaseSelector, repos
 import { readRelease, type Registry, type ReleaseRecord } from './registry.js';
 import type { Rollout } from './blue-green.js';
 import type { LifecycleState } from './lifecycle.js';
+import { candidateReadiness } from './candidates.js';
+
+export async function regionalReadiness(ports: {
+  registry: Registry; dnsRequired: boolean; derpRequired?: boolean;
+  trialScope?: { account: string; region: string; endpoint: string };
+  record<T>(key: string): Promise<T | undefined>;
+}): Promise<{ current?: ReleaseRecord; ready: boolean; reason?: string }> {
+  // Candidate selection is explicit and regional; production callers still require coherent keep aliases.
+  return await candidateReadiness(ports) ?? readiness(ports.registry, ports.dnsRequired, ports.derpRequired);
+}
 
 export async function readiness(registry: Registry, dnsRequired = false, derpRequired = false): Promise<{ current?: ReleaseRecord; ready: boolean; reason?: string }> {
   const current = await readRelease(registry, releaseRepository, releaseSelector);
@@ -31,10 +41,11 @@ export async function aliasReadiness(registry: Registry, current: ReleaseRecord)
   return { ready: true };
 }
 
-export async function assertStartReady(ports: { registry: Registry; record<T>(key: string): Promise<T | undefined> },
+export async function assertStartReady(ports: { registry: Registry; trialScope?: { account: string; region: string; endpoint: string }; record<T>(key: string): Promise<T | undefined> },
   dnsRequired = false, derpRequired = false): Promise<void> {
   // Deliberate activation requires coherent local intent. Unexpected native boot does not call this preflight.
-  const ready = await readiness(ports.registry, dnsRequired, derpRequired);
+  const ready = await regionalReadiness({ registry: ports.registry, dnsRequired, derpRequired, trialScope: ports.trialScope,
+    record: key => ports.record(key) });
   if (!ready.ready || !ready.current?.release.os.targetVersion) throw new Error(`Release is not ready: ${ready.reason ?? 'qualified OS target missing'}`);
   const attempt = await ports.record<Rollout>('rollout/current');
   const lifecycle = await ports.record<LifecycleState>('lifecycle');

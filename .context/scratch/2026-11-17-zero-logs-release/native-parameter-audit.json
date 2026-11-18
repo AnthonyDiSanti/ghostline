@@ -1,0 +1,14 @@
+{
+  "at": "2026-11-18T03:28:45.745Z",
+  "target": "stockholm-ecs",
+  "scope": "current-task-role-GetParameters",
+  "pages": 1,
+  "eventsExamined": 4,
+  "ownRoleEvents": 2,
+  "nullResponses": 2,
+  "sensitiveResponseFields": 0,
+  "unexpectedRequestFields": 0,
+  "completeWindow": true,
+  "rawEventsRetained": false,
+  "deliveryLagPossible": true
+}
