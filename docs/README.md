@@ -6,6 +6,7 @@ Current specifications describe one regional ECS gateway architecture. Git histo
 | --- | --- |
 | Understand product intent and evidence limits | [Product](product.md) |
 | Integrate DERP/STUN and plan Headscale/Tailscale exits | [Integration plan](headscale.md), [DERP qualification and rollout](derp-poc.md), [regional trial tooling](candidate-releases.md) |
+| Operate the NVA Headscale coordinator | [Coordinator commands](headscale.md#coordinator-operations), [launch and qualification](launch-headscale.md) |
 | Change regional topology, ownership or cost tags | [Architecture](architecture.md) |
 | Understand containers, RAM, networking, memory and recovery | [ECS gateway](ecs.md) |
 | Review shared gateway DNS and its acceptance gates | [Gateway DNS](dns.md) |

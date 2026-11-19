@@ -9,7 +9,7 @@ import { claimLifecycle } from './releases/lifecycle.js';
 import { hostSlots, slotStackName, transitionAddressStackName } from './host-slot-model.js';
 import { assertNativeDeploymentSettled, removeRegionalHosts } from './host-slot-lifecycle.js';
 import { persistPublication, reconcileReplication } from './releases/operator.js';
-import { assertExclusiveRegionalHosts, captureDetachedEndpoint, teardownResources, type DestroyJournal, type DestroyPorts, type OwnedResource, type OwnedStack } from './regional-destroy.js';
+import { assertExclusiveRegionalHosts, captureDetachedEndpoint, independentCoordinatorHost, teardownResources, type DestroyJournal, type DestroyPorts, type OwnedResource, type OwnedStack } from './regional-destroy.js';
 
 function call(region: string, args: string[], missing: string[] = []): any {
   // Metadata and deletion arguments only; credentials, object contents and application parameters are never read.
@@ -41,7 +41,9 @@ export function regionalDestroyPorts(config: DeploymentConfig, save: (journal: D
     for (const stack of currentStacks()) if (ownedNames.includes(stack.StackName)
       && !journal.stacks.some(s => s.id === stack.StackId)) throw new Error('A regional stack was recreated after cleanup began; review before continuing.');
     const hosts = aws(['ec2','describe-instances','--filters',`Name=tag:Project,Values=${config.globalTags.Project}`,
-      'Name=instance-state-name,Values=pending,running,stopping,stopped']).Reservations.flatMap((r: any) => r.Instances.map((i: any) => i.InstanceId));
+      'Name=instance-state-name,Values=pending,running,stopping,stopped']).Reservations.flatMap((r: any) => r.Instances)
+      .filter((instance: any) => !independentCoordinatorHost(config.account, config.region,
+        Object.fromEntries((instance.Tags ?? []).map((tag: any) => [tag.Key, tag.Value])))).map((instance: any) => instance.InstanceId);
     assertExclusiveRegionalHosts(journal, hosts);
   };
   const resources = (journal: DestroyJournal, type: string) => journal.stacks.flatMap(s => s.resources).filter(r => r.type === type);

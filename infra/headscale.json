@@ -1,0 +1,10 @@
+{
+  "account": "757999402784",
+  "region": "us-east-1",
+  "availabilityZone": "us-east-1a",
+  "hostname": "ts.bigmantonyd.com",
+  "hostedZoneId": "Z09531461694R0G93K97",
+  "instanceType": "t4g.small",
+  "volumeGiB": 8,
+  "vpcCidr": "10.83.0.0/24"
+}

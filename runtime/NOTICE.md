@@ -42,6 +42,8 @@ follow those terms. See upstream
 
 - Host bootstrap: `ecs/bottlerocket/bootstrap.Dockerfile` packages finite RAM/quarantine preparation and separately invoked diagnostics on Alpine 3.24.1, with explicitly versioned tools.
 - Network daemon: `ecs/bottlerocket/network-daemon.Dockerfile` packages only continued network/lease reconciliation, without Docker CLI or diagnostic/mount tooling. Both join the same whole-stack release pipeline. [Native qualification](../infra/platform-qualification.json) identifies qualified runtime bytes; AWS's official Bottlerocket AMI supplies the verified host OS/ECS agent and control container under their upstream terms.
+- Headscale coordinator: mirror the unchanged official ARM64 `ghcr.io/juanfont/headscale` application selected from latest stable on each explicit deployment. Headscale is copyright Juan Font and contributors under [BSD 3-Clause](LICENSE.headscale); [upstream source](https://github.com/juanfont/headscale) owns application provenance. `ecs/headscale-host.Dockerfile` separately packages Ghostline's finite volume/diagnostic helper with pinned Alpine 3.24.1 and direct tool versions. These two coordinator repositories are independent of the gateways' seven-image release contract. [Deployment and observed versions](../docs/headscale.md).
+- Headscale's diagnostic helper copies the official ARM64 [grpcurl v1.9.4](https://github.com/fullstorydev/grpcurl/releases/tag/v1.9.4) executable from its SHA-256-verified release archive for local enrollment. The archive's MIT notice is packaged at `/usr/share/licenses/grpcurl/LICENSE`.
 
 No image contains server credentials or desktop-client code. Regional ECR
 publication uses immutable content identities. [Image policy](../docs/images.md)

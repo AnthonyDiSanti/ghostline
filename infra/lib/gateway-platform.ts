@@ -12,11 +12,21 @@ export { slotAddresses, daemonServiceName, hostSlots, type HostSlot } from './ho
 
 export interface PlatformImageInputs { bootstrap: string; daemon: string }
 
-function controlPublisher(region: string): string {
-  // Fail closed on unknown official control-container publishers.
-  const account = (publishers.control as Record<string, string>)[region];
-  if (!account || !/^\d{12}$/.test(account)) throw new Error(`Missing verified control image publisher for ${region}.`);
+function hostPublisher(region: string, kind: 'control' | 'guardDuty'): string {
+  // Official publisher IDs are scoped to the region and verified before granting pulls.
+  const account = (publishers[kind] as Record<string, string>)[region];
+  if (!account || !/^\d{12}$/.test(account)) throw new Error(`Missing verified ${kind} image publisher for ${region}.`);
   return account;
+}
+
+function controlRepository(region: string): string {
+  return `arn:aws:ecr:${region}:${hostPublisher(region, 'control')}:repository/bottlerocket-control`;
+}
+
+export function officialHostRepositories(region: string, guardDuty: boolean): string[] {
+  // The independently monitored Headscale coordinator also pulls the official GuardDuty agent.
+  return [controlRepository(region),
+    ...(guardDuty ? [`arn:aws:ecr:${region}:${hostPublisher(region, 'guardDuty')}:repository/aws-guardduty-agent-ecs-ec2`] : [])];
 }
 
 export function gatewayPlatform(config: DeploymentConfig, slot: HostSlot = 'a',
@@ -55,7 +65,7 @@ export function gatewayPlatform(config: DeploymentConfig, slot: HostSlot = 'a',
       { deviceName: '/dev/xvdb', ebs: { volumeSize: config.dataVolumeGiB, volumeType: 'gp3', encrypted: true, deleteOnTermination: true } }],
     pullRepositoryArns: [repositoryArn,
       // The official control container supplies SSM; Bottlerocket pulls it with the host role.
-      `arn:aws:ecr:${config.region}:${controlPublisher(config.region)}:repository/bottlerocket-control`,
+      controlRepository(config.region),
     ],
   };
 }

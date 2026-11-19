@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { assertExclusiveRegionalHosts, captureDetachedEndpoint, destroyRegion, teardownResources, type DestroyJournal, type DestroyPorts } from '../lib/regional-destroy.js';
+import { assertExclusiveRegionalHosts, captureDetachedEndpoint, destroyRegion, independentCoordinatorHost, teardownResources, type DestroyJournal, type DestroyPorts } from '../lib/regional-destroy.js';
 import { getDeployment } from '../lib/config.js';
 const config = { ...getDeployment('stockholm-ecs'), id: 'disposable', region: 'eu-west-1' };
 it('cleans retained resources after initial-create rollback without requiring already-deleted logs or touching an in-flight stack', () => {
@@ -76,4 +76,14 @@ it('refuses regional support retirement while a separate live host still depends
   expect(() => assertExclusiveRegionalHosts(f.journal,['our-host'])).not.toThrow();
   expect(() => assertExclusiveRegionalHosts(f.journal,[])).not.toThrow();
   expect(() => assertExclusiveRegionalHosts(f.journal,['our-host','trial-or-other-gateway'])).toThrow('Another Ghostline host');
+});
+
+it('separates only an exactly owned coordinator from regional gateway retirement', () => {
+  // Unknown/trial hosts still block teardown; an independent service cannot be mistaken for a regional dependency.
+  const tags = { Project: 'ghostline', Environment: 'prod', System: 'shared', Workload: 'headscale',
+    'aws:cloudformation:stack-name': 'GhostlineHeadscaleRuntime',
+    'aws:cloudformation:stack-id': `arn:aws:cloudformation:${config.region}:${config.account}:stack/GhostlineHeadscaleRuntime/id` };
+  expect(independentCoordinatorHost(config.account, config.region, tags)).toBe(true);
+  expect(independentCoordinatorHost(config.account, config.region, { ...tags, 'aws:cloudformation:stack-id': 'foreign' })).toBe(false);
+  expect(independentCoordinatorHost(config.account, config.region, { ...tags, Workload: 'gateway' })).toBe(false);
 });

@@ -2,7 +2,13 @@
 
 ## Current
 
-November 18, 2026.
+November 19, 2026.
+
+- **Attach DERP to the working Headscale coordinator:** Implement authenticated fail-closed relay validation and map/lifecycle automation as the next integration milestone. Four owned map entries/pins/ports already reach clients; explicit region IDs now survive catalog reordering/parked gaps. Keep source restrictions until unknown-client rejection, callback outage behavior and actual relay paths are qualified. The NVA coordinator is [deployed and natively qualified](../docs/launch-headscale.md); exits/preauth follow their PoC, not this server launch.
+
+- **Future personal Google SSO:** Owner expects Google SSO after initial manual enrollment. Configure restricted identity mapping/PKCE and plan migration of existing users when that work unit is selected; do not require Google OAuth credentials for first launch. Service preauth keys remain independent. [Enrollment phases](../docs/headscale.md#enrollment-phases).
+
+- **Headscale recovery after working service:** Review `../personal-assistant` backup infrastructure at that stage, choose consistency/scope/retention/restore objectives and assess a shared abstraction only if useful to both projects. Do not require daily/pre-upgrade snapshot automation or a restore drill before first working service. Preserve the live application volume and identity from the start; retained disk state is not a backup guarantee. [Deferred scope](../docs/headscale.md#launch-decisions-and-follow-ups).
 
 - **GuardDuty stop/start coverage history:** Isolated DERP host lost exact runtime coverage after stop/start. Association replay/service restart failed to recover it, and a cold rebuild recovered coverage with the same bytes and identities. The root cause remains unproven. The gateway now has an approved opt-out, so this is historical evidence for the enrolled generation. [Evidence](../docs/guardduty.md#historical-runtime-coverage).
 
@@ -23,11 +29,20 @@ November 18, 2026.
 - **Production zero-log/privacy remediation:** Quiet logging and direct-to-RAM credential delivery are deployed on all four active gateways, including DERP/STUN. Production document 5e2731f3 / promotion e7e507a5 is ready in all five registries; Cape Town stays parked. Four native deployments/security/privacy probes, eight encrypted VPN clients and four public DERP/STUN probes pass; all 12 tested comparisons have zero matches across four bounded persistent stores per host. Original modes, all 45 parameter metadata and ten endpoint identities are preserved; no operation/trial/temp-resource leftovers. Shared GuardDuty/EBS/CloudTrail settings are unchanged. Full 523 tests/85 files and seven-image/native input binding pass. **Next: continue the cloud, error, journal and dump audit.** Rotation remains deferred; historical/provider copies are not erased. [Fleet closeout](scratch/2026-11-17-zero-logs-release/fleet-adoption.md).
 
 
-- **Headscale log review:** After Anthony rebases feature/tailscale onto main and the Headscale changes land on top of the credential hardening, audit Headscale's own log producers, credential handling, storage and cloud sinks. Use the existing [logging audit](../docs/logging-privacy-audit.md) for the evidence boundaries.
+- **Headscale TLS-address stderr:** Stable 0.29.7 has no control for this Go error path. Prefer a stock reverse proxy with quiet TLS and HTTP logging and a private backend. Before adopting it, qualify the POST upgrade, TLS error output and certificate renewal. Review any launcher with Anthony first. Keep the official image unchanged. [Privacy boundary](../docs/headscale.md#privacy-boundary).
 
 - **Gateway GuardDuty Runtime opt-out:** All four running gateways adopted it through native blue-green and verified the exact serving host tag, agent absence and administrative lockdown. Both launch templates are deployed in all five regions. Cape Town remains parked. Foundational protection, shared CloudTrail and both EBS scans remain enabled. Account separation is deferred. The next log audit is a bounded NVA inspection after Anthony exercises the exit. [Fleet closeout](handoff.md#gateway-runtime-monitoring-opt-out-deployed--november-18-2026).
 
-- **Upstream watch rechecked November 18 at 06:04 UTC (November 18 local), merge preparation:** Amnezia #2933 remains open with 7 comments; latest stable is 5.1.0.6. Core-kit #1059 and PR #1063 remain open, the PR is unmerged at `6a4c053`. Latest official Bottlerocket is v1.69.0; #4954 remains open with 0 comments. No fixed Mac build, official bootstrap repair or native bridge IPv6 support has been qualified. [Public metadata](scratch/2026-11-16-logging-privacy/upstream-watch.json).
+- **Upstream watch rechecked November 19 at 14:25 UTC, Headscale closeout.** [Amnezia #2933](https://github.com/amnezia-vpn/amnezia-client/issues/2933) remains open. Its eighth comment reports the same lid/wake failure on 5.1.1 build 9. GitHub's latest stable release remains 5.1.0.6. [Core-kit #1059](https://github.com/bottlerocket-os/bottlerocket-core-kit/issues/1059) and [PR #1063](https://github.com/bottlerocket-os/bottlerocket-core-kit/pull/1063) remain open, and the PR is unmerged at `6a4c053` with no reviews. Latest official Bottlerocket is v1.69.0, and [#4954](https://github.com/bottlerocket-os/bottlerocket/issues/4954) remains open with 0 comments. Mac client repair, official bootstrap replay/recovery and bridge IPv6 qualification remain open.
+
+## Completed — November 19 UTC
+
+- **Headscale private approval:** Deployed the helper through standard coordinator host replacement. Native verification preserved the application, volume, identity and address and confirmed trusted health and exact-host GuardDuty. A disposable client enrolled through live SSM, with one ciphertext request, a matching one-use handle and zero plaintext registration-ID matches in the scoped command window. [Launch](../docs/launch-headscale.md#private-approval-rollout).
+
+## Completed — November 18
+
+- **Headscale coordinator and rebase/restack:** Deploy one NVA Bottlerocket/ECS coordinator at `https://ts.bigmantonyd.com` with latest stable official image, retained local SQLite/Noise/ACME state and explicit one-writer operations. Two manual client enrollments, exact pinned map, task restart, registered-node host replacement, actual reboot, native isolation, trusted TLS and exact-host HEALTHY GuardDuty pass. Synthetic clients/users and diagnostic hosts are removed; source passes 536 tests/86 files and local ARM64 qualification. Rebase/restack to `3cf459b` preserves main's privacy controls and original empty index. No commit/push. The initial manual-enrollment user `anthony` (ID 3) was later created with explicit owner approval and verified in a separate live listing. Remaining privacy and recovery are tracked above. [Launch](../docs/launch-headscale.md).
+
 
 - **November 18 opt-out upstream watch:** Amnezia #2933 remains open (latest 5.1.0.6), core-kit #1059 and PR #1063 remain open with PR unmerged at `6a4c053` (latest Bottlerocket v1.69.0), and IPv6 #4954 remains open with zero comments. No Mac fix, official replay/recovery repair or IPv6 bridge build is newly qualified. [Readback](scratch/2026-11-16-logging-privacy/upstream-watch.json).
 

@@ -34,6 +34,7 @@
     "derp": "node --import=tsx scripts/derp.ts",
     "derp:native": "node --import=tsx scripts/derp-native.ts",
     "trial": "node --import=tsx scripts/trial.ts",
+    "headscale": "node --import=tsx scripts/headscale.ts",
     "platform": "node --import=tsx scripts/platform.ts",
     "audit": "node --import=tsx scripts/audit.ts",
     "benchmark": "node --import=tsx scripts/benchmark.ts",

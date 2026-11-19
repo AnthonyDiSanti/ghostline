@@ -6,6 +6,8 @@ The repo has one regional deployment model: **one Bottlerocket Graviton EC2 host
 
 [Architecture](docs/architecture.md) and [ECS runtime](docs/ecs.md) define the model. [Oregon](docs/launch-oregon.md), [Stockholm](docs/launch-stockholm-ecs.md), [Zurich](docs/launch-zurich.md), [Cape Town](docs/launch-cape-town.md) and [NVA](docs/launch-nva.md) record live state and validation. Mac REALITY uses OneXraySE; AWG remains in Amnezia. The four active gateways passed automated encrypted-client and host security checks with GuardDuty Runtime Monitoring excluded and administrative lockdown restored. Earlier Dubai use established OneXraySE sleep/wake stability, IPv4/DNS privacy and native Chrome WebRTC checks. Native Oregon device import/practical acceptance is separate, and IPv6 blocking remains unproven. The accepted device DNS boundary remains unchanged.
 
+The independent [NVA Headscale coordinator](docs/launch-headscale.md) is deployed at `https://ts.bigmantonyd.com`, using the latest stable official image and retained local SQLite. Manual enrollment and native restart/replacement/reboot checks pass. Authenticated relay attachment, exit engines, recovery automation and the confirmed TLS-error logging gap remain follow-ups. [Coordinator commands](docs/headscale.md#coordinator-operations).
+
 From `infra/`, with Node 24 selected:
 
 ```sh

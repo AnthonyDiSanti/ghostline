@@ -40,6 +40,13 @@ export function captureDetachedEndpoint(config: DeploymentConfig, addresses: any
   return { account: config.account, region: config.region, stackId: [...owners][0]!, allocations: addresses.map(a => a.AllocationId) };
 }
 
+export function independentCoordinatorHost(account: string, region: string, tags: Record<string, string>): boolean {
+  // A separate coordinator owns no regional gateway support; require its exact CFN namespace, not just a workload tag.
+  return tags.Project === 'ghostline' && tags.Environment === 'prod' && tags.System === 'shared' && tags.Workload === 'headscale'
+    && tags['aws:cloudformation:stack-name'] === 'GhostlineHeadscaleRuntime'
+    && (tags['aws:cloudformation:stack-id'] ?? '').startsWith(`arn:aws:cloudformation:${region}:${account}:stack/GhostlineHeadscaleRuntime/`);
+}
+
 export function assertExclusiveRegionalHosts(journal: DestroyJournal, instanceIds: string[]): void {
   // Regional repositories/controllers are shared by this app; never retire them under another live Ghostline host.
   const owned = new Set(journal.stacks.flatMap(s => s.resources).filter(r => r.type === 'AWS::EC2::Instance').map(r => r.id));
