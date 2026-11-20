@@ -9,7 +9,7 @@ The single-active coordinator is deployed at **https://ts.bigmantonyd.com** on N
 | Account / region / AZ | `757999402784` / `us-east-1` / `us-east-1a` |
 | Durable stack | `GhostlineHeadscaleState` |
 | Replaceable compute stack | `GhostlineHeadscaleRuntime` |
-| Host | `i-0895d00e92e15944d`, ARM64 `t4g.small` |
+| Host | `i-0705cd2c52e8ac6ab`, ARM64 `t4g.small` |
 | Host OS | Official ECS-3 Bottlerocket 1.66.0, `ami-0334698af14d8bb05` |
 | Service / task | `ghostline-headscale` cluster, `headscale` service, one writer |
 | Address / DNS | Retained `54.89.120.113`, Route 53 A record for `ts.bigmantonyd.com` |
@@ -17,7 +17,9 @@ The single-active coordinator is deployed at **https://ts.bigmantonyd.com** on N
 | Replaceable host disks | Encrypted 2 GiB OS and 20 GiB runtime data; removed with compute |
 | Application | Latest stable official Headscale **0.29.7**, copied unchanged into `ghostline/control/headscale` |
 | Actual ARM64 manifest | `sha256:8f64e19972c001efa48be48a9d81a2f86c4f239767ee3ffd50de119b01fe96f1` |
-| Runtime security | Exact-host GuardDuty HEALTHY, agent v1.17.4; SSM administration, no public SSH |
+| Runtime security | Exact-host GuardDuty HEALTHY v1.17.4; SSM administration, no public SSH |
+| TLS listener | Official ARM64 Caddy 2.11.9 with private Headscale backend |
+| Malware scan policy | Retained coordinator volume excluded; OS and runtime disks eligible |
 
 The observed version/digest is audit evidence. Each new deployment resolves latest upstream stable again. The image and generic storage helper repositories are independent of regional gateway releases. [Operations and release policy](headscale.md#coordinator-operations), [source and license notice](../runtime/NOTICE.md).
 
@@ -37,11 +39,17 @@ On November 19 UTC, the revised helper replaced coordinator compute through the 
 
 A disposable ARM64 Tailscale client used the real SSM approval path and came online. The fresh SSM request window contained one encrypted approval with the matching one-use handle and zero plaintext registration-ID matches. The check returned counts only. An independent readback confirmed the test node and user were removed, `anthony` remained, and the operation lock was clear. The public homepage at `/` intentionally has no visible body and serves the Headscale favicon separately. [Operator workflow](headscale.md#coordinator-operations), [upstream routes](https://github.com/juanfont/headscale/blob/v0.29.7/hscontrol/app.go#L531-L569).
 
+## TLS privacy rollout — November 19
+
+Native verification at 15:27 UTC confirmed the replacement host, unchanged Headscale executable, Noise identity, retained volume and public address. The new rootless TLS proxy obtained a trusted Let's Encrypt certificate on the existing HTTPS endpoint. The controlled malformed TLS request was rejected and both container log counts stayed at zero. Public health and disposable real Tailscale enrollment passed through the new listener. The synthetic client, node and user were removed. Temporary diagnostics were disabled and administrative lockdown was verified afterward.
+
+Only the retained application volume carries `GuardDutyExcluded=true` after deployment. Both replaceable disks remain scan-eligible and regional GuardDuty settings match the pre-deploy configuration. The runtime agent was enabled and running during a delayed coverage report. The first wait timed out. Verification-only resume reached exact-host HEALTHY v1.17.4 without a second host replacement. Local ARM64 qualification exercised quiet failure paths, trusted client enrollment and retained TLS state across proxy restart. Public ACME renewal remains a future observation.
+
 ## Privacy and continuity limits
 
-Structured application logging and client log uploads are disabled using supported configuration. SQLite retains necessary enrollment/coordination state on encrypted EBS. This service is not RAM-only, and remaining stderr, HTTP/TLS failure, journal/dump and cloud records still need the [Headscale privacy follow-up](headscale.md#privacy-boundary). Empty tested output is not a universal zero-log guarantee.
+Structured application logging and client log uploads are disabled using supported configuration. SQLite retains necessary enrollment/coordination state on encrypted EBS. Persistent state and untested journal, crash and cloud paths remain in scope for the [Headscale privacy follow-up](headscale.md#privacy-boundary).
 
-At 07:01 UTC, the capped native application log contains **794 bytes/four records**. Count-only on-host classification identifies **three TLS-handshake stderr records with IPv4 patterns**, one unclassified stdout record and zero panic patterns. No raw payloads or addresses leave the host. This is a confirmed remaining client-address error path despite disabled structured logging, not merely a hypothetical sink. The service is not declared privacy-ready. Remove these producers in the focused follow-up without changing the existing security policy to hide them.
+On the original listener, the 07:01 UTC capped native application log contained **794 bytes/four records**. Count-only on-host classification identifies **three TLS-handshake stderr records with IPv4 patterns**, one unclassified stdout record and zero panic patterns. No raw payloads or addresses leave the host. This confirmed the address-bearing Go TLS error path that motivated the proxy rollout above.
 
 Public health succeeds with normal certificate validation. Unauthenticated `/api/v1/node` returns **401**, and public `/metrics` returns **404**. Native readback verifies the deployed configuration hash, one-writer encrypted volume attachment and capped log configuration.
 

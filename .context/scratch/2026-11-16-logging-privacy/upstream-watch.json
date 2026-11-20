@@ -1,11 +1,11 @@
 {
-  "observedAtUtc": "2026-11-18T06:40:59.662967+00:00",
+  "observedAtUtc": "2026-11-19T15:07:00.181340+00:00",
   "records": {
     "amneziaIssue": {
       "html_url": "https://github.com/amnezia-vpn/amnezia-client/issues/2933",
       "state": "open",
-      "comments": 7,
-      "updated_at": "2026-11-07T21:08:27Z"
+      "comments": 8,
+      "updated_at": "2026-11-19T08:26:11Z"
     },
     "amneziaLatest": {
       "html_url": "https://github.com/amnezia-vpn/amnezia-client/releases/tag/5.1.0.6",

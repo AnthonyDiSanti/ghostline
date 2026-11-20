@@ -48,13 +48,14 @@ def main():
         module.MOUNT = root / 'data'
         (module.MOUNT / 'config').mkdir(parents=True)
         module.os.chown = lambda *_args: None
-        files = {'config.yaml': 'initial', 'derp.yaml': 'map', 'policy.json': '{"acls":[]}'}
+        files = {'config.yaml': 'initial', 'derp.yaml': 'map', 'policy.json': '{"acls":[]}', 'Caddyfile': 'tls candidate'}
         module.write_configuration(files, initialize=True)
         module.write_configuration({**files, 'config.yaml': 'boot-replay'}, initialize=True)
         assert (module.MOUNT / 'config/config.yaml').read_text() == 'initial'
         (module.MOUNT / 'config/policy.json').write_text('operator-policy')
         module.write_configuration({**files, 'config.yaml': 'updated'})
         assert (module.MOUNT / 'config/config.yaml').read_text() == 'updated'
+        assert (module.MOUNT / 'config/Caddyfile').read_text() == 'tls candidate'
         assert (module.MOUNT / 'config/policy.json').read_text() == 'operator-policy'
         (module.MOUNT / 'config/config.yaml').unlink()
         (module.MOUNT / 'config/config.yaml').symlink_to(root / 'outside')

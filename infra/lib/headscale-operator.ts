@@ -3,7 +3,7 @@ import { constants, createHash, createPublicKey, publicEncrypt, randomUUID } fro
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync, copyFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadHeadscaleConfig, headscaleFiles, headscaleNames as names, headscaleRelayMap, resolveHeadscaleRelease } from './headscale-config.js';
+import { loadHeadscaleConfig, headscaleCaddyfile, headscaleFiles, headscaleNames as names, headscaleRelayMap, headscaleTlsImage, resolveHeadscaleRelease } from './headscale-config.js';
 import { type HeadscaleRuntimeInputs } from './headscale-stack.js';
 import { verifyOfficialBottlerocketImage } from './bottlerocket-os.js';
 import { hostRemote, withHostDiagnostics } from './ecs-verification.js';
@@ -53,6 +53,11 @@ function stack(name: string): Record<string, string> | undefined {
   const current = JSON.parse(result.stdout).Stacks[0];
   if (!['CREATE_COMPLETE', 'UPDATE_COMPLETE', 'UPDATE_ROLLBACK_COMPLETE'].includes(current.StackStatus)) throw new Error(`Coordinator stack is not settled: ${current.StackStatus}`);
   return Object.fromEntries(current.Outputs.map((item: any) => [item.OutputKey, item.OutputValue]));
+}
+
+function scanExcluded(resource: { Tags?: Array<{ Key: string; Value: string }> }) {
+  // GuardDuty interprets this exact resource tag for both automatic and on-demand scans.
+  return resource.Tags?.some(tag => tag.Key === 'GuardDutyExcluded' && tag.Value === 'true') === true;
 }
 
 function cdk(action: 'diff' | 'deploy' | 'destroy', target: string, inputs?: HeadscaleRuntimeInputs) {
@@ -159,6 +164,7 @@ export function prepareHeadscale(): HeadscaleRuntimeInputs {
   const registry = `${config.account}.dkr.ecr.${config.region}.amazonaws.com`;
   const inputs = { ami: image.ImageId, hostImage: `${registry}/${names.hostRepository}:${tag}`,
     image: `${registry}/${names.imageRepository}:stable-${release.version}-${release.digest.slice(7, 23)}`,
+    proxyImage: `${registry}/${names.imageRepository}:caddy-${headscaleTlsImage.version}-${headscaleTlsImage.digest.slice(7, 23)}`,
     hostTemplate: createHash('sha256').update(readFileSync(resolve(infra, 'lib/headscale-stack.ts'))).update(JSON.stringify(config)).digest('hex'), files: headscaleFiles(config, relayMap()) };
   save(resolve(work, 'release.json'), { ...release, os, at: new Date().toISOString(), inputs, hostTag: tag });
   save(inputsPath, inputs);
@@ -167,18 +173,20 @@ export function prepareHeadscale(): HeadscaleRuntimeInputs {
 }
 
 function mirrorAndBuild(inputs: HeadscaleRuntimeInputs) {
-  // Copy the exact upstream executable image; the only build is a generic mount/diagnostic helper.
+  // Copy both verified upstream executables unchanged into the existing scoped repository.
   const release = JSON.parse(readFileSync(resolve(work, 'release.json'), 'utf8'));
   const source = `ghcr.io/juanfont/headscale@${release.digest}`;
   const registry = inputs.image.split('/')[0]!;
   const password = coordinatorCommand('aws', ['--profile', profile, '--region', config.region, 'ecr', 'get-login-password']);
   coordinatorCommand('docker', ['login', '--username', 'AWS', '--password-stdin', registry], password);
-  coordinatorCommand('docker', ['pull', '--platform', 'linux/arm64', source]);
-  coordinatorCommand('docker', ['tag', source, inputs.image]);
   const manifests = (image: string) => JSON.parse(coordinatorCommand('docker', ['buildx', 'imagetools', 'inspect', '--raw', image]));
-  const present = coordinatorAws(['ecr', 'list-images', '--repository-name', names.imageRepository, '--filter', 'tagStatus=TAGGED']).imageIds.some((item: any) => item.imageTag === inputs.image.split(':').pop());
-  if (!present) coordinatorCommand('docker', ['push', inputs.image]);
-  if (!imageContentMatches(manifests(source), manifests(inputs.image))) throw new Error('Mirrored Headscale executable differs from upstream.');
+  const published = coordinatorAws(['ecr', 'list-images', '--repository-name', names.imageRepository, '--filter', 'tagStatus=TAGGED']).imageIds;
+  for (const [upstream, destination] of [[source, inputs.image], [`${headscaleTlsImage.source}@${headscaleTlsImage.digest}`, inputs.proxyImage]] as const) {
+    coordinatorCommand('docker', ['pull', '--platform', 'linux/arm64', upstream]);
+    coordinatorCommand('docker', ['tag', upstream, destination]);
+    if (!published.some((item: any) => item.imageTag === destination.split(':').pop())) coordinatorCommand('docker', ['push', destination]);
+    if (!imageContentMatches(manifests(upstream), manifests(destination))) throw new Error('Mirrored coordinator image differs from upstream.');
+  }
   coordinatorCommand('docker', ['build', '--platform', 'linux/arm64', '-f', resolve(work, 'host-context/headscale-host.Dockerfile'), '-t', inputs.hostImage, resolve(work, 'host-context')]);
   const helperPresent = coordinatorAws(['ecr', 'list-images', '--repository-name', names.hostRepository, '--filter', 'tagStatus=TAGGED']).imageIds.some((item: any) => item.imageTag === inputs.hostImage.split(':').pop());
   if (!helperPresent) coordinatorCommand('docker', ['push', inputs.hostImage]);
@@ -188,16 +196,27 @@ export function qualifyHeadscaleImages(inputs: HeadscaleRuntimeInputs) {
   // Exercise the unmodified app and rootless persistent mounts before allocating coordinator infrastructure.
   const release = JSON.parse(readFileSync(resolve(work, 'release.json'), 'utf8'));
   const source = `ghcr.io/juanfont/headscale@${release.digest}`;
+  const proxy = `${headscaleTlsImage.source}@${headscaleTlsImage.digest}`;
   coordinatorCommand('docker', ['pull', '--platform', 'linux/arm64', source]);
+  coordinatorCommand('docker', ['pull', '--platform', 'linux/arm64', proxy]);
   coordinatorCommand('docker', ['build', '--platform', 'linux/arm64', '-f', resolve(work, 'host-context/headscale-host.Dockerfile'), '-t', inputs.hostImage, resolve(work, 'host-context')]);
   const directory = resolve(work, 'synthetic-config'); mkdirSync(directory, { recursive: true, mode: 0o755 });
   const settings = parse(inputs.files['config.yaml']!);
   settings.server_url = 'http://127.0.0.1:8080'; settings.listen_addr = '0.0.0.0:8080';
   settings.tls_letsencrypt_hostname = ''; settings.acme_url = ''; settings.tls_cert_path = ''; settings.tls_key_path = '';
   for (const [name, body] of Object.entries({ ...inputs.files, 'config.yaml': stringify(settings) })) writeFileSync(resolve(directory, name), body, { mode: 0o644 });
+  coordinatorCommand('docker', ['run', '--rm', '--network', 'none', '--user', '65532:65532', '--cap-drop', 'ALL', '--read-only',
+    '--tmpfs', '/data:uid=65532,gid=65532,mode=0700', '--tmpfs', '/config:uid=65532,gid=65532,mode=0700',
+    '-v', `${directory}/Caddyfile:/etc/caddy/Caddyfile:ro`, '--entrypoint', '/usr/bin/caddy', proxy,
+    'validate', '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile']);
   coordinatorCommand('python3', ['-B', resolve(infra, 'test/fixtures/headscale-local.py'), source, inputs.hostImage, directory]);
-  save(resolve(work, 'local-qualification.json'), { at: new Date().toISOString(), source, hostImage: inputs.hostImage, confinement: true, restartIdentity: true });
-  console.log('Official ARM64 Headscale image: configuration, confinement and restart persistence qualified.');
+  settings.server_url = 'https://coordinator.test:8443';
+  writeFileSync(resolve(directory, 'config.yaml'), stringify(settings), { mode: 0o644 });
+  writeFileSync(resolve(directory, 'Caddyfile'), headscaleCaddyfile('coordinator.test', 'internal'), { mode: 0o644 });
+  coordinatorCommand('python3', ['-B', resolve(infra, 'test/fixtures/headscale-tls.py'), source, proxy, inputs.hostImage, directory]);
+  save(resolve(work, 'local-qualification.json'), { at: new Date().toISOString(), source, proxy, hostImage: inputs.hostImage,
+    confinement: true, restartIdentity: true, tlsUpgrade: true, quietTlsFailures: true });
+  console.log('Official ARM64 coordinator images: confinement, restart persistence, TLS connectivity and quiet failure paths qualified.');
 }
 
 async function exclusive<T>(action: string, run: () => Promise<T>): Promise<T> {
@@ -260,8 +279,11 @@ async function admitRuntime(inputs: HeadscaleRuntimeInputs) {
     if (attempt === 90) throw new Error('Coordinator storage bootstrap/control channel did not become ready; inspect its boot console.');
     await pause(3000);
   }
-  const storage = await diagnostic(async execute => JSON.parse(await execute('apiclient exec ghostline-diagnostics -- python3 /opt/ghostline/headscale-host.py storage')));
-  if (!storage.mounted || storage.volume !== state.Volume) throw new Error('Coordinator storage admission failed.');
+  await diagnostic(async execute => {
+    const value = JSON.parse(await execute('apiclient exec ghostline-diagnostics -- python3 /opt/ghostline/headscale-host.py storage'));
+    if (!value.mounted || value.volume !== state.Volume) throw new Error('Coordinator storage admission failed.');
+    await applyHeadscaleFiles(execute, inputs);
+  });
   const execute = remote(runtime.Instance!);
   const data = Buffer.from(JSON.stringify({ volume: state.Volume, volumeBytes: config.volumeGiB * 1024 ** 3,
     files: inputs.files, initialize: false, phase: 'bootstrap' })).toString('base64');
@@ -277,6 +299,12 @@ async function admitRuntime(inputs: HeadscaleRuntimeInputs) {
   console.log('Coordinator storage verified; one-time format authority revoked before task admission.');
   // Converge the declarative template too; only the admitted graph may request a running application task.
   cdk('diff', names.runtime, inputs); cdk('deploy', names.runtime, inputs);
+}
+
+async function applyHeadscaleFiles(execute: ReturnType<typeof hostRemote>, inputs: HeadscaleRuntimeInputs) {
+  // Apply public config only with the service stopped and the matching helper in place.
+  const data = Buffer.from(JSON.stringify(inputs.files)).toString('base64');
+  await execute(`apiclient exec ghostline-diagnostics -- python3 /opt/ghostline/headscale-host.py configure ${data}`);
 }
 
 export async function stopHeadscaleTasks(call: (args: string[]) => any = coordinatorAws, sleep = pause) {
@@ -318,26 +346,40 @@ export async function coordinatorStatus() {
 export async function verifyHeadscale() {
   // Verify actual host state and a certificate-validated public health request before declaring deployment successful.
   const state = stack(names.state), runtime = stack(names.runtime); if (!state || !runtime) throw new Error('Coordinator is not deployed.');
+  // Verify the exclusion at the exact state disk without weakening scans of either boot disk or the instance.
+  const disks = coordinatorAws(['ec2', 'describe-volumes', '--filters', `Name=attachment.instance-id,Values=${runtime.Instance}`]).Volumes;
+  const host = coordinatorAws(['ec2', 'describe-instances', '--instance-ids', runtime.Instance!]).Reservations[0].Instances[0];
+  if (disks.length !== 3 || !disks.every((disk: any) => disk.Encrypted && scanExcluded(disk) === (disk.VolumeId === state.Volume))
+    || !disks.some((disk: any) => disk.VolumeId === state.Volume) || scanExcluded(host)) throw new Error('Coordinator EBS malware scan scope differs.');
   const deployed = JSON.parse(readFileSync(deployedInputsPath, 'utf8')) as HeadscaleRuntimeInputs;
   const taskArns = coordinatorAws(['ecs', 'list-tasks', '--cluster', names.cluster, '--service-name', names.service]).taskArns;
   if (taskArns.length !== 1) throw new Error('Expected exactly one running coordinator task.');
   const task = coordinatorAws(['ecs', 'describe-tasks', '--cluster', names.cluster, '--tasks', taskArns[0],
     '--query', 'tasks[0].{definition:taskDefinitionArn,status:lastStatus,containers:containers[].{name:name,image:image,digest:imageDigest}}']);
-  const digest = coordinatorAws(['ecr', 'describe-images', '--repository-name', names.imageRepository,
-    '--image-ids', `imageTag=${deployed.image.split(':').pop()}`]).imageDetails[0].imageDigest;
-  if (task.definition !== runtime.Task || task.status !== 'RUNNING' || task.containers.length !== 1
-    || task.containers[0].name !== 'headscale' || task.containers[0].digest !== digest) throw new Error('Actual coordinator executable/task identity differs.');
+  if (!deployed.proxyImage) throw new Error('Deploy and qualify the coordinator TLS boundary before verifying it.');
+  const digestFor = (image: string) => coordinatorAws(['ecr', 'describe-images', '--repository-name', names.imageRepository,
+    '--image-ids', `imageTag=${image.split(':').pop()}`]).imageDetails[0].imageDigest;
+  const digest = digestFor(deployed.image), tlsDigest = digestFor(deployed.proxyImage);
+  if (task.definition !== runtime.Task || task.status !== 'RUNNING' || task.containers.length !== 2
+    || task.containers.find((item: any) => item.name === 'headscale')?.digest !== digest
+    || task.containers.find((item: any) => item.name === 'tls')?.digest !== tlsDigest) throw new Error('Actual coordinator executable/task identity differs.');
   const evidence = await diagnostic(async execute => JSON.parse(await execute('apiclient exec ghostline-diagnostics -- python3 /opt/ghostline/headscale-host.py verify')));
   const boot = JSON.parse(await remote(runtime.Instance!)('apiclient get settings.bootstrap-containers.headscale')).settings['bootstrap-containers'].headscale;
   let configuration;
   try { configuration = JSON.parse(Buffer.from(boot['user-data'], 'base64').toString()); } catch { throw new Error('Invalid persisted coordinator boot configuration.'); }
   if (configuration.initialize !== false || configuration.volume !== state.Volume || boot.source !== deployed.hostImage) throw new Error('Coordinator boot retained initialization permission or wrong storage/artifact.');
-  const health = await fetch(`https://${config.hostname}/health`, { signal: AbortSignal.timeout(15_000) });
-  if (!health.ok) throw new Error('Public coordinator health failed.');
+  for (let attempt = 0; ; attempt++) {
+    // A new proxy can still be completing its first ACME challenge after the ECS task starts.
+    const health = await fetch(`https://${config.hostname}/health`, { signal: AbortSignal.timeout(5000) }).catch(() => undefined);
+    if (health?.ok) break;
+    if (attempt === 35) throw new Error('Public coordinator health or TLS certificate issuance failed.');
+    await pause(5000);
+  }
   const client = new GuardDutyClient({ region: config.region, credentials: fromIni({ profile }) });
   const coverage = await verifyGuardDuty(client, { service: true, runtime: true }, runtime.Instance!, { attempts: 60, pause: () => pause(10_000) });
   if (coverage.status !== 'HEALTHY') throw new Error('NVA coordinator requires exact-host HEALTHY runtime coverage.');
-  const result = { ...evidence, imageDigest: digest, initializationRevoked: true, coverage, verifiedAt: new Date().toISOString(), instance: runtime.Instance, address: state.Address };
+  const result = { ...evidence, imageDigest: digest, tlsDigest, scanExcludedVolume: state.Volume,
+    initializationRevoked: true, coverage, verifiedAt: new Date().toISOString(), instance: runtime.Instance, address: state.Address };
   save(resolve(work, 'verification.json'), result);
   return result;
 }
@@ -378,23 +420,27 @@ export async function runHeadscale(action: string, args: string[], approvalId?: 
       return diagnostic(async execute => JSON.parse(await execute(`apiclient exec ghostline-diagnostics -- python3 /opt/ghostline/headscale-host.py admin ${allowed.join(' ')}`)));
     }
     if (action === 'restart') {
+      if (!JSON.parse(readFileSync(deployedInputsPath, 'utf8')).proxyImage) throw new Error('Deploy the coordinator TLS boundary before restarting.');
       await stopHeadscaleTasks();
       coordinatorAws(['ecs', 'update-service', '--cluster', names.cluster, '--service', names.service, '--desired-count', '1']);
     } else if (action === 'deploy') {
       const inputs = prepareHeadscale();
       qualifyHeadscaleImages(inputs);
+      const previousVolume = stack(names.state)?.Volume;
       cdk('diff', names.state, inputs); cdk('deploy', names.state, inputs);
+      const deployedVolume = stack(names.state)?.Volume;
+      if (!deployedVolume || (previousVolume && deployedVolume !== previousVolume)) throw new Error('Coordinator state volume changed.');
+      const retained = coordinatorAws(['ec2', 'describe-volumes', '--volume-ids', deployedVolume]).Volumes[0];
+      if (!retained?.Encrypted || !scanExcluded(retained)) throw new Error('Retained coordinator volume scan exclusion did not apply.');
       mirrorAndBuild(inputs);
       if (stack(names.runtime)) {
-        await stopHeadscaleTasks();
-        const data = Buffer.from(JSON.stringify(inputs.files)).toString('base64');
-        await diagnostic(execute => execute(`apiclient exec ghostline-diagnostics -- python3 /opt/ghostline/headscale-host.py configure ${data}`));
         if (!existsSync(deployedInputsPath)) throw new Error('Missing deployed coordinator receipt; reconstruct actual inputs before host replacement.');
         const previous = JSON.parse(readFileSync(deployedInputsPath, 'utf8')) as HeadscaleRuntimeInputs;
+        await stopHeadscaleTasks();
         if (headscaleHostChanges(previous, inputs)) {
           await diagnostic(execute => execute('apiclient exec ghostline-diagnostics -- python3 /opt/ghostline/headscale-host.py unmount'));
-          cdk('destroy', names.runtime, previous);
-        }
+          cdk('destroy', names.runtime, inputs);
+        } else await diagnostic(execute => applyHeadscaleFiles(execute, inputs));
       }
       const needsAdmission = !stack(names.runtime);
       if (needsAdmission) { inputs.initialize = initializationPermission(); inputs.active = false; }
@@ -405,6 +451,7 @@ export async function runHeadscale(action: string, args: string[], approvalId?: 
       if (!needsAdmission) coordinatorAws(['ecs', 'update-service', '--cluster', names.cluster, '--service', names.service, '--desired-count', '1', '--force-new-deployment']);
     } else if (action === 'replace-host') {
       const inputs = JSON.parse(readFileSync(deployedInputsPath, 'utf8')) as HeadscaleRuntimeInputs;
+      if (!inputs.proxyImage) throw new Error('Deploy the coordinator TLS boundary before replacing the host.');
       if (stack(names.runtime)) {
         await stopHeadscaleTasks();
         await diagnostic(execute => execute('apiclient exec ghostline-diagnostics -- python3 /opt/ghostline/headscale-host.py unmount'));

@@ -12,6 +12,48 @@ export const headscaleNames = {
   imageRepository: 'ghostline/control/headscale', hostRepository: 'ghostline/control/headscale-host',
 } as const;
 
+// The TLS termination image is qualified independently of Headscale's rolling stable selection.
+export const headscaleTlsImage = {
+  version: '2.11.9', source: 'docker.io/library/caddy',
+  digest: 'sha256:9ee998103a2bc0d4392bbe9738b4069da1562d6920b3cd8088cfd098a8270120',
+} as const;
+
+export function headscaleCaddyfile(hostname: string, certificate: 'public' | 'internal' = 'public') {
+  // Disable request and runtime logging before a public listener can receive traffic.
+  const tls = certificate === 'internal' ? 'tls internal' : `tls {
+		issuer acme {
+			dir https://acme-v02.api.letsencrypt.org/directory
+			disable_http_challenge
+			alt_tlsalpn_port 8443
+		}
+	}`;
+  return `{
+	admin off
+	persist_config off
+	https_port 8443
+	auto_https disable_redirects
+	skip_install_trust
+	storage file_system /data
+	log {
+		output discard
+	}
+	servers {
+		protocols h1 h2
+	}
+}
+
+${hostname} {
+	${tls}
+	reverse_proxy headscale:8080 {
+		header_up -X-Forwarded-For
+		header_up -X-Real-IP
+		header_up -True-Client-IP
+		header_up -Forwarded
+	}
+}
+`;
+}
+
 export function headscaleRelayMap(relays: Array<{ target: string; ip: string; pin: string }>) {
   // Relay IDs are durable control-plane identities; catalog insertion/reordering must never renumber existing regions.
   const ids: Record<string, number> = { 'stockholm-ecs': 901, oregon: 902, zurich: 903, 'cape-town': 904, nva: 905 };
@@ -56,15 +98,13 @@ export function headscaleFiles(config: HeadscaleConfig, relayMap: unknown): Reco
   const map = relayMap as { regions?: Record<string, unknown> };
   if (!map?.regions || !Object.keys(map.regions).length) throw new Error('Headscale needs an explicit nonempty relay map.');
   const settings = {
-    server_url: `https://${config.hostname}`, listen_addr: '0.0.0.0:8443', metrics_listen_addr: '127.0.0.1:9090',
+    server_url: `https://${config.hostname}`, listen_addr: '0.0.0.0:8080', metrics_listen_addr: '127.0.0.1:9090',
     grpc_listen_addr: '127.0.0.1:50443', grpc_allow_insecure: false, trusted_proxies: [],
     noise: { private_key_path: '/var/lib/headscale/noise_private.key' },
     prefixes: { v4: '100.64.0.0/10', v6: 'fd7a:115c:a1e0::/48', allocation: 'sequential' },
     derp: { server: { enabled: false }, urls: [], paths: ['/etc/headscale/derp.yaml'], auto_update_enabled: false },
     disable_check_updates: true, node: { expiry: '180d', ephemeral: { inactivity_timeout: '30m' } },
     database: { type: 'sqlite', debug: false, sqlite: { path: '/var/lib/headscale/db.sqlite', write_ahead_log: true, wal_autocheckpoint: 1000 } },
-    tls_letsencrypt_hostname: config.hostname, tls_letsencrypt_challenge_type: 'TLS-ALPN-01',
-    tls_letsencrypt_cache_dir: '/var/lib/headscale/acme', acme_url: 'https://acme-v02.api.letsencrypt.org/directory',
     // Suppress structured daemon events and client log upload; fatal/startup stderr still needs a separate audit.
     log: { level: 'disabled', format: 'json' }, logtail: { enabled: false },
     policy: { mode: 'file', path: '/etc/headscale/policy.json' },
@@ -76,5 +116,6 @@ export function headscaleFiles(config: HeadscaleConfig, relayMap: unknown): Reco
     if (!/^[1-9][0-9]*$/.test(id)) throw new Error('DERP region IDs must be positive integers.');
     return [Number(id), region];
   }));
-  return { 'config.yaml': stringify(settings), 'derp.yaml': stringify({ regions }), 'policy.json': JSON.stringify({ acls: [] }) + '\n' };
+  return { 'config.yaml': stringify(settings), 'derp.yaml': stringify({ regions }), 'policy.json': JSON.stringify({ acls: [] }) + '\n',
+    Caddyfile: headscaleCaddyfile(config.hostname) };
 }

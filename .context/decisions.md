@@ -1,5 +1,9 @@
 # Current decisions
 
+## 2026-11-19 — Keep Headscale private behind a quiet TLS listener
+
+Use official Caddy for public TLS and keep upstream Headscale on a private bridge port. Discard proxy request and runtime logs, strip address-forwarding headers and keep certificate state in its own directory on the retained volume. Exclude that volume from both GuardDuty EBS scan modes because it holds enrollment state and private keys. Keep Runtime Monitoring and EBS scan eligibility for the coordinator's replaceable disks. [Rollout and evidence limits](../docs/launch-headscale.md#tls-privacy-rollout--november-19).
+
 ## 2026-11-18 — Opt gateway hosts out of Runtime Monitoring (Anthony)
 
 Apply the exclusion at EC2 launch across both regional slots and retire enrolled hosts through blue-green. Remove gateway-owned telemetry plumbing. Keep the regional detector and its foundational sources, account-level enrollment and shared CloudTrail. Keep both volumes eligible for agentless EBS scanning while reviewing residual disk logs and crash paths. Account separation is deferred. [Policy](../docs/guardduty.md).

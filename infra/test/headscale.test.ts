@@ -83,7 +83,7 @@ describe('Headscale coordinator boundaries', () => {
   });
   it('replaces changed host artifacts while allowing application-only updates on retained compute', () => {
     // Existing Bottlerocket settings survive user-data edits; never claim a tag/config update activated a new bootstrap.
-    const previous = { ami: 'ami-a', image: 'app:v1', hostImage: 'host:v1', hostTemplate: 'template-v1', files: {} };
+    const previous = { ami: 'ami-a', image: 'app:v1', proxyImage: 'caddy:v1', hostImage: 'host:v1', hostTemplate: 'template-v1', files: {} };
     expect(headscaleHostChanges(previous, { ...previous, image: 'app:v2', files: { 'config.yaml': 'new' } })).toBe(false);
     expect(headscaleHostChanges(previous, { ...previous, hostImage: 'host:v2' })).toBe(true);
     expect(headscaleHostChanges(previous, { ...previous, hostTemplate: 'template-v2' })).toBe(true);
@@ -106,6 +106,11 @@ describe('Headscale coordinator boundaries', () => {
   it('renders manual enrollment, owned map and deny-by-default policy without ephemeral database state', () => {
     const files = headscaleFiles(config, map), settings = parse(files['config.yaml']!);
     expect(settings.server_url).toBe('https://ts.bigmantonyd.com');
+    expect(settings.listen_addr).toBe('0.0.0.0:8080');
+    expect(settings.tls_letsencrypt_hostname).toBeUndefined();
+    expect(files.Caddyfile).toContain('output discard');
+    expect(files.Caddyfile).toContain('disable_http_challenge');
+    expect(files.Caddyfile).toContain('header_up -X-Forwarded-For');
     expect(settings.database.sqlite.path).toBe('/var/lib/headscale/db.sqlite');
     expect(settings.database.sqlite.write_ahead_log).toBe(true);
     expect(settings.log.level).toBe('disabled');
@@ -121,14 +126,17 @@ describe('Headscale coordinator boundaries', () => {
     const { state } = buildHeadscaleApp(config);
     const template = Template.fromStack(state).toJSON();
     const resources = Object.values(template.Resources) as any[];
-    expect(resources.find(item => item.Type === 'AWS::EC2::Volume')).toMatchObject({ DeletionPolicy: 'Retain', Properties: { Encrypted: true } });
+    expect(resources.find(item => item.Type === 'AWS::EC2::Volume')).toMatchObject({ DeletionPolicy: 'Retain', Properties: {
+      Encrypted: true, Tags: expect.arrayContaining([{ Key: 'GuardDutyExcluded', Value: 'true' }]) } });
+    expect(Object.entries(template.Resources).filter(([, item]: any) => JSON.stringify(item).includes('GuardDutyExcluded')).map(([id]) => id))
+      .toEqual(['ApplicationData']);
     expect(resources.find(item => item.Type === 'AWS::EC2::EIP')).toMatchObject({ DeletionPolicy: 'Retain' });
     const ingress = resources.filter(item => item.Type === 'AWS::EC2::SecurityGroup').flatMap(item => item.Properties.SecurityGroupIngress);
     expect(ingress.filter(rule => rule.CidrIp === '0.0.0.0/0')).toEqual([{ IpProtocol: 'tcp', FromPort: 443, ToPort: 443, CidrIp: '0.0.0.0/0' }]);
   });
   it('enforces one writer and confined container mounts without task cloud credentials', () => {
     const { app, runtime } = buildHeadscaleApp(config, { ami: 'ami-' + 'a'.repeat(17),
-      image: 'example.test/headscale:latest-stable', hostImage: 'example.test/host:qualified', files: headscaleFiles(config, map) });
+      image: 'example.test/headscale:latest-stable', proxyImage: 'example.test/caddy:qualified', hostImage: 'example.test/host:qualified', files: headscaleFiles(config, map) });
     const template = Template.fromStack(runtime!).toJSON();
     const resources = Object.values(template.Resources) as any[];
     const task = resources.find(item => item.Type === 'AWS::ECS::TaskDefinition').Properties;
@@ -137,6 +145,12 @@ describe('Headscale coordinator boundaries', () => {
     expect(JSON.stringify(template)).toContain(':repository/aws-guardduty-agent-ecs-ec2');
     expect(task.ContainerDefinitions[0]).toMatchObject({ User: '65532:65532', ReadonlyRootFilesystem: true,
       MountPoints: [{ SourceVolume: 'state', ContainerPath: '/var/lib/headscale', ReadOnly: false }, { SourceVolume: 'configuration', ContainerPath: '/etc/headscale', ReadOnly: true }] });
+    expect(task.ContainerDefinitions[0].PortMappings).toBeUndefined();
+    expect(task.ContainerDefinitions[1]).toMatchObject({ Name: 'tls', User: '65532:65532', ReadonlyRootFilesystem: true,
+      Links: ['headscale:headscale'], PortMappings: [{ ContainerPort: 8443, HostPort: 443, Protocol: 'tcp' }],
+      MountPoints: [{ SourceVolume: 'tls-state', ContainerPath: '/data', ReadOnly: false },
+        { SourceVolume: 'tls-configuration', ContainerPath: '/etc/caddy/Caddyfile', ReadOnly: true }] });
+    expect(JSON.stringify(template)).not.toContain('GuardDutyExcluded');
     expect(resources.find(item => item.Type === 'AWS::ECS::Service').Properties).toMatchObject({ DesiredCount: 1,
       DeploymentConfiguration: { MinimumHealthyPercent: 0, MaximumPercent: 100 } });
     const policyIds = Object.entries(template.Resources).filter(([, item]: any) => item.Type === 'AWS::IAM::Policy').map(([id]) => id);
@@ -145,7 +159,7 @@ describe('Headscale coordinator boundaries', () => {
     expect(() => app.synth()).not.toThrow();
   });
   it('holds first-host application admission until the one-time formatting permission is revoked', () => {
-    const { runtime } = buildHeadscaleApp(config, { ami: 'ami-' + 'a'.repeat(17), image: 'example.test/app', hostImage: 'example.test/host',
+    const { runtime } = buildHeadscaleApp(config, { ami: 'ami-' + 'a'.repeat(17), image: 'example.test/app', proxyImage: 'example.test/tls', hostImage: 'example.test/host',
       files: headscaleFiles(config, map), initialize: true, active: false });
     const template = Template.fromStack(runtime!).toJSON();
     expect((Object.values(template.Resources) as any[]).find(resource => resource.Type === 'AWS::ECS::Service').Properties.DesiredCount).toBe(0);

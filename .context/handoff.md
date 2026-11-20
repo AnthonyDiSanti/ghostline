@@ -1,5 +1,17 @@
 # Handoff
 
+## Headscale TLS privacy rollout complete — November 19, 2026
+
+Anthony approved a quiet TLS listener and scanning exclusion for the retained coordinator volume. The native replacement `i-0705cd2c52e8ac6ab` serves through official ARM64 Caddy 2.11.9 with a private official Headscale backend. Trusted Let's Encrypt HTTPS, a controlled malformed TLS request with zero local log records at both layers and disposable private enrollment passed. The retained volume, public address, Noise identity and Headscale image matched baseline. Final exact-host GuardDuty v1.17.4 reports HEALTHY after a verification-only resume. The host and its two replaceable disks retain scan eligibility. The retained volume alone is excluded. Shared regional GuardDuty settings match baseline.
+
+The full source gate passed 543 tests across 86 files and passed again during November 20 commit preparation on Node 24.22.3. The disposable ARM64 TLS exercise and official image qualification passed during rollout. Certificate acquisition and reuse through a local proxy restart were verified. Scheduled production renewal, crash/journal scope and future OIDC or preauth delivery remain separate. Commit preparation updated the project instructions and knowledge index to capture the public listener and volume scan policy. The November 20 [upstream recheck](tasks.md#current) recorded the new Amnezia release and unchanged Bottlerocket issue status. [Rollout evidence](../docs/launch-headscale.md#tls-privacy-rollout--november-19).
+
+## Headscale privacy and GuardDuty audit — November 19, 2026
+
+Restacked `feature/zero-logs` onto `feature/tailscale` at `8c77859`, preserving the NVA browsing notes and original empty index. Reviewed the coordinator source and read live, scoped AWS metadata at 14:36 UTC. Runtime coverage is HEALTHY v1.17.4. All three encrypted volumes are scan-eligible, with `NO_RETENTION`, zero scan records for two known hosts and zero owned snapshots of the attached volumes. Prioritize known TLS-address stderr and decide whether to exclude only the retained SQLite/Noise/ACME volume from EBS scans. Production checks were read-only. [Headscale GuardDuty audit](../docs/headscale.md#guardduty-and-malware-scanning-audit--november-19).
+
+The 14:37 UTC watch refresh found Amnezia #2933 open with eight comments (latest stable 5.1.0.6), core-kit #1059 and PR #1063 open/unmerged at `6a4c053` (Bottlerocket v1.69.0), and Bottlerocket #4954 open with no comments. Native repair/IPv6 qualification remains open.
+
 ## Headscale private approval deployed — November 19, 2026 UTC
 
 The owner approved the revised helper rollout. The live diff was empty for retained state. The single-writer workflow replaced the coordinator with `i-0895d00e92e15944d` and verified it at 03:33 UTC. The official 0.29.7 image digest, retained volume `vol-08d8c24a1b0d2652a`, Noise identity and EIP `54.89.120.113` matched the pre-rollout receipt. Trusted public health passed. GuardDuty v1.17.4 took several minutes to report HEALTHY after its SSM association succeeded. No monitoring configuration changed.
@@ -42,13 +54,17 @@ Keep the gateway Runtime opt-out from main and the coordinator's two scoped offi
 
 Private receipts: `.local/deployments/headscale/`, `.local/headscale-final-{deploy,test,probe,boundary}.log`, client lifecycle/cleanup logs, `.local/headscale-fleet-after-{rebase,replacement}.json`. All three required upstream checks refreshed **06:35 UTC November 18**, unchanged/open/unmerged; latest Amnezia 5.1.0.6/Bottlerocket 1.69.0, core-kit PR head `6a4c053`. No official bootstrap/IPv6 or native Mac client repair is qualified. Next: attach authenticated DERP and review deferred backups/privacy.
 
+## NVA browsing log check completed — November 18, 2026
+
+The 08:22–08:53 UTC sample had no browsing traces in six Docker log streams, three initially retained health-check entries, 147 journal messages or five CloudWatch release-stack events. Gateway network metadata showed no customer flow or Resolver query logging. Count-only probes verified administrative lockdown afterward. [NVA browsing sample](../docs/logging-privacy-audit.md#northern-virginia-browsing-sample--november-18).
+
 ## Gateway Runtime Monitoring opt-out deployed — November 18, 2026
 
 Anthony authorized fleet adoption and merging to main. Stockholm handed off first, followed by Oregon, Zurich and NVA through normal native blue-green. NVA's first replacement had the exclusion tag but AWS's Bottlerocket installer could not read it through IMDS. Its agent was disabled on that host. Both templates were corrected to expose tags to IMDSv2 with a one-hop limit and redeployed. All four final deployments completed with zero recorded health failures, retired their old hosts and disks and passed exact serving-host checks. Each serving instance has `GuardDutyManaged=false`, verified IMDS tag access and zero GuardDuty containers/tasks in native host containerd. Temporary diagnostics were disabled and administrative lockdown verified. Both encrypted protocols and admitted pinned DERP/STUN probes passed in all four regions.
 
 Cape Town stays parked with no host or disk. Both deployed controller launch templates in all five regions match the opted-out CDK assets. Final before/after reads preserve the 45 parameter metadata entries, ten endpoint allocations, five release selectors and controller modes, gateway security groups, regional GuardDuty options, EBS scan settings and shared CloudTrail. The runtime endpoint is absent in the four gateway VPCs. Native audit scope is the gateway stacks.
 
-All 528 tests across 85 files, asset lint and offline synthesis pass. The November 18 upstream readback remains open/unmerged across the Amnezia, Bottlerocket replay and bridge IPv6 watches. Private verification receipts are under ignored `.local/runtime-opt-out/`. Historical credential and traffic-log evidence is below. Next, inspect a bounded NVA log window after Anthony browses through that gateway. The broader host journal, crash and support artifact audit remains open. [Disk audit](../docs/logging-privacy-audit.md#f03--docker-and-host-logs-are-persistent-despite-read-only-roots).
+All 528 tests across 85 files, asset lint and offline synthesis pass. The November 18 upstream readback remains open/unmerged across the Amnezia, Bottlerocket replay and bridge IPv6 watches. Private verification receipts are under ignored `.local/runtime-opt-out/`. Historical credential and traffic-log evidence is below. The bounded NVA browsing sample is recorded above. The broader host journal, crash and support artifact audit remains open. [Disk audit](../docs/logging-privacy-audit.md#f03--docker-and-host-logs-are-persistent-despite-read-only-roots).
 
 ## Credential delivery deployed fleet-wide — November 18, 2026
 

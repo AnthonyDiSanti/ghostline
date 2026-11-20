@@ -90,7 +90,7 @@ def require_initialization_permission(signatures, permitted):
 
 def write_configuration(files, initialize=False):
     # Policy edits are durable operator intent: boot replay never overwrites an existing policy or configuration.
-    if set(files) != {'config.yaml', 'derp.yaml', 'policy.json'} or any(not isinstance(value, str) or len(value) > 65536 for value in files.values()):
+    if set(files) != {'config.yaml', 'derp.yaml', 'policy.json', 'Caddyfile'} or any(not isinstance(value, str) or len(value) > 65536 for value in files.values()):
         raise RuntimeError('Unexpected coordinator configuration files')
     for name, contents in files.items():
         target = MOUNT / 'config' / name
@@ -145,7 +145,7 @@ def mount_volume(config):
     if marker.exists() and marker.read_text().strip() != config['volume']:
         raise RuntimeError('Coordinator volume marker differs')
     marker.write_text(config['volume'] + '\n')
-    for directory in ('lib', 'config'):
+    for directory in ('lib', 'config', 'tls'):
         private_directory(MOUNT / directory, 0o700)
     if (MOUNT / 'lib/db.sqlite').exists() and not (MOUNT / 'lib/noise_private.key').is_file():
         raise RuntimeError('Existing database has no stable Noise identity')
@@ -161,6 +161,9 @@ def network_boundary():
     subprocess.run([executable, '-w', '-N', 'DOCKER-USER'], capture_output=True, check=False)
     subprocess.run([executable, '-w', '-N', 'HEADSCALE_PRIVATE'], capture_output=True, check=False)
     command([executable, '-w', '-F', 'HEADSCALE_PRIVATE'])
+    # Only the dedicated coordinator bridge can reach the backend HTTP port and return established responses.
+    command([executable, '-w', '-A', 'HEADSCALE_PRIVATE', '-i', 'docker0', '-o', 'docker0', '-p', 'tcp', '--dport', '8080', '-j', 'RETURN'])
+    command([executable, '-w', '-A', 'HEADSCALE_PRIVATE', '-i', 'docker0', '-o', 'docker0', '-p', 'tcp', '--sport', '8080', '-m', 'conntrack', '--ctstate', 'ESTABLISHED', '-j', 'RETURN'])
     for protocol in ('udp', 'tcp'):
         command([executable, '-w', '-A', 'HEADSCALE_PRIVATE', '-d', '10.83.0.2/32', '-p', protocol, '--dport', '53', '-j', 'RETURN'])
     for subnet in ('169.254.0.0/16', '127.0.0.0/8', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '100.64.0.0/10'):
@@ -174,11 +177,11 @@ def network_boundary():
         command([executable, '-w', '-I', 'INPUT', '1', '-i', 'docker0', '-j', 'REJECT'])
 
 
-def container_id():
+def container_id(name='headscale'):
     # Administrative operations are scoped to one known coordinator task, never arbitrary Docker access.
     os.environ['DOCKER_HOST'] = 'unix://' + str(ROOT / 'run/docker.sock')
     ids = command(['docker', 'ps', '--filter', f'label=com.amazonaws.ecs.task-definition-family={FAMILY}',
-                   '--filter', 'label=com.amazonaws.ecs.container-name=headscale', '--format', '{{.ID}}']).split()
+                   '--filter', f'label=com.amazonaws.ecs.container-name={name}', '--format', '{{.ID}}']).split()
     if len(ids) != 1:
         raise RuntimeError('Expected one running Headscale container')
     return ids[0]
@@ -256,7 +259,7 @@ def inspect_storage():
         raise RuntimeError('Coordinator persistent filesystem differs')
     if (MOUNT / '.volume-id').read_text().strip() != declared['volume']:
         raise RuntimeError('Coordinator mounted volume identity differs')
-    for directory in ('lib', 'config'):
+    for directory in ('lib', 'config', 'tls'):
         attributes = (MOUNT / directory).stat()
         if (attributes.st_uid, attributes.st_gid, stat.S_IMODE(attributes.st_mode)) != (65532, 65532, 0o700):
             raise RuntimeError('Coordinator directory ownership differs')
@@ -286,7 +289,7 @@ def inspect_state():
     host = metadata['host']
     if not host['ReadonlyRootfs'] or host['Privileged'] or metadata['user'] != '65532:65532' or host['Memory'] != 512 * 1048576:
         raise RuntimeError('Coordinator container confinement differs')
-    if host['CapAdd'] or host['CapDrop'] != ['ALL'] or host['NetworkMode'] != 'bridge':
+    if host['CapAdd'] or host['CapDrop'] != ['ALL'] or host['NetworkMode'] != 'bridge' or host['PortBindings']:
         raise RuntimeError('Coordinator capabilities/network differ')
     if any(item.startswith(('AWS_CONTAINER_CREDENTIALS_', 'AWS_ACCESS_KEY', 'AWS_SECRET', 'AWS_SESSION')) for item in metadata['env']):
         raise RuntimeError('Unexpected coordinator cloud credentials')
@@ -312,7 +315,33 @@ def inspect_state():
     if len(Path('/proc/swaps').read_text().splitlines()) != 1:
         raise RuntimeError('Coordinator host swap must remain disabled')
     return {**storage, 'healthy': True, 'noiseSha256': fingerprint_private_file(identity),
-            'databaseBytes': (MOUNT / 'lib/db.sqlite').stat().st_size, 'readonlyRoot': True, 'nonRoot': True}
+            'databaseBytes': (MOUNT / 'lib/db.sqlite').stat().st_size, 'readonlyRoot': True, 'nonRoot': True,
+            'tlsProxyIsolated': inspect_tls_proxy()}
+
+
+def inspect_tls_proxy():
+    # Check the actual port and storage boundary without reading any certificate, log or application value.
+    cid = container_id('tls')
+    metadata = json.loads(command(['docker', 'inspect', '--format',
+                                  '{"host":{{json .HostConfig}},"user":{{json .Config.User}},"mounts":{{json .Mounts}},"pid":{{json .State.Pid}}}', cid]))
+    host = metadata['host']
+    if (metadata['user'] != '65532:65532' or not host['ReadonlyRootfs'] or host['Privileged'] or host['CapAdd']
+            or host['CapDrop'] != ['ALL'] or host['NetworkMode'] != 'bridge' or host.get('Devices') or host.get('PidMode') == 'host'):
+        raise RuntimeError('TLS proxy confinement differs')
+    ports = host['PortBindings']
+    if set(ports) != {'8443/tcp'} or any(item['HostPort'] != '443' for item in ports['8443/tcp']):
+        raise RuntimeError('TLS proxy must own only the public HTTPS port')
+    pid = metadata['pid']
+    status = dict(line.split(':', 1) for line in Path(f'/proc/{pid}/status').read_text().splitlines() if ':' in line)
+    if (status['NoNewPrivs'].strip() != '1' or status['Seccomp'].strip() != '2' or int(status['CapEff'].strip(), 16)
+            or ':container_t:' not in Path(f'/proc/{pid}/attr/current').read_text()):
+        raise RuntimeError('TLS proxy process confinement differs')
+    binds = {item['Destination']: (item['Source'], item['RW']) for item in metadata['mounts'] if item['Type'] == 'bind'}
+    if binds != {'/data': ('/mnt/headscale/tls', True), '/etc/caddy/Caddyfile': ('/mnt/headscale/config/Caddyfile', False)}:
+        raise RuntimeError('TLS proxy must mount only its own certificate state and read-only configuration')
+    if command(['stat', '-f', '-c', '%T', f'/proc/{pid}/root/config']) != 'tmpfs':
+        raise RuntimeError('TLS proxy runtime storage must be tmpfs')
+    return True
 
 
 def main():

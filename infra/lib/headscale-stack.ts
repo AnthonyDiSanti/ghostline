@@ -34,7 +34,9 @@ export class HeadscaleStateStack extends Stack {
       serviceName: `com.amazonaws.${config.region}.guardduty-data`, subnetIds: [subnet.ref], securityGroupIds: [telemetrySg.attrGroupId], privateDnsEnabled: true,
       policyDocument: { Version: '2012-10-17', Statement: [{ Effect: 'Allow', Principal: '*', Action: '*', Resource: '*' },
         { Effect: 'Deny', Principal: '*', Action: '*', Resource: '*', Condition: { StringNotEquals: { 'aws:PrincipalAccount': config.account } } }] } });
-    const volume = new ec2.CfnVolume(this, 'ApplicationData', { availabilityZone: config.availabilityZone, encrypted: true, size: config.volumeGiB, volumeType: 'gp3' });
+    // Both GuardDuty scan modes honor this volume-only exclusion. The host and its OS/runtime disks retain coverage.
+    const volume = new ec2.CfnVolume(this, 'ApplicationData', { availabilityZone: config.availabilityZone, encrypted: true,
+      size: config.volumeGiB, volumeType: 'gp3', tags: [{ key: 'GuardDutyExcluded', value: 'true' }] });
     volume.applyRemovalPolicy(RemovalPolicy.RETAIN);
     const address = new ec2.CfnEIP(this, 'Address', { domain: 'vpc' }); address.applyRemovalPolicy(RemovalPolicy.RETAIN);
     new route53.CfnRecordSet(this, 'Dns', { hostedZoneId: config.hostedZoneId, name: config.hostname, type: 'A', ttl: '60', resourceRecords: [address.ref] });
@@ -48,7 +50,7 @@ export class HeadscaleStateStack extends Stack {
   }
 }
 
-export interface HeadscaleRuntimeInputs { ami: string; hostImage: string; image: string; files: Record<string, string>; hostTemplate?: string; initialize?: boolean; active?: boolean }
+export interface HeadscaleRuntimeInputs { ami: string; hostImage: string; image: string; proxyImage: string; files: Record<string, string>; hostTemplate?: string; initialize?: boolean; active?: boolean }
 export class HeadscaleRuntimeStack extends Stack {
   constructor(scope: Construct, config: HeadscaleConfig, state: HeadscaleStateStack, inputs: HeadscaleRuntimeInputs, props: StackProps) {
     super(scope, names.runtime, props);
@@ -82,18 +84,30 @@ export class HeadscaleRuntimeStack extends Stack {
     const volume = new ec2.CfnVolumeAttachment(this, 'DataAttachment', { instanceId: instance.ref, volumeId: state.volume, device: '/dev/sdf' });
     const address = new ec2.CfnEIPAssociation(this, 'Address', { instanceId: instance.ref, allocationId: state.allocation });
     const execution = new iam.Role(this, 'ExecutionRole', { assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com') }); state.image.grantPull(execution);
+    // The proxy has its own writable certificate directory and a single private link to the backend.
     const task = new ecs.CfnTaskDefinition(this, 'Task', { family: names.family, networkMode: 'bridge', requiresCompatibilities: ['EC2'],
-      runtimePlatform: { cpuArchitecture: 'ARM64', operatingSystemFamily: 'LINUX' }, executionRoleArn: execution.roleArn, memory: '512',
-      volumes: [{ name: 'state', host: { sourcePath: '/mnt/headscale/lib' } }, { name: 'configuration', host: { sourcePath: '/mnt/headscale/config' } }],
+      runtimePlatform: { cpuArchitecture: 'ARM64', operatingSystemFamily: 'LINUX' }, executionRoleArn: execution.roleArn, memory: '640',
+      volumes: [{ name: 'state', host: { sourcePath: '/mnt/headscale/lib' } }, { name: 'configuration', host: { sourcePath: '/mnt/headscale/config' } },
+        { name: 'tls-state', host: { sourcePath: '/mnt/headscale/tls' } },
+        { name: 'tls-configuration', host: { sourcePath: '/mnt/headscale/config/Caddyfile' } }],
       containerDefinitions: [{ name: 'headscale', image: inputs.image, essential: true, command: ['serve'], user: '65532:65532',
         readonlyRootFilesystem: true, dockerSecurityOptions: ['no-new-privileges'], memory: 512, cpu: 256,
         linuxParameters: { initProcessEnabled: true, capabilities: { drop: ['ALL'] },
           tmpfs: [{ containerPath: '/run/headscale', size: 8, mountOptions: ['rw', 'nosuid', 'nodev', 'noexec', 'mode=0700', 'uid=65532', 'gid=65532'] },
             { containerPath: '/tmp', size: 8, mountOptions: ['rw', 'nosuid', 'nodev', 'noexec', 'mode=0700', 'uid=65532', 'gid=65532'] }] },
         mountPoints: [{ sourceVolume: 'state', containerPath: '/var/lib/headscale', readOnly: false }, { sourceVolume: 'configuration', containerPath: '/etc/headscale', readOnly: true }],
-        portMappings: [{ containerPort: 8443, hostPort: 443, protocol: 'tcp' }],
         healthCheck: { command: ['CMD', '/ko-app/headscale', 'health'], interval: 30, timeout: 5, retries: 3, startPeriod: 120 },
-        logConfiguration: { logDriver: 'json-file', options: { 'max-size': '1m', 'max-file': '1' } } }] });
+        logConfiguration: { logDriver: 'json-file', options: { 'max-size': '1m', 'max-file': '1' } } },
+        { name: 'tls', image: inputs.proxyImage, essential: true, user: '65532:65532', readonlyRootFilesystem: true,
+          entryPoint: ['/usr/bin/caddy'], command: ['run', '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile'],
+          links: ['headscale:headscale'], dependsOn: [{ containerName: 'headscale', condition: 'HEALTHY' }],
+          dockerSecurityOptions: ['no-new-privileges'], memory: 128, cpu: 64,
+          linuxParameters: { initProcessEnabled: true, capabilities: { drop: ['ALL'] },
+            tmpfs: [{ containerPath: '/config', size: 8, mountOptions: ['rw', 'nosuid', 'nodev', 'noexec', 'mode=0700', 'uid=65532', 'gid=65532'] }] },
+          mountPoints: [{ sourceVolume: 'tls-state', containerPath: '/data', readOnly: false },
+            { sourceVolume: 'tls-configuration', containerPath: '/etc/caddy/Caddyfile', readOnly: true }],
+          portMappings: [{ containerPort: 8443, hostPort: 443, protocol: 'tcp' }],
+          logConfiguration: { logDriver: 'json-file', options: { 'max-size': '1m', 'max-file': '1' } } }] });
     const service = new ecs.CfnService(this, 'Service', { cluster: state.cluster, serviceName: names.service,
       taskDefinition: task.ref, launchType: 'EC2', desiredCount: inputs.active === false ? 0 : 1,
       placementConstraints: [{ type: 'memberOf', expression: 'attribute:headscale_storage == ready' }],
